@@ -353,9 +353,12 @@ type AdminUser = {
   id: string;
   firstName: string;
   lastName: string;
+  alias: string;
   email: string;
   role: "Student" | "Teacher" | "Admin";
   className: string;
+  classes: string[];
+  profileNote: string;
   enabled: boolean;
   permissions: {
     studentProfile: boolean;
@@ -413,9 +416,12 @@ const initialAdminUsers: AdminUser[] = [
     id: "user-avery",
     firstName: "Avery",
     lastName: "Johnson",
+    alias: "ValueVoyager",
     email: "avery.johnson@student.lincolnusd.edu",
     role: "Student",
     className: "7th Grade Finance A",
+    classes: ["7th Grade Finance A"],
+    profileNote: "Practicing diversification, budgeting, and Roth IRA basics.",
     enabled: true,
     permissions: {
       studentProfile: true,
@@ -429,9 +435,12 @@ const initialAdminUsers: AdminUser[] = [
     id: "user-maya",
     firstName: "Maya",
     lastName: "Patel",
+    alias: "CompoundMaya",
     email: "maya.patel@student.lincolnusd.edu",
     role: "Student",
     className: "7th Grade Finance B",
+    classes: ["7th Grade Finance B"],
+    profileNote: "Working on emergency fund goals and index stock lessons.",
     enabled: true,
     permissions: {
       studentProfile: true,
@@ -445,9 +454,12 @@ const initialAdminUsers: AdminUser[] = [
     id: "user-rivera",
     firstName: "Elena",
     lastName: "Rivera",
+    alias: "MsRivera",
     email: "erivera@lincolnusd.edu",
     role: "Teacher",
     className: "7th Grade Finance A",
+    classes: ["7th Grade Finance A", "7th Grade Finance B"],
+    profileNote: "Runs the middle school finance pilot and quest studio.",
     enabled: true,
     permissions: {
       studentProfile: false,
@@ -461,9 +473,12 @@ const initialAdminUsers: AdminUser[] = [
     id: "user-admin",
     firstName: "Sam",
     lastName: "Gordon",
+    alias: "DistrictAdmin",
     email: "sgordon@lincolnusd.edu",
     role: "Admin",
     className: "District",
+    classes: ["District"],
+    profileNote: "Supports district rollout, integrations, and permissions.",
     enabled: true,
     permissions: {
       studentProfile: true,
@@ -840,8 +855,11 @@ const adminModules = [
 export default function Home() {
   const [activeTab, setActiveTab] = useState("student");
   const [activeStudentPage, setActiveStudentPage] = useState<
-    "dashboard" | "portfolio"
+    "dashboard" | "portfolio" | "profile"
   >("dashboard");
+  const [profileSearch, setProfileSearch] = useState("");
+  const [selectedProfileUserId, setSelectedProfileUserId] =
+    useState("user-avery");
   const [scenarioDay, setScenarioDay] = useState(0);
   const [goalBoost, setGoalBoost] = useState(0);
   const [allocationTargets, setAllocationTargets] = useState(allocation);
@@ -984,6 +1002,33 @@ export default function Home() {
   const selectedPermissionUser =
     adminUsers.find((user) => user.id === selectedPermissionUserId) ??
     adminUsers[0];
+  const currentStudentUser =
+    adminUsers.find((user) => user.id === "user-avery") ?? adminUsers[0];
+  const selectedProfileUser =
+    adminUsers.find((user) => user.id === selectedProfileUserId) ??
+    currentStudentUser;
+  const profileSearchResults = adminUsers
+    .filter((user) => user.enabled)
+    .filter((user) => {
+      const query = profileSearch.trim().toLowerCase();
+
+      if (!query) {
+        return false;
+      }
+
+      return [
+        user.firstName,
+        user.lastName,
+        user.alias,
+        user.email,
+        user.role,
+        user.className,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    })
+    .slice(0, 5);
 
   function updateCriterion(
     criterionId: string,
@@ -1059,6 +1104,61 @@ export default function Home() {
       return [draftQuest, ...quests];
     });
     setSelectedQuestId(draftQuest.id);
+  }
+
+  function updateUserAlias(userId: string, alias: string) {
+    setAdminUsers((users) =>
+      users.map((user) => (user.id === userId ? { ...user, alias } : user))
+    );
+  }
+
+  function openUserProfile(userId: string) {
+    setSelectedProfileUserId(userId);
+    setActiveTab("student");
+    setActiveStudentPage("profile");
+  }
+
+  function messageUser(userId: string) {
+    const user = adminUsers.find((item) => item.id === userId);
+
+    if (!user) {
+      return;
+    }
+
+    const title = `${user.firstName} ${user.lastName}`;
+    const existingConversation = inboxConversations.find(
+      (conversation) => conversation.title === title
+    );
+
+    if (existingConversation) {
+      setSelectedInboxId(existingConversation.id);
+    } else {
+      const conversationId = `conversation-${Date.now()}`;
+
+      setInboxConversations((currentConversations) => [
+        {
+          id: conversationId,
+          title,
+          participants: `Avery and ${user.alias}`,
+          kind: user.role === "Teacher" ? "Teacher" : "Classmate",
+          unread: 0,
+          messages: [
+            {
+              id: `msg-${Date.now()}`,
+              sender: "System",
+              role: "Teacher",
+              body: `New text-only message thread opened with ${user.alias}.`,
+              sentAt: "Just now",
+            },
+          ],
+        },
+        ...currentConversations,
+      ]);
+      setSelectedInboxId(conversationId);
+    }
+
+    setActiveTab("inbox");
+    setActiveStudentPage("dashboard");
   }
 
   function exportLearningQuests() {
@@ -1464,10 +1564,19 @@ export default function Home() {
             </div>
             <div>
               <p className="font-semibold">Avery Johnson</p>
-              <p className="text-sm text-muted-foreground">
-                Lincoln Middle School
-              </p>
+              <p className="text-sm text-muted-foreground">@{currentStudentUser.alias}</p>
             </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="student-alias">Alias</Label>
+            <Input
+              id="student-alias"
+              value={currentStudentUser.alias}
+              onChange={(event) =>
+                updateUserAlias(currentStudentUser.id, event.target.value)
+              }
+            />
           </div>
 
           <div className="mt-5 space-y-5">
@@ -1580,8 +1689,27 @@ export default function Home() {
                     portfolio={portfolio}
                     totalGrowth={totalGrowth}
                   />
+                ) : activeStudentPage === "profile" ? (
+                  <UserProfilePage
+                    activity={portfolioActivity}
+                    allocationTargets={allocationTargets}
+                    latestValue={latestValue}
+                    onBack={() => setActiveStudentPage("dashboard")}
+                    onMessage={messageUser}
+                    portfolio={portfolio}
+                    quests={teacherQuests}
+                    totalGrowth={totalGrowth}
+                    user={selectedProfileUser}
+                  />
                 ) : (
                   <>
+                    <UserSearchPanel
+                      onMessage={messageUser}
+                      onOpenProfile={openUserProfile}
+                      onSearchChange={setProfileSearch}
+                      query={profileSearch}
+                      results={profileSearchResults}
+                    />
             <section className="grid gap-4 md:grid-cols-3">
               <SummaryCard
                 icon={<WalletCards className="size-5" />}
@@ -2305,6 +2433,7 @@ export default function Home() {
                     onPortfolioCorrectionReasonChange={
                       setPortfolioCorrectionReason
                     }
+                    onOpenUserProfile={openUserProfile}
                     onQuestExport={exportLearningQuests}
                     onQuestImport={importLearningQuests}
                     onQuestTransferTextChange={setQuestTransferText}
@@ -2957,6 +3086,326 @@ function StudentPortfolioPage({
   );
 }
 
+function UserSearchPanel({
+  query,
+  results,
+  onSearchChange,
+  onOpenProfile,
+  onMessage,
+}: {
+  query: string;
+  results: AdminUser[];
+  onSearchChange: (query: string) => void;
+  onOpenProfile: (userId: string) => void;
+  onMessage: (userId: string) => void;
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
+        <div>
+          <h3 className="text-lg font-semibold">Find a user</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Search by alias, name, email, class, or role.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="profile-search">Username search</Label>
+          <Input
+            id="profile-search"
+            placeholder="Try ValueVoyager or MsRivera"
+            value={query}
+            onChange={(event) => onSearchChange(event.target.value)}
+          />
+        </div>
+      </div>
+
+      {query.trim() ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {results.length ? (
+            results.map((user) => (
+              <article
+                key={user.id}
+                className="rounded-lg border border-border bg-background p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-semibold">@{user.alias}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {user.firstName} {user.lastName}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="rounded-md bg-card">
+                    {user.role}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  {user.className}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenProfile(user.id)}
+                  >
+                    Profile
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => onMessage(user.id)}
+                    className="bg-[#28666e] text-white hover:bg-[#22565d]"
+                  >
+                    <MessageCircle className="size-4" aria-hidden="true" />
+                    Message
+                  </Button>
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">No users found.</p>
+          )}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function UserProfilePage({
+  user,
+  portfolio,
+  allocationTargets,
+  activity,
+  latestValue,
+  totalGrowth,
+  quests,
+  onBack,
+  onMessage,
+}: {
+  user: AdminUser;
+  portfolio: typeof basePortfolio;
+  allocationTargets: typeof allocation;
+  activity: PortfolioActivity[];
+  latestValue: number;
+  totalGrowth: number;
+  quests: TeacherQuest[];
+  onBack: () => void;
+  onMessage: (userId: string) => void;
+}) {
+  if (user.role === "Teacher") {
+    return (
+      <TeacherProfilePage
+        onBack={onBack}
+        onMessage={onMessage}
+        quests={quests}
+        user={user}
+      />
+    );
+  }
+
+  return (
+    <section className="space-y-6">
+      <ProfileHeader onBack={onBack} onMessage={onMessage} user={user} />
+      <section className="grid gap-4 md:grid-cols-3">
+        <SummaryCard
+          icon={<WalletCards className="size-5" />}
+          label="Portfolio value"
+          value={`$${latestValue.toLocaleString()}`}
+          detail={`${totalGrowth}% total growth`}
+        />
+        <SummaryCard
+          icon={<Gauge className="size-5" />}
+          label="Readiness"
+          value="82%"
+          detail="Public learning summary"
+        />
+        <SummaryCard
+          icon={<BookOpenCheck className="size-5" />}
+          label="Active quests"
+          value="3"
+          detail="Visible to classmates"
+        />
+      </section>
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <h3 className="text-lg font-semibold">Portfolio overview</h3>
+          <p className="text-sm text-muted-foreground">
+            View-only simulated portfolio snapshot.
+          </p>
+          <div className="mt-4 h-[260px]">
+            <PortfolioChart data={portfolio} />
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <h3 className="text-lg font-semibold">Current mix</h3>
+          <div className="mt-3 h-[200px]">
+            <AllocationDonut items={allocationTargets} />
+          </div>
+          <div className="grid gap-2">
+            {allocationTargets.map((item) => (
+              <div
+                key={item.name}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className="size-3 rounded-sm"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  {item.name}
+                </span>
+                <span className="font-medium">{item.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <h3 className="text-lg font-semibold">Recent portfolio changes</h3>
+        <div className="mt-4 grid gap-3">
+          {activity.slice(0, 5).map((item) => (
+            <div
+              key={item.id}
+              className="flex flex-col gap-1 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span className="font-medium">{item.action}</span>
+              <span className="text-sm text-muted-foreground">
+                {item.vehicle} - {item.amount} - {item.date}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TeacherProfilePage({
+  user,
+  quests,
+  onBack,
+  onMessage,
+}: {
+  user: AdminUser;
+  quests: TeacherQuest[];
+  onBack: () => void;
+  onMessage: (userId: string) => void;
+}) {
+  return (
+    <section className="space-y-6">
+      <ProfileHeader onBack={onBack} onMessage={onMessage} user={user} />
+      <section className="grid gap-4 md:grid-cols-3">
+        <SummaryCard
+          icon={<UsersRound className="size-5" />}
+          label="Classes"
+          value={`${user.classes.length}`}
+          detail="Currently running"
+        />
+        <SummaryCard
+          icon={<BookOpenCheck className="size-5" />}
+          label="Authored quests"
+          value={`${quests.length}`}
+          detail="Classroom templates"
+        />
+        <SummaryCard
+          icon={<ShieldCheck className="size-5" />}
+          label="Portal rights"
+          value={user.permissions.teacherPortal ? "Enabled" : "Off"}
+          detail="Teacher workspace access"
+        />
+      </section>
+      <section className="grid gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <h3 className="text-lg font-semibold">Classes</h3>
+          <div className="mt-4 grid gap-3">
+            {user.classes.map((className) => (
+              <div
+                key={className}
+                className="rounded-lg border border-border bg-background p-4"
+              >
+                <p className="font-medium">{className}</p>
+                <p className="text-sm text-muted-foreground">
+                  Active financial literacy section
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <h3 className="text-lg font-semibold">Authored quests</h3>
+          <div className="mt-4 overflow-x-auto">
+            <Table className="min-w-[620px]">
+              <TableHeader>
+                <TableRow className="text-muted-foreground hover:bg-transparent">
+                  <TableHead>Quest</TableHead>
+                  <TableHead>Market mode</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Assigned</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {quests.map((quest) => (
+                  <TableRow key={quest.id}>
+                    <TableCell className="font-medium">{quest.title}</TableCell>
+                    <TableCell className="capitalize">{quest.marketMode}</TableCell>
+                    <TableCell>{quest.status}</TableCell>
+                    <TableCell>{quest.assigned}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function ProfileHeader({
+  user,
+  onBack,
+  onMessage,
+}: {
+  user: AdminUser;
+  onBack: () => void;
+  onMessage: (userId: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+      <Button type="button" variant="ghost" onClick={onBack} className="mb-2 px-0">
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Student home
+      </Button>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-2xl font-semibold tracking-normal">
+              @{user.alias}
+            </h3>
+            <Badge variant="outline" className="rounded-md bg-background">
+              {user.role}
+            </Badge>
+          </div>
+          <p className="mt-1 font-medium">
+            {user.firstName} {user.lastName}
+          </p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            {user.profileNote}
+          </p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => onMessage(user.id)}
+          className="bg-[#28666e] text-white hover:bg-[#22565d]"
+        >
+          <MessageCircle className="size-4" aria-hidden="true" />
+          Message
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function AdminDrilldown({
   activePage,
   adminUsers,
@@ -3021,6 +3470,7 @@ function AdminDrilldown({
   onApplyPortfolioCorrection,
   onPortfolioAdjustmentChange,
   onPortfolioCorrectionReasonChange,
+  onOpenUserProfile,
   onQuestExport,
   onQuestImport,
   onQuestTransferTextChange,
@@ -3092,6 +3542,7 @@ function AdminDrilldown({
   onApplyPortfolioCorrection: () => void;
   onPortfolioAdjustmentChange: (amount: string) => void;
   onPortfolioCorrectionReasonChange: (reason: string) => void;
+  onOpenUserProfile: (userId: string) => void;
   onQuestExport: () => void;
   onQuestImport: () => void;
   onQuestTransferTextChange: (text: string) => void;
@@ -3179,6 +3630,7 @@ function AdminDrilldown({
         <UsersAdminPage
           filteredUsers={filteredAdminUsers}
           onClassFilterChange={onUserClassFilterChange}
+          onOpenProfile={onOpenUserProfile}
           onRoleFilterChange={onUserRoleFilterChange}
           onToggleUserEnabled={onToggleUserEnabled}
           selectedClass={userClassFilter}
@@ -3703,6 +4155,7 @@ function UsersAdminPage({
   selectedClass,
   selectedRole,
   onClassFilterChange,
+  onOpenProfile,
   onRoleFilterChange,
   onToggleUserEnabled,
 }: {
@@ -3710,6 +4163,7 @@ function UsersAdminPage({
   selectedClass: string;
   selectedRole: string;
   onClassFilterChange: (className: string) => void;
+  onOpenProfile: (userId: string) => void;
   onRoleFilterChange: (role: string) => void;
   onToggleUserEnabled: (userId: string, enabled: boolean) => void;
 }) {
@@ -3754,6 +4208,7 @@ function UsersAdminPage({
           <TableHeader>
             <TableRow className="text-muted-foreground hover:bg-transparent">
               <TableHead>Name</TableHead>
+              <TableHead>Alias</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Role</TableHead>
@@ -3768,11 +4223,17 @@ function UsersAdminPage({
                 <TableCell className="font-medium">
                   {user.firstName} {user.lastName}
                 </TableCell>
+                <TableCell>@{user.alias}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.className}</TableCell>
                 <TableCell>{user.role}</TableCell>
                 <TableCell>
-                  <Button type="button" variant="outline" size="sm">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenProfile(user.id)}
+                  >
                     Profile
                   </Button>
                 </TableCell>

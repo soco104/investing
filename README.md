@@ -10,6 +10,8 @@ views that focus on learning evidence instead of real-money trading outcomes.
 - Web-first student dashboard for simulated portfolio learning
 - Student portfolio page with overview metrics, recent simulated trade/change
   history, holdings mix, and allocation target changes
+- Student and teacher profile pages with aliases, profile search, portfolio
+  snapshots for students, teacher class/quest summaries, and message links
 - Teacher view for assignments, roster progress, concept mastery, and quest
   authoring
 - User-level text-only inbox for direct teacher-student and approved peer

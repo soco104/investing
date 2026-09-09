@@ -33,6 +33,11 @@ export const appUsers = sqliteTable("app_users", {
   schoolId: text("school_id").references(() => schools.id),
   firstName: text("first_name").notNull().default(""),
   lastName: text("last_name").notNull().default(""),
+  alias: text("alias").notNull().default(""),
+  profileBio: text("profile_bio").notNull().default(""),
+  profileVisible: integer("profile_visible", { mode: "boolean" })
+    .notNull()
+    .default(true),
   displayName: text("display_name").notNull(),
   email: text("email").notNull(),
   status: text("status").notNull().default("active"),

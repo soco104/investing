@@ -20,6 +20,8 @@ export const schools = sqliteTable("schools", {
     .notNull()
     .references(() => districts.id),
   name: text("name").notNull(),
+  classCount: integer("class_count").notNull().default(0),
+  studentCount: integer("student_count").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
@@ -89,6 +91,20 @@ export const positions = sqliteTable("positions", {
   symbol: text("symbol").notNull(),
   quantity: real("quantity").notNull(),
   averagePriceCents: integer("average_price_cents").notNull(),
+});
+
+export const portfolioActivities = sqliteTable("portfolio_activities", {
+  id: text("id").primaryKey(),
+  portfolioId: text("portfolio_id")
+    .notNull()
+    .references(() => simulatedPortfolios.id),
+  activityType: text("activity_type").notNull(),
+  vehicle: text("vehicle").notNull(),
+  amountCents: integer("amount_cents").notNull().default(0),
+  beforeAllocationJson: text("before_allocation_json"),
+  afterAllocationJson: text("after_allocation_json"),
+  note: text("note").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
 export const lessons = sqliteTable("lessons", {
@@ -194,8 +210,17 @@ export const marketDataIntegrations = sqliteTable("market_data_integrations", {
     .notNull()
     .references(() => districts.id),
   providerName: text("provider_name").notNull(),
+  endpointUrl: text("endpoint_url").notNull(),
   status: text("status").notNull().default("not_configured"),
   allowedSymbolsCsv: text("allowed_symbols_csv").notNull().default(""),
+  maxSymbols: integer("max_symbols").notNull().default(200),
+  tokenRequired: integer("token_required", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  tokenSecretRef: text("token_secret_ref"),
+  pollingFrequencyMinutes: integer("polling_frequency_minutes")
+    .notNull()
+    .default(15),
   delayedQuotes: integer("delayed_quotes", { mode: "boolean" })
     .notNull()
     .default(true),
@@ -203,6 +228,23 @@ export const marketDataIntegrations = sqliteTable("market_data_integrations", {
   lastHealthCheckAt: integer("last_health_check_at", { mode: "timestamp" }),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+export const marketIntegrationClassAssignments = sqliteTable(
+  "market_integration_class_assignments",
+  {
+    id: text("id").primaryKey(),
+    integrationId: text("integration_id")
+      .notNull()
+      .references(() => marketDataIntegrations.id),
+    classroomId: text("classroom_id")
+      .notNull()
+      .references(() => classrooms.id),
+    status: text("status").notNull().default("active"),
+    assignedByUserId: text("assigned_by_user_id").notNull(),
+    assignedAt: integer("assigned_at", { mode: "timestamp" }).notNull(),
+    endedAt: integer("ended_at", { mode: "timestamp" }),
+  }
+);
 
 export const privacyPostureSettings = sqliteTable(
   "privacy_posture_settings",
@@ -367,6 +409,7 @@ export const classroomsRelations = relations(classrooms, ({ one, many }) => ({
   learningQuests: many(learningQuests),
   questAssignments: many(questAssignments),
   conversations: many(conversations),
+  marketIntegrationAssignments: many(marketIntegrationClassAssignments),
 }));
 
 export const studentsRelations = relations(students, ({ one, many }) => ({
@@ -387,6 +430,7 @@ export const portfolioRelations = relations(
       references: [students.id],
     }),
     positions: many(positions),
+    activities: many(portfolioActivities),
     corrections: many(portfolioCorrections),
   })
 );
@@ -397,6 +441,16 @@ export const positionsRelations = relations(positions, ({ one }) => ({
     references: [simulatedPortfolios.id],
   }),
 }));
+
+export const portfolioActivitiesRelations = relations(
+  portfolioActivities,
+  ({ one }) => ({
+    portfolio: one(simulatedPortfolios, {
+      fields: [portfolioActivities.portfolioId],
+      references: [simulatedPortfolios.id],
+    }),
+  })
+);
 
 export const lessonsRelations = relations(lessons, ({ many }) => ({
   progress: many(lessonProgress),
@@ -477,10 +531,25 @@ export const supportTicketsRelations = relations(supportTickets, ({ one }) => ({
 
 export const marketDataIntegrationsRelations = relations(
   marketDataIntegrations,
-  ({ one }) => ({
+  ({ one, many }) => ({
     district: one(districts, {
       fields: [marketDataIntegrations.districtId],
       references: [districts.id],
+    }),
+    classAssignments: many(marketIntegrationClassAssignments),
+  })
+);
+
+export const marketIntegrationClassAssignmentsRelations = relations(
+  marketIntegrationClassAssignments,
+  ({ one }) => ({
+    integration: one(marketDataIntegrations, {
+      fields: [marketIntegrationClassAssignments.integrationId],
+      references: [marketDataIntegrations.id],
+    }),
+    classroom: one(classrooms, {
+      fields: [marketIntegrationClassAssignments.classroomId],
+      references: [classrooms.id],
     }),
   })
 );

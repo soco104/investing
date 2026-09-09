@@ -8,6 +8,8 @@ views that focus on learning evidence instead of real-money trading outcomes.
 ## Version 1 Scope
 
 - Web-first student dashboard for simulated portfolio learning
+- Student portfolio page with overview metrics, recent simulated trade/change
+  history, holdings mix, and allocation target changes
 - Teacher view for assignments, roster progress, concept mastery, and quest
   authoring
 - User-level text-only inbox for direct teacher-student and approved peer
@@ -18,14 +20,21 @@ views that focus on learning evidence instead of real-money trading outcomes.
   scoring policy controls
 - Admin drill-in pages for school setup, market data integrations, and district
   privacy posture selection
+- Admin school setup captures school, district, state, class count, and student
+  count
+- Admin market integrations capture provider, endpoint, optional token,
+  polling cadence, target class, backend GET test status, and class-level
+  cleanup controls. Leaving allowed symbols blank permits up to 200 imported
+  symbols for the MVP
 - Mock market data API for classroom-safe quote behavior
 - Initial database schema for districts, schools, classrooms, students,
   simulated portfolios, holdings, lessons, teacher-created quests, hidden
   scoring rules, market parameters, assignments, submissions, user-owned inbox
   threads, classroom discussion rooms, message moderation status, admin users,
   role assignments, support tickets, market data integrations, password reset
-  requests, privacy posture settings, portfolio correction audits, and lesson
-  progress
+  requests, privacy posture settings, simulated portfolio activity,
+  class-level market integration assignments, portfolio correction audits, and
+  lesson progress
 
 ## Development
 

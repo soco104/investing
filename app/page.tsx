@@ -72,6 +72,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -90,6 +91,58 @@ const allocation = [
   { name: "Retirement", value: 20, color: "#7c9885" },
   { name: "IPO lab", value: 6, color: "#c44536" },
   { name: "Cash buffer", value: 6, color: "#5c677d" },
+];
+
+type PortfolioActivity = {
+  id: string;
+  date: string;
+  action: string;
+  vehicle: string;
+  amount: string;
+  note: string;
+};
+
+const initialPortfolioActivity: PortfolioActivity[] = [
+  {
+    id: "trade-5",
+    date: "Mar 14",
+    action: "Buy",
+    vehicle: "Index stocks",
+    amount: "$45",
+    note: "Added weekly investing habit",
+  },
+  {
+    id: "trade-4",
+    date: "Mar 11",
+    action: "Rebalance",
+    vehicle: "Cash buffer",
+    amount: "$20",
+    note: "Protected short-term savings goal",
+  },
+  {
+    id: "trade-3",
+    date: "Mar 08",
+    action: "Dividend",
+    vehicle: "Retirement",
+    amount: "$6",
+    note: "Reinvested automatically",
+  },
+  {
+    id: "trade-2",
+    date: "Mar 04",
+    action: "Buy",
+    vehicle: "Roth IRA",
+    amount: "$25",
+    note: "Practiced tax-advantaged investing",
+  },
+  {
+    id: "trade-1",
+    date: "Mar 01",
+    action: "Watchlist",
+    vehicle: "IPO lab",
+    amount: "$0",
+    note: "Reviewed risk before allocating",
+  },
 ];
 
 const basePortfolio = [
@@ -300,10 +353,24 @@ type MarketIntegration = {
   id: string;
   provider: string;
   status: "Connected" | "Needs key" | "Testing";
+  endpoint: string;
+  tokenRequired: boolean;
+  token: string;
+  pollingFrequency: string;
+  targetClass: string;
   symbols: string;
   quoteDelay: string;
+  importedSymbols: number;
+  lastFetchStatus: string;
   enabled: boolean;
 };
+
+const classOptions = [
+  "7th Grade Finance A",
+  "7th Grade Finance B",
+  "8th Grade Investing Lab",
+  "High School Personal Finance",
+];
 
 const initialSchools: SchoolRecord[] = [
   {
@@ -340,16 +407,30 @@ const initialMarketIntegrations: MarketIntegration[] = [
     id: "sandbox-market-feed",
     provider: "FutureFund Sandbox Feed",
     status: "Connected",
+    endpoint: "/api/market",
+    tokenRequired: false,
+    token: "",
+    pollingFrequency: "15 minutes",
+    targetClass: "7th Grade Finance A",
     symbols: "SPY, QQQ, BND, VTI",
     quoteDelay: "15 minutes",
+    importedSymbols: 4,
+    lastFetchStatus: "Last GET succeeded",
     enabled: true,
   },
   {
     id: "district-provider",
     provider: "District Market Provider",
     status: "Needs key",
-    symbols: "Not configured",
+    endpoint: "https://district-provider.example/quotes",
+    tokenRequired: true,
+    token: "",
+    pollingFrequency: "Manual",
+    targetClass: "8th Grade Investing Lab",
+    symbols: "Up to 200 symbols",
     quoteDelay: "Delayed",
+    importedSymbols: 0,
+    lastFetchStatus: "Waiting for API token",
     enabled: false,
   },
 ];
@@ -628,8 +709,15 @@ const adminModules = [
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("student");
+  const [activeStudentPage, setActiveStudentPage] = useState<
+    "dashboard" | "portfolio"
+  >("dashboard");
   const [scenarioDay, setScenarioDay] = useState(0);
   const [goalBoost, setGoalBoost] = useState(0);
+  const [allocationTargets, setAllocationTargets] = useState(allocation);
+  const [portfolioActivity, setPortfolioActivity] = useState(
+    initialPortfolioActivity
+  );
   const [teacherQuests, setTeacherQuests] =
     useState<TeacherQuest[]>(initialTeacherQuests);
   const [selectedQuestId, setSelectedQuestId] = useState(
@@ -658,12 +746,24 @@ export default function Home() {
     useState<AdminPage>("overview");
   const [schools, setSchools] = useState<SchoolRecord[]>(initialSchools);
   const [schoolName, setSchoolName] = useState("");
+  const [schoolDistrict, setSchoolDistrict] = useState("Lincoln USD");
   const [schoolState, setSchoolState] = useState("CA");
+  const [schoolClassCount, setSchoolClassCount] = useState("0");
+  const [schoolStudentCount, setSchoolStudentCount] = useState("0");
   const [marketIntegrations, setMarketIntegrations] = useState<
     MarketIntegration[]
   >(initialMarketIntegrations);
   const [integrationProvider, setIntegrationProvider] = useState("");
-  const [integrationSymbols, setIntegrationSymbols] = useState("SPY, QQQ, BND");
+  const [integrationEndpoint, setIntegrationEndpoint] = useState("/api/market");
+  const [integrationTokenRequired, setIntegrationTokenRequired] =
+    useState(false);
+  const [integrationToken, setIntegrationToken] = useState("");
+  const [integrationPollingFrequency, setIntegrationPollingFrequency] =
+    useState("15 minutes");
+  const [integrationTargetClass, setIntegrationTargetClass] = useState(
+    classOptions[0]
+  );
+  const [integrationSymbols, setIntegrationSymbols] = useState("");
   const [privacyPosture, setPrivacyPosture] = useState("standard");
   const [privacyContact, setPrivacyContact] = useState(
     "privacy@lincolnusd.edu"
@@ -686,6 +786,16 @@ export default function Home() {
     ((latestValue - portfolio[0].value) / portfolio[0].value) * 100
   );
   const readinessScore = Math.min(98, 71 + scenarioDay * 3 + goalBoost);
+  const allocationTotal = allocationTargets.reduce(
+    (total, item) => total + item.value,
+    0
+  );
+  const largestAllocation = allocationTargets.reduce(
+    (largest, item) => Math.max(largest, item.value),
+    0
+  );
+  const cashBuffer =
+    allocationTargets.find((item) => item.name === "Cash buffer")?.value ?? 0;
   const selectedQuest =
     teacherQuests.find((quest) => quest.id === selectedQuestId) ??
     teacherQuests[0];
@@ -868,8 +978,11 @@ export default function Home() {
 
   function addSchool() {
     const trimmedName = schoolName.trim();
+    const trimmedDistrict = schoolDistrict.trim();
+    const parsedClasses = Number.parseInt(schoolClassCount, 10);
+    const parsedStudents = Number.parseInt(schoolStudentCount, 10);
 
-    if (!trimmedName) {
+    if (!trimmedName || !trimmedDistrict) {
       return;
     }
 
@@ -878,14 +991,16 @@ export default function Home() {
       {
         id: `school-${Date.now()}`,
         name: trimmedName,
-        district: "Lincoln USD",
+        district: trimmedDistrict,
         state: schoolState.trim() || "CA",
-        classes: 0,
-        students: 0,
+        classes: Number.isNaN(parsedClasses) ? 0 : Math.max(0, parsedClasses),
+        students: Number.isNaN(parsedStudents) ? 0 : Math.max(0, parsedStudents),
         status: "Setup",
       },
     ]);
     setSchoolName("");
+    setSchoolClassCount("0");
+    setSchoolStudentCount("0");
   }
 
   function deleteSchool(schoolId: string) {
@@ -896,8 +1011,10 @@ export default function Home() {
 
   function addMarketIntegration() {
     const trimmedProvider = integrationProvider.trim();
+    const trimmedEndpoint = integrationEndpoint.trim();
+    const trimmedSymbols = integrationSymbols.trim();
 
-    if (!trimmedProvider) {
+    if (!trimmedProvider || !trimmedEndpoint) {
       return;
     }
 
@@ -906,13 +1023,28 @@ export default function Home() {
       {
         id: `integration-${Date.now()}`,
         provider: trimmedProvider,
+        endpoint: trimmedEndpoint,
+        tokenRequired: integrationTokenRequired,
+        token: integrationToken.trim(),
+        pollingFrequency: integrationPollingFrequency,
         status: "Testing",
-        symbols: integrationSymbols.trim() || "SPY",
-        quoteDelay: "15 minutes",
+        targetClass: integrationTargetClass,
+        symbols: trimmedSymbols || "Up to 200 symbols",
+        quoteDelay: integrationPollingFrequency,
+        importedSymbols: trimmedSymbols
+          ? trimmedSymbols.split(",").filter(Boolean).slice(0, 200).length
+          : 200,
+        lastFetchStatus: "Ready for GET test",
         enabled: true,
       },
     ]);
     setIntegrationProvider("");
+    setIntegrationEndpoint("/api/market");
+    setIntegrationToken("");
+    setIntegrationTokenRequired(false);
+    setIntegrationPollingFrequency("15 minutes");
+    setIntegrationTargetClass(classOptions[0]);
+    setIntegrationSymbols("");
   }
 
   function toggleMarketIntegration(integrationId: string, enabled: boolean) {
@@ -923,6 +1055,98 @@ export default function Home() {
           : integration
       )
     );
+  }
+
+  function deleteMarketIntegration(integrationId: string) {
+    setMarketIntegrations((currentIntegrations) =>
+      currentIntegrations.filter((integration) => integration.id !== integrationId)
+    );
+  }
+
+  async function testMarketIntegration(integrationId: string) {
+    const integration = marketIntegrations.find(
+      (item) => item.id === integrationId
+    );
+
+    if (!integration) {
+      return;
+    }
+
+    setMarketIntegrations((currentIntegrations) =>
+      currentIntegrations.map((item) =>
+        item.id === integrationId
+          ? { ...item, status: "Testing", lastFetchStatus: "GET in progress" }
+          : item
+      )
+    );
+
+    try {
+      const response = await fetch("/api/integration-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: integration.endpoint,
+          maxSymbols: integration.symbols === "Up to 200 symbols" ? 200 : undefined,
+          token: integration.tokenRequired ? integration.token : "",
+        }),
+      });
+      const result = (await response.json()) as {
+        ok: boolean;
+        importedSymbols?: number;
+        message?: string;
+      };
+
+      setMarketIntegrations((currentIntegrations) =>
+        currentIntegrations.map((item) =>
+          item.id === integrationId
+            ? {
+                ...item,
+                status: result.ok ? "Connected" : "Needs key",
+                importedSymbols: result.importedSymbols ?? item.importedSymbols,
+                lastFetchStatus:
+                  result.message ?? (result.ok ? "GET succeeded" : "GET failed"),
+              }
+            : item
+        )
+      );
+    } catch {
+      setMarketIntegrations((currentIntegrations) =>
+        currentIntegrations.map((item) =>
+          item.id === integrationId
+            ? {
+                ...item,
+                status: "Needs key",
+                lastFetchStatus: "GET failed before data could be imported",
+              }
+            : item
+        )
+      );
+    }
+  }
+
+  function updateAllocationTarget(name: string, value: number) {
+    setAllocationTargets((currentTargets) =>
+      currentTargets.map((target) =>
+        target.name === name ? { ...target, value } : target
+      )
+    );
+  }
+
+  function saveAllocationChange() {
+    setPortfolioActivity((currentActivity) => [
+      {
+        id: `activity-${Date.now()}`,
+        date: "Today",
+        action: "Allocation",
+        vehicle: "Portfolio",
+        amount: `${allocationTotal}%`,
+        note:
+          allocationTotal === 100
+            ? "Saved a balanced target mix"
+            : "Saved draft targets for teacher review",
+      },
+      ...currentActivity,
+    ]);
   }
 
   return (
@@ -1063,12 +1287,29 @@ export default function Home() {
           <TabsContent value="student" className="mt-6 space-y-6">
             {activeTab === "student" ? (
               <>
+                {activeStudentPage === "portfolio" ? (
+                  <StudentPortfolioPage
+                    activity={portfolioActivity}
+                    allocationTotal={allocationTotal}
+                    allocationTargets={allocationTargets}
+                    cashBuffer={cashBuffer}
+                    latestValue={latestValue}
+                    largestAllocation={largestAllocation}
+                    onBack={() => setActiveStudentPage("dashboard")}
+                    onSaveAllocation={saveAllocationChange}
+                    onUpdateAllocation={updateAllocationTarget}
+                    portfolio={portfolio}
+                    totalGrowth={totalGrowth}
+                  />
+                ) : (
+                  <>
             <section className="grid gap-4 md:grid-cols-3">
               <SummaryCard
                 icon={<WalletCards className="size-5" />}
                 label="Portfolio value"
                 value={`$${latestValue.toLocaleString()}`}
                 detail={`${totalGrowth}% total growth`}
+                onClick={() => setActiveStudentPage("portfolio")}
               />
               <SummaryCard
                 icon={<Medal className="size-5" />}
@@ -1122,10 +1363,10 @@ export default function Home() {
                   <ChartNoAxesCombined className="size-5 text-muted-foreground" />
                 </div>
                 <div className="h-[220px]">
-                  <AllocationDonut />
+                  <AllocationDonut items={allocationTargets} />
                 </div>
                 <div className="grid gap-2">
-                  {allocation.map((item) => (
+                  {allocationTargets.map((item) => (
                     <div
                       key={item.name}
                       className="flex items-center justify-between gap-3 text-sm"
@@ -1257,6 +1498,8 @@ export default function Home() {
                 </div>
               </div>
             </section>
+                  </>
+                )}
               </>
             ) : null}
           </TabsContent>
@@ -1740,25 +1983,47 @@ export default function Home() {
                 {activeAdminPage !== "overview" ? (
                   <AdminDrilldown
                     activePage={activeAdminPage}
+                    integrationEndpoint={integrationEndpoint}
                     integrationProvider={integrationProvider}
+                    integrationPollingFrequency={integrationPollingFrequency}
                     integrationSymbols={integrationSymbols}
+                    integrationTargetClass={integrationTargetClass}
+                    integrationToken={integrationToken}
+                    integrationTokenRequired={integrationTokenRequired}
                     marketIntegrations={marketIntegrations}
                     onAddIntegration={addMarketIntegration}
                     onAddSchool={addSchool}
                     onBack={() => setActiveAdminPage("overview")}
+                    onDeleteIntegration={deleteMarketIntegration}
                     onDeleteSchool={deleteSchool}
+                    onIntegrationEndpointChange={setIntegrationEndpoint}
+                    onIntegrationPollingFrequencyChange={
+                      setIntegrationPollingFrequency
+                    }
                     onIntegrationProviderChange={setIntegrationProvider}
                     onIntegrationSymbolsChange={setIntegrationSymbols}
+                    onIntegrationTargetClassChange={setIntegrationTargetClass}
+                    onIntegrationTokenChange={setIntegrationToken}
+                    onIntegrationTokenRequiredChange={
+                      setIntegrationTokenRequired
+                    }
                     onPrivacyContactChange={setPrivacyContact}
                     onPrivacyPostureChange={setPrivacyPosture}
+                    onSchoolClassCountChange={setSchoolClassCount}
+                    onSchoolDistrictChange={setSchoolDistrict}
                     onSchoolNameChange={setSchoolName}
                     onSchoolStateChange={setSchoolState}
+                    onSchoolStudentCountChange={setSchoolStudentCount}
+                    onTestIntegration={testMarketIntegration}
                     onToggleIntegration={toggleMarketIntegration}
                     privacyContact={privacyContact}
                     privacyPosture={privacyPosture}
+                    schoolClassCount={schoolClassCount}
+                    schoolDistrict={schoolDistrict}
                     schoolName={schoolName}
                     schools={schools}
                     schoolState={schoolState}
+                    schoolStudentCount={schoolStudentCount}
                     selectedPrivacyPosture={selectedPrivacyPosture}
                   />
                 ) : (
@@ -2086,13 +2351,264 @@ function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
   );
 }
 
+function StudentPortfolioPage({
+  activity,
+  allocationTargets,
+  allocationTotal,
+  cashBuffer,
+  latestValue,
+  largestAllocation,
+  portfolio,
+  totalGrowth,
+  onBack,
+  onSaveAllocation,
+  onUpdateAllocation,
+}: {
+  activity: PortfolioActivity[];
+  allocationTargets: typeof allocation;
+  allocationTotal: number;
+  cashBuffer: number;
+  latestValue: number;
+  largestAllocation: number;
+  portfolio: typeof basePortfolio;
+  totalGrowth: number;
+  onBack: () => void;
+  onSaveAllocation: () => void;
+  onUpdateAllocation: (name: string, value: number) => void;
+}) {
+  const allocationStatus =
+    allocationTotal === 100
+      ? "Ready to save"
+      : allocationTotal > 100
+        ? `${allocationTotal - 100}% over target`
+        : `${100 - allocationTotal}% left to assign`;
+
+  return (
+    <section className="space-y-6">
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <Button type="button" variant="ghost" onClick={onBack} className="mb-2 px-0">
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Student home
+        </Button>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h3 className="text-2xl font-semibold tracking-normal">
+              Portfolio
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Simulated holdings, recent changes, and allocation targets for
+              Avery Johnson.
+            </p>
+          </div>
+          <Badge className="w-fit rounded-md bg-[#fff3da] text-[#7a4b00] hover:bg-[#fff3da]">
+            Simulated money only
+          </Badge>
+        </div>
+      </div>
+
+      <section className="grid gap-4 md:grid-cols-4">
+        <SummaryCard
+          icon={<WalletCards className="size-5" />}
+          label="Portfolio value"
+          value={`$${latestValue.toLocaleString()}`}
+          detail={`${totalGrowth}% total growth`}
+        />
+        <SummaryCard
+          icon={<Gauge className="size-5" />}
+          label="Allocation total"
+          value={`${allocationTotal}%`}
+          detail={allocationStatus}
+        />
+        <SummaryCard
+          icon={<PiggyBank className="size-5" />}
+          label="Cash buffer"
+          value={`${cashBuffer}%`}
+          detail="Available for short-term goals"
+        />
+        <SummaryCard
+          icon={<ShieldCheck className="size-5" />}
+          label="Diversification"
+          value={largestAllocation <= 50 ? "Balanced" : "Review"}
+          detail={`Largest bucket is ${largestAllocation}%`}
+        />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">Portfolio overview</h3>
+              <p className="text-sm text-muted-foreground">
+                Value changes from simulated market days and learning choices.
+              </p>
+            </div>
+            <LineChart className="size-5 text-muted-foreground" />
+          </div>
+          <div className="h-[280px] w-full">
+            <PortfolioChart data={portfolio} />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">Current mix</h3>
+              <p className="text-sm text-muted-foreground">
+                Holdings by learning vehicle.
+              </p>
+            </div>
+            <ChartNoAxesCombined className="size-5 text-muted-foreground" />
+          </div>
+          <div className="h-[210px]">
+            <AllocationDonut items={allocationTargets} />
+          </div>
+          <div className="grid gap-2">
+            {allocationTargets.map((item) => (
+              <div
+                key={item.name}
+                className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className="size-3 rounded-sm"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  {item.name}
+                </span>
+                <span className="font-medium">
+                  ${Math.round((latestValue * item.value) / 100).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">Last 5 changes</h3>
+              <p className="text-sm text-muted-foreground">
+                Recent simulated trades, deposits, and portfolio updates.
+              </p>
+            </div>
+            <ClipboardList className="size-5 text-muted-foreground" />
+          </div>
+          <div className="overflow-x-auto">
+            <Table className="min-w-[620px]">
+              <TableHeader>
+                <TableRow className="text-muted-foreground hover:bg-transparent">
+                  <TableHead>Date</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Vehicle</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Why it changed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activity.slice(0, 5).map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.date}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="rounded-md bg-card">
+                        {item.action}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">{item.vehicle}</TableCell>
+                    <TableCell>{item.amount}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {item.note}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Change allocation</h3>
+              <p className="text-sm text-muted-foreground">
+                Adjust targets, then save the simulated portfolio change.
+              </p>
+            </div>
+            <Badge
+              variant="outline"
+              className={
+                allocationTotal === 100
+                  ? "w-fit rounded-md border-[#28666e]/30 bg-[#e8f0ed] text-[#24493f]"
+                  : "w-fit rounded-md border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+              }
+            >
+              {allocationStatus}
+            </Badge>
+          </div>
+
+          <div className="space-y-5">
+            {allocationTargets.map((item) => (
+              <div key={item.name} className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="flex items-center gap-2">
+                    <span
+                      className="size-3 rounded-sm"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    {item.name}
+                  </Label>
+                  <span className="text-sm font-semibold">{item.value}%</span>
+                </div>
+                <Slider
+                  aria-label={`${item.name} allocation`}
+                  max={80}
+                  min={0}
+                  step={1}
+                  value={[item.value]}
+                  onValueChange={(value) =>
+                    onUpdateAllocation(item.name, value[0] ?? item.value)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 rounded-lg bg-[#f7f2e8] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-6 text-[#5b3f0b]">
+              Targets can be saved even before they equal 100% so students can
+              discuss drafts with a teacher.
+            </p>
+            <Button
+              type="button"
+              onClick={onSaveAllocation}
+              className="bg-[#28666e] text-white hover:bg-[#22565d]"
+            >
+              <Save className="size-4" aria-hidden="true" />
+              Save allocation
+            </Button>
+          </div>
+        </div>
+      </section>
+    </section>
+  );
+}
+
 function AdminDrilldown({
   activePage,
   schools,
   schoolName,
+  schoolDistrict,
   schoolState,
+  schoolClassCount,
+  schoolStudentCount,
   marketIntegrations,
   integrationProvider,
+  integrationEndpoint,
+  integrationTokenRequired,
+  integrationToken,
+  integrationPollingFrequency,
+  integrationTargetClass,
   integrationSymbols,
   privacyPosture,
   selectedPrivacyPosture,
@@ -2101,10 +2617,20 @@ function AdminDrilldown({
   onAddSchool,
   onDeleteSchool,
   onSchoolNameChange,
+  onSchoolDistrictChange,
   onSchoolStateChange,
+  onSchoolClassCountChange,
+  onSchoolStudentCountChange,
   onAddIntegration,
+  onDeleteIntegration,
+  onTestIntegration,
   onToggleIntegration,
   onIntegrationProviderChange,
+  onIntegrationEndpointChange,
+  onIntegrationTokenRequiredChange,
+  onIntegrationTokenChange,
+  onIntegrationPollingFrequencyChange,
+  onIntegrationTargetClassChange,
   onIntegrationSymbolsChange,
   onPrivacyPostureChange,
   onPrivacyContactChange,
@@ -2112,9 +2638,17 @@ function AdminDrilldown({
   activePage: AdminPage;
   schools: SchoolRecord[];
   schoolName: string;
+  schoolDistrict: string;
   schoolState: string;
+  schoolClassCount: string;
+  schoolStudentCount: string;
   marketIntegrations: MarketIntegration[];
   integrationProvider: string;
+  integrationEndpoint: string;
+  integrationTokenRequired: boolean;
+  integrationToken: string;
+  integrationPollingFrequency: string;
+  integrationTargetClass: string;
   integrationSymbols: string;
   privacyPosture: string;
   selectedPrivacyPosture: (typeof privacyPostures)[number];
@@ -2123,10 +2657,20 @@ function AdminDrilldown({
   onAddSchool: () => void;
   onDeleteSchool: (schoolId: string) => void;
   onSchoolNameChange: (name: string) => void;
+  onSchoolDistrictChange: (district: string) => void;
   onSchoolStateChange: (state: string) => void;
+  onSchoolClassCountChange: (count: string) => void;
+  onSchoolStudentCountChange: (count: string) => void;
   onAddIntegration: () => void;
+  onDeleteIntegration: (integrationId: string) => void;
+  onTestIntegration: (integrationId: string) => void;
   onToggleIntegration: (integrationId: string, enabled: boolean) => void;
   onIntegrationProviderChange: (provider: string) => void;
+  onIntegrationEndpointChange: (endpoint: string) => void;
+  onIntegrationTokenRequiredChange: (required: boolean) => void;
+  onIntegrationTokenChange: (token: string) => void;
+  onIntegrationPollingFrequencyChange: (frequency: string) => void;
+  onIntegrationTargetClassChange: (className: string) => void;
   onIntegrationSymbolsChange: (symbols: string) => void;
   onPrivacyPostureChange: (posture: string) => void;
   onPrivacyContactChange: (contact: string) => void;
@@ -2154,22 +2698,40 @@ function AdminDrilldown({
         <SchoolsAdminPage
           onAddSchool={onAddSchool}
           onDeleteSchool={onDeleteSchool}
+          onSchoolClassCountChange={onSchoolClassCountChange}
+          onSchoolDistrictChange={onSchoolDistrictChange}
           onSchoolNameChange={onSchoolNameChange}
           onSchoolStateChange={onSchoolStateChange}
+          onSchoolStudentCountChange={onSchoolStudentCountChange}
+          schoolClassCount={schoolClassCount}
+          schoolDistrict={schoolDistrict}
           schoolName={schoolName}
           schools={schools}
           schoolState={schoolState}
+          schoolStudentCount={schoolStudentCount}
         />
       ) : null}
 
       {activePage === "integrations" ? (
         <IntegrationsAdminPage
+          integrationEndpoint={integrationEndpoint}
           integrationProvider={integrationProvider}
+          integrationPollingFrequency={integrationPollingFrequency}
           integrationSymbols={integrationSymbols}
+          integrationTargetClass={integrationTargetClass}
+          integrationToken={integrationToken}
+          integrationTokenRequired={integrationTokenRequired}
           integrations={marketIntegrations}
           onAddIntegration={onAddIntegration}
+          onDeleteIntegration={onDeleteIntegration}
+          onIntegrationEndpointChange={onIntegrationEndpointChange}
+          onIntegrationPollingFrequencyChange={onIntegrationPollingFrequencyChange}
           onIntegrationProviderChange={onIntegrationProviderChange}
           onIntegrationSymbolsChange={onIntegrationSymbolsChange}
+          onIntegrationTargetClassChange={onIntegrationTargetClassChange}
+          onIntegrationTokenChange={onIntegrationTokenChange}
+          onIntegrationTokenRequiredChange={onIntegrationTokenRequiredChange}
+          onTestIntegration={onTestIntegration}
           onToggleIntegration={onToggleIntegration}
         />
       ) : null}
@@ -2190,24 +2752,36 @@ function AdminDrilldown({
 function SchoolsAdminPage({
   schools,
   schoolName,
+  schoolDistrict,
   schoolState,
+  schoolClassCount,
+  schoolStudentCount,
   onSchoolNameChange,
+  onSchoolDistrictChange,
   onSchoolStateChange,
+  onSchoolClassCountChange,
+  onSchoolStudentCountChange,
   onAddSchool,
   onDeleteSchool,
 }: {
   schools: SchoolRecord[];
   schoolName: string;
+  schoolDistrict: string;
   schoolState: string;
+  schoolClassCount: string;
+  schoolStudentCount: string;
   onSchoolNameChange: (name: string) => void;
+  onSchoolDistrictChange: (district: string) => void;
   onSchoolStateChange: (state: string) => void;
+  onSchoolClassCountChange: (count: string) => void;
+  onSchoolStudentCountChange: (count: string) => void;
   onAddSchool: () => void;
   onDeleteSchool: (schoolId: string) => void;
 }) {
   return (
     <div className="grid gap-6">
       <div className="rounded-lg border border-border bg-background p-4">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_100px_auto]">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_84px_110px_110px_auto]">
           <div className="space-y-2">
             <Label htmlFor="school-name">School name</Label>
             <Input
@@ -2215,6 +2789,15 @@ function SchoolsAdminPage({
               placeholder="Add a school"
               value={schoolName}
               onChange={(event) => onSchoolNameChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="school-district">District</Label>
+            <Input
+              id="school-district"
+              placeholder="School district"
+              value={schoolDistrict}
+              onChange={(event) => onSchoolDistrictChange(event.target.value)}
             />
           </div>
           <div className="space-y-2">
@@ -2226,6 +2809,26 @@ function SchoolsAdminPage({
               onChange={(event) =>
                 onSchoolStateChange(event.target.value.toUpperCase())
               }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="school-class-count">Classes</Label>
+            <Input
+              id="school-class-count"
+              min={0}
+              type="number"
+              value={schoolClassCount}
+              onChange={(event) => onSchoolClassCountChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="school-student-count">Students</Label>
+            <Input
+              id="school-student-count"
+              min={0}
+              type="number"
+              value={schoolStudentCount}
+              onChange={(event) => onSchoolStudentCountChange(event.target.value)}
             />
           </div>
           <div className="flex items-end">
@@ -2290,26 +2893,50 @@ function SchoolsAdminPage({
 function IntegrationsAdminPage({
   integrations,
   integrationProvider,
+  integrationEndpoint,
+  integrationTokenRequired,
+  integrationToken,
+  integrationPollingFrequency,
+  integrationTargetClass,
   integrationSymbols,
   onIntegrationProviderChange,
+  onIntegrationEndpointChange,
+  onIntegrationTokenRequiredChange,
+  onIntegrationTokenChange,
+  onIntegrationPollingFrequencyChange,
+  onIntegrationTargetClassChange,
   onIntegrationSymbolsChange,
   onAddIntegration,
+  onDeleteIntegration,
+  onTestIntegration,
   onToggleIntegration,
 }: {
   integrations: MarketIntegration[];
   integrationProvider: string;
+  integrationEndpoint: string;
+  integrationTokenRequired: boolean;
+  integrationToken: string;
+  integrationPollingFrequency: string;
+  integrationTargetClass: string;
   integrationSymbols: string;
   onIntegrationProviderChange: (provider: string) => void;
+  onIntegrationEndpointChange: (endpoint: string) => void;
+  onIntegrationTokenRequiredChange: (required: boolean) => void;
+  onIntegrationTokenChange: (token: string) => void;
+  onIntegrationPollingFrequencyChange: (frequency: string) => void;
+  onIntegrationTargetClassChange: (className: string) => void;
   onIntegrationSymbolsChange: (symbols: string) => void;
   onAddIntegration: () => void;
+  onDeleteIntegration: (integrationId: string) => void;
+  onTestIntegration: (integrationId: string) => void;
   onToggleIntegration: (integrationId: string, enabled: boolean) => void;
 }) {
   return (
     <div className="grid gap-6">
       <div className="rounded-lg border border-border bg-background p-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="provider-name">Provider name</Label>
+            <Label htmlFor="provider-name">API provider</Label>
             <Input
               id="provider-name"
               placeholder="Example: Polygon, IEX Cloud, Alpaca"
@@ -2318,28 +2945,162 @@ function IntegrationsAdminPage({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="allowed-symbols">Allowed symbols</Label>
+            <Label htmlFor="provider-endpoint">API endpoint</Label>
+            <Input
+              id="provider-endpoint"
+              placeholder="https://provider.example/v1/quotes"
+              value={integrationEndpoint}
+              onChange={(event) => onIntegrationEndpointChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="polling-frequency">Polling frequency</Label>
+            <Select
+              value={integrationPollingFrequency}
+              onValueChange={onIntegrationPollingFrequencyChange}
+            >
+              <SelectTrigger id="polling-frequency" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Manual">Manual</SelectItem>
+                <SelectItem value="5 minutes">Every 5 minutes</SelectItem>
+                <SelectItem value="15 minutes">Every 15 minutes</SelectItem>
+                <SelectItem value="30 minutes">Every 30 minutes</SelectItem>
+                <SelectItem value="1 hour">Hourly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="target-class">Class receiving data</Label>
+            <Select
+              value={integrationTargetClass}
+              onValueChange={onIntegrationTargetClassChange}
+            >
+              <SelectTrigger id="target-class" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {classOptions.map((className) => (
+                  <SelectItem key={className} value={className}>
+                    {className}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="allowed-symbols">Allowed symbols optional</Label>
             <Input
               id="allowed-symbols"
+              placeholder="Leave blank to import up to 200 symbols"
               value={integrationSymbols}
               onChange={(event) => onIntegrationSymbolsChange(event.target.value)}
             />
+            <p className="text-xs text-muted-foreground">
+              Blank allows the backend GET import to accept up to 200 symbols.
+            </p>
           </div>
-          <div className="flex items-end">
-            <Button
-              type="button"
-              onClick={onAddIntegration}
-              className="w-full bg-[#28666e] text-white hover:bg-[#22565d] lg:w-auto"
-            >
-              <PlugZap className="size-4" aria-hidden="true" />
-              Add API
-            </Button>
+          <div className="space-y-2">
+            <Label htmlFor="api-token">Token</Label>
+            <Input
+              id="api-token"
+              placeholder="Only required for protected APIs"
+              type="password"
+              value={integrationToken}
+              onChange={(event) => onIntegrationTokenChange(event.target.value)}
+            />
+            <Label className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2">
+              <Checkbox
+                checked={integrationTokenRequired}
+                onCheckedChange={(checked) =>
+                  onIntegrationTokenRequiredChange(checked === true)
+                }
+              />
+              Token required
+            </Label>
           </div>
         </div>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Store real credentials server-side later; this MVP tracks provider
-          setup and classroom-safe symbol rules.
-        </p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            API tokens are shown as setup fields in the MVP; production storage
+            should move them to server-managed secrets.
+          </p>
+          <Button
+            type="button"
+            onClick={onAddIntegration}
+            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            <PlugZap className="size-4" aria-hidden="true" />
+            Add API
+          </Button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="min-w-[920px]">
+          <TableHeader>
+            <TableRow className="text-muted-foreground hover:bg-transparent">
+              <TableHead>Class</TableHead>
+              <TableHead>Provider</TableHead>
+              <TableHead>Endpoint</TableHead>
+              <TableHead>Polling</TableHead>
+              <TableHead>Symbols</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {integrations.map((integration) => (
+              <TableRow key={integration.id}>
+                <TableCell className="font-medium">
+                  {integration.targetClass}
+                </TableCell>
+                <TableCell>{integration.provider}</TableCell>
+                <TableCell className="max-w-[260px] truncate">
+                  {integration.endpoint}
+                </TableCell>
+                <TableCell>{integration.pollingFrequency}</TableCell>
+                <TableCell>
+                  {integration.symbols}
+                  <span className="block text-xs text-muted-foreground">
+                    {integration.importedSymbols} imported
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="rounded-md bg-card">
+                    {integration.status}
+                  </Badge>
+                  <span className="block text-xs text-muted-foreground">
+                    {integration.lastFetchStatus}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onTestIntegration(integration.id)}
+                    >
+                      <PlugZap className="size-4" aria-hidden="true" />
+                      GET
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDeleteIntegration(integration.id)}
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                      Delete
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       <div className="grid gap-3">
@@ -2357,8 +3118,9 @@ function IntegrationsAdminPage({
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Symbols: {integration.symbols}. Quote delay:{" "}
-                  {integration.quoteDelay}.
+                  Feeds {integration.targetClass} from {integration.endpoint}.
+                  Symbols: {integration.symbols}. Polling:{" "}
+                  {integration.pollingFrequency}.
                 </p>
               </div>
               <Label className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2">
@@ -2708,8 +3470,8 @@ function PortfolioChart({
   );
 }
 
-function AllocationDonut() {
-  const stops = allocation
+function AllocationDonut({ items = allocation }: { items?: typeof allocation }) {
+  const stops = items
     .reduce(
       (result, item) => {
         const next = result.cursor + item.value;
@@ -2735,7 +3497,7 @@ function AllocationDonut() {
         style={{ background: `conic-gradient(${stops})` }}
       >
         <div className="absolute inset-12 grid place-items-center rounded-full bg-card text-center shadow-inner">
-          <span className="text-2xl font-semibold">5</span>
+          <span className="text-2xl font-semibold">{items.length}</span>
           <span className="-mt-1 text-xs text-muted-foreground">vehicles</span>
         </div>
       </div>

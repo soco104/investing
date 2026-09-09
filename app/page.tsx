@@ -1004,6 +1004,24 @@ export default function Home() {
     adminUsers[0];
   const currentStudentUser =
     adminUsers.find((user) => user.id === "user-avery") ?? adminUsers[0];
+  const currentTeacherUser =
+    adminUsers.find((user) => user.role === "Teacher") ?? currentStudentUser;
+  const isTeacherRoleView = activeTab === "teacher";
+  const isAdminRoleView = activeTab === "admin";
+  const profileCellUser = isTeacherRoleView
+    ? currentTeacherUser
+    : currentStudentUser;
+  const profileCellMetrics = isTeacherRoleView
+    ? [
+        { label: "Managed classes", value: `${currentTeacherUser.classes.length}` },
+        { label: "Authored quests", value: `${teacherQuests.length}` },
+        { label: "Inbox unread", value: `${inboxUnread}` },
+      ]
+    : [
+        { label: "Financial readiness", value: `${readinessScore}%` },
+        { label: "Learning streak", value: "12 days" },
+        { label: "Teacher assigned quests", value: "3 active" },
+      ];
   const selectedProfileUser =
     adminUsers.find((user) => user.id === selectedProfileUserId) ??
     currentStudentUser;
@@ -1556,66 +1574,80 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:px-8">
-        <aside className="h-fit rounded-lg border border-border bg-card p-4 shadow-sm lg:sticky lg:top-24">
-          <div className="flex items-center gap-3 border-b border-border pb-4">
-            <div className="flex size-12 items-center justify-center rounded-lg bg-[#fff3da] text-[#7a4b00]">
-              <GraduationCap className="size-6" aria-hidden="true" />
+      <section
+        className={`mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8 ${
+          isAdminRoleView ? "lg:grid-cols-1" : "lg:grid-cols-[260px_minmax(0,1fr)]"
+        }`}
+      >
+        {!isAdminRoleView ? (
+          <aside className="h-fit rounded-lg border border-border bg-card p-4 shadow-sm lg:sticky lg:top-24">
+            <div className="flex items-center gap-3 border-b border-border pb-4">
+              <div className="flex size-12 items-center justify-center rounded-lg bg-[#fff3da] text-[#7a4b00]">
+                <GraduationCap className="size-6" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="font-semibold">
+                  {profileCellUser.firstName} {profileCellUser.lastName}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  @{profileCellUser.alias}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-semibold">Avery Johnson</p>
-              <p className="text-sm text-muted-foreground">@{currentStudentUser.alias}</p>
-            </div>
-          </div>
 
-          <div className="mt-4 space-y-2">
-            <Label htmlFor="student-alias">Alias</Label>
-            <Input
-              id="student-alias"
-              value={currentStudentUser.alias}
-              onChange={(event) =>
-                updateUserAlias(currentStudentUser.id, event.target.value)
-              }
-            />
-          </div>
-
-          <div className="mt-5 space-y-5">
-            <Metric label="Financial readiness" value={`${readinessScore}%`} />
-            <Metric label="Learning streak" value="12 days" />
-            <Metric label="Teacher assigned quests" value="3 active" />
-          </div>
-
-          <div className="mt-6 rounded-lg border border-border bg-muted/45 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-medium">Profile messages</span>
-              <Mail className="size-4 text-muted-foreground" />
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="profile-alias">Alias</Label>
+              <Input
+                id="profile-alias"
+                value={profileCellUser.alias}
+                onChange={(event) =>
+                  updateUserAlias(profileCellUser.id, event.target.value)
+                }
+              />
             </div>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab("inbox")}
-                className="flex w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-left text-sm transition hover:bg-background"
-              >
-                <span className="flex items-center gap-2">
-                  <Mail className="size-4 text-[#28666e]" />
-                  Inbox
-                </span>
-                <span className="font-semibold">{inboxUnread}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("discussion")}
-                className="flex w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-left text-sm transition hover:bg-background"
-              >
-                <span className="flex items-center gap-2">
-                  <MessageCircle className="size-4 text-[#28666e]" />
-                  Discussion
-                </span>
-                <span className="font-semibold">{discussionUnread}</span>
-              </button>
+
+            <div className="mt-5 space-y-5">
+              {profileCellMetrics.map((metric) => (
+                <Metric
+                  key={metric.label}
+                  label={metric.label}
+                  value={metric.value}
+                />
+              ))}
             </div>
-          </div>
-        </aside>
+
+            <div className="mt-6 rounded-lg border border-border bg-muted/45 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-medium">Profile messages</span>
+                <Mail className="size-4 text-muted-foreground" />
+              </div>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("inbox")}
+                  className="flex w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-left text-sm transition hover:bg-background"
+                >
+                  <span className="flex items-center gap-2">
+                    <Mail className="size-4 text-[#28666e]" />
+                    Inbox
+                  </span>
+                  <span className="font-semibold">{inboxUnread}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("discussion")}
+                  className="flex w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-left text-sm transition hover:bg-background"
+                >
+                  <span className="flex items-center gap-2">
+                    <MessageCircle className="size-4 text-[#28666e]" />
+                    Discussion
+                  </span>
+                  <span className="font-semibold">{discussionUnread}</span>
+                </button>
+              </div>
+            </div>
+          </aside>
+        ) : null}
 
         <Tabs
           value={activeTab}

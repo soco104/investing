@@ -305,16 +305,18 @@ type TeacherClassAnalytics = {
     flagged: number;
     participation: number;
   };
-  students: Array<{
-    name: string;
-    alias: string;
-    readiness: number;
-    questProgress: number;
-    portfolioReturn: number;
-    portfolioValue: string;
-    discussionPosts: number;
-    flaggedPosts: number;
-  }>;
+  students: TeacherStudentAnalytics[];
+};
+
+type TeacherStudentAnalytics = {
+  name: string;
+  alias: string;
+  readiness: number;
+  questProgress: number;
+  portfolioReturn: number;
+  portfolioValue: string;
+  discussionPosts: number;
+  flaggedPosts: number;
 };
 
 const teacherClassAnalytics: TeacherClassAnalytics[] = [
@@ -3418,11 +3420,19 @@ function TeacherActiveStudentsPage({
                               {formatSignedPercent(student.portfolioReturn)}
                             </span>
                           </TableCell>
-                          <TableCell>{student.discussionPosts} posts</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="rounded-md bg-card">
-                              {student.flaggedPosts}
-                            </Badge>
+                            <StudentActivityDialog
+                              className={classroom.className}
+                              mode="discussions"
+                              student={student}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <StudentActivityDialog
+                              className={classroom.className}
+                              mode="flags"
+                              student={student}
+                            />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -3482,6 +3492,119 @@ function TeacherActiveStudentsPage({
         ))}
       </section>
     </section>
+  );
+}
+
+function StudentActivityDialog({
+  className,
+  mode,
+  student,
+}: {
+  className: string;
+  mode: "discussions" | "flags";
+  student: TeacherStudentAnalytics;
+}) {
+  const isFlagsMode = mode === "flags";
+  const items = isFlagsMode
+    ? buildStudentFlagItems(student, className)
+    : buildStudentDiscussionItems(student, className);
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-w-24 justify-between gap-2"
+        >
+          {isFlagsMode ? (
+            <>
+              <TriangleAlert className="size-4 text-[#a13d2e]" aria-hidden="true" />
+              {student.flaggedPosts}
+            </>
+          ) : (
+            <>
+              <MessageCircle className="size-4 text-[#28666e]" aria-hidden="true" />
+              {student.discussionPosts} posts
+            </>
+          )}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[min(88vh,720px)] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Badge className="rounded-md bg-[#e8f0ed] text-[#24493f] hover:bg-[#e8f0ed]">
+              {className}
+            </Badge>
+            <Badge variant="outline" className="rounded-md">
+              @{student.alias}
+            </Badge>
+          </div>
+          <DialogTitle>
+            {isFlagsMode ? "Flagged items" : "Discussion activity"}
+          </DialogTitle>
+          <DialogDescription>
+            {student.name} has{" "}
+            {isFlagsMode
+              ? `${student.flaggedPosts} discussion flag${
+                  student.flaggedPosts === 1 ? "" : "s"
+                }`
+              : `${student.discussionPosts} discussion post${
+                  student.discussionPosts === 1 ? "" : "s"
+                }`}{" "}
+            in this class.
+          </DialogDescription>
+        </DialogHeader>
+
+        {items.length > 0 ? (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <article
+                key={item.id}
+                className="rounded-lg border border-border bg-card p-4"
+              >
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="rounded-md bg-background">
+                      {item.room}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={
+                        item.status === "Needs review"
+                          ? "rounded-md border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+                          : "rounded-md border-[#28666e]/30 bg-[#e8f0ed] text-[#24493f]"
+                      }
+                    >
+                      {item.status}
+                    </Badge>
+                  </div>
+                  <span className="text-sm text-muted-foreground">{item.when}</span>
+                </div>
+                <p className="text-sm leading-6">{item.body}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {item.context}
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border bg-card p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <ShieldCheck className="size-5 text-[#28666e]" />
+              <h4 className="font-semibold">No flagged discussions</h4>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              This student has no active discussion items waiting for teacher
+              review in {className}.
+            </p>
+          </div>
+        )}
+
+        <DialogFooter showCloseButton />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -6021,6 +6144,64 @@ function QuestMonitorMetric({
 
 function formatSignedPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function buildStudentDiscussionItems(
+  student: TeacherStudentAnalytics,
+  className: string
+) {
+  if (student.discussionPosts === 0) {
+    return [];
+  }
+
+  return [
+    {
+      id: `${student.alias}-discussion-portfolio`,
+      room: "Portfolio Lab",
+      status: "On track",
+      when: "Today",
+      body: `${student.alias} explained how their latest allocation change affected risk and cash flexibility.`,
+      context: `${Math.min(
+        student.discussionPosts,
+        8
+      )} posts connected to portfolio and allocation conversations in ${className}.`,
+    },
+    {
+      id: `${student.alias}-discussion-quest`,
+      room: "Quest Reflection",
+      status:
+        student.questProgress >= 70 ? "On track" : "Teacher follow-up suggested",
+      when: "This week",
+      body: `${student.alias} responded to peer feedback on the current learning quest and cited their simulated portfolio results.`,
+      context: `${Math.max(
+        student.discussionPosts - 4,
+        1
+      )} posts connected to goals, quests, and reflection prompts.`,
+    },
+  ];
+}
+
+function buildStudentFlagItems(
+  student: TeacherStudentAnalytics,
+  className: string
+) {
+  if (student.flaggedPosts === 0) {
+    return [];
+  }
+
+  return Array.from({ length: student.flaggedPosts }, (_, index) => ({
+    id: `${student.alias}-flag-${index}`,
+    room: index % 2 === 0 ? "Portfolio Lab" : "Market Moves",
+    status: "Needs review",
+    when: index === 0 ? "Today" : "This week",
+    body:
+      index % 2 === 0
+        ? `${student.alias} used language that should be reviewed before the post remains visible to classmates.`
+        : `${student.alias} made a peer reply that was automatically queued for teacher review.`,
+    context: `Flagged item ${index + 1} of ${
+      student.flaggedPosts
+    } for ${className}.`,
+  }));
 }
 
 function AdminPolicy({

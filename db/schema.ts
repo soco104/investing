@@ -150,6 +150,47 @@ export const questSubmissions = sqliteTable("quest_submissions", {
   reviewedAt: integer("reviewed_at", { mode: "timestamp" }),
 });
 
+export const conversations = sqliteTable("conversations", {
+  id: text("id").primaryKey(),
+  classroomId: text("classroom_id")
+    .notNull()
+    .references(() => classrooms.id),
+  title: text("title").notNull(),
+  kind: text("kind").notNull(),
+  textOnly: integer("text_only", { mode: "boolean" }).notNull().default(true),
+  createdByUserId: text("created_by_user_id").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const conversationParticipants = sqliteTable(
+  "conversation_participants",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id),
+    userId: text("user_id").notNull(),
+    role: text("role").notNull(),
+    displayName: text("display_name").notNull(),
+    lastReadAt: integer("last_read_at", { mode: "timestamp" }),
+  }
+);
+
+export const conversationMessages = sqliteTable("conversation_messages", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversations.id),
+  senderUserId: text("sender_user_id").notNull(),
+  body: text("body").notNull(),
+  moderationStatus: text("moderation_status").notNull().default("allowed"),
+  profanityDetected: integer("profanity_detected", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  sentAt: integer("sent_at", { mode: "timestamp" }).notNull(),
+});
+
 export const lessonProgress = sqliteTable("lesson_progress", {
   id: text("id").primaryKey(),
   studentId: text("student_id")
@@ -184,6 +225,7 @@ export const classroomsRelations = relations(classrooms, ({ one, many }) => ({
   students: many(students),
   learningQuests: many(learningQuests),
   questAssignments: many(questAssignments),
+  conversations: many(conversations),
 }));
 
 export const studentsRelations = relations(students, ({ one, many }) => ({
@@ -280,6 +322,38 @@ export const questSubmissionsRelations = relations(
     student: one(students, {
       fields: [questSubmissions.studentId],
       references: [students.id],
+    }),
+  })
+);
+
+export const conversationsRelations = relations(
+  conversations,
+  ({ one, many }) => ({
+    classroom: one(classrooms, {
+      fields: [conversations.classroomId],
+      references: [classrooms.id],
+    }),
+    participants: many(conversationParticipants),
+    messages: many(conversationMessages),
+  })
+);
+
+export const conversationParticipantsRelations = relations(
+  conversationParticipants,
+  ({ one }) => ({
+    conversation: one(conversations, {
+      fields: [conversationParticipants.conversationId],
+      references: [conversations.id],
+    }),
+  })
+);
+
+export const conversationMessagesRelations = relations(
+  conversationMessages,
+  ({ one }) => ({
+    conversation: one(conversations, {
+      fields: [conversationMessages.conversationId],
+      references: [conversations.id],
     }),
   })
 );

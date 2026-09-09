@@ -10,13 +10,15 @@ views that focus on learning evidence instead of real-money trading outcomes.
 - Web-first student dashboard for simulated portfolio learning
 - Teacher view for assignments, roster progress, concept mastery, and quest
   authoring
+- Text-only inbox for teacher-student and classroom student-student messages
+  with a first-pass profanity filter
 - District/system administrator view for rollout, privacy posture, integration
   planning, template governance, and scoring policy controls
 - Mock market data API for classroom-safe quote behavior
 - Initial database schema for districts, schools, classrooms, students,
   simulated portfolios, holdings, lessons, teacher-created quests, hidden
-  scoring rules, market parameters, assignments, submissions, and lesson
-  progress
+  scoring rules, market parameters, assignments, submissions, conversation
+  threads, message moderation status, and lesson progress
 
 ## Development
 
@@ -52,6 +54,8 @@ npm run lint
 - Market data should be routed through a provider adapter before production use
 - Student-facing quest screens should only expose scoring rules that a teacher
   or system administrator has explicitly made visible
+- Messaging starts as text-only classroom communication with profanity blocking
+  and moderation fields in the data model
 
 ## License
 

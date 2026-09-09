@@ -31,6 +31,8 @@ export const appUsers = sqliteTable("app_users", {
     .notNull()
     .references(() => districts.id),
   schoolId: text("school_id").references(() => schools.id),
+  firstName: text("first_name").notNull().default(""),
+  lastName: text("last_name").notNull().default(""),
   displayName: text("display_name").notNull(),
   email: text("email").notNull(),
   status: text("status").notNull().default("active"),
@@ -47,6 +49,17 @@ export const roleAssignments = sqliteTable("role_assignments", {
   scope: text("scope").notNull(),
   assignedByUserId: text("assigned_by_user_id").notNull(),
   assignedAt: integer("assigned_at", { mode: "timestamp" }).notNull(),
+});
+
+export const userPermissionGrants = sqliteTable("user_permission_grants", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => appUsers.id),
+  permission: text("permission").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  grantedByUserId: text("granted_by_user_id").notNull(),
+  grantedAt: integer("granted_at", { mode: "timestamp" }).notNull(),
 });
 
 export const classrooms = sqliteTable("classrooms", {
@@ -387,6 +400,7 @@ export const appUsersRelations = relations(appUsers, ({ one, many }) => ({
     references: [schools.id],
   }),
   roles: many(roleAssignments),
+  permissionGrants: many(userPermissionGrants),
   passwordResetRequests: many(passwordResetRequests),
 }));
 
@@ -395,6 +409,16 @@ export const roleAssignmentsRelations = relations(
   ({ one }) => ({
     user: one(appUsers, {
       fields: [roleAssignments.userId],
+      references: [appUsers.id],
+    }),
+  })
+);
+
+export const userPermissionGrantsRelations = relations(
+  userPermissionGrants,
+  ({ one }) => ({
+    user: one(appUsers, {
+      fields: [userPermissionGrants.userId],
       references: [appUsers.id],
     }),
   })

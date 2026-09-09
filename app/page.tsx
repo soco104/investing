@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ChartNoAxesCombined,
   ClipboardList,
+  Download,
   ArrowLeft,
   ChevronRight,
   Eye,
@@ -35,6 +36,7 @@ import {
   TrendingUp,
   TriangleAlert,
   Trash2,
+  Upload,
   UserCog,
   UsersRound,
   WalletCards,
@@ -337,7 +339,41 @@ type Conversation = {
   messages: ConversationMessage[];
 };
 
-type AdminPage = "overview" | "schools" | "integrations" | "privacy";
+type AdminPage =
+  | "overview"
+  | "schools"
+  | "integrations"
+  | "privacy"
+  | "users"
+  | "permissions"
+  | "support"
+  | "portfolio-corrections";
+
+type AdminUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: "Student" | "Teacher" | "Admin";
+  className: string;
+  enabled: boolean;
+  permissions: {
+    studentProfile: boolean;
+    teacherPortal: boolean;
+    adminPortal: boolean;
+    questImportExport: boolean;
+    portfolioCorrections: boolean;
+  };
+};
+
+type SupportCase = {
+  id: string;
+  summary: string;
+  requester: string;
+  category: string;
+  status: "Pending support" | "Pending user";
+  createdAt: string;
+};
 
 type SchoolRecord = {
   id: string;
@@ -370,6 +406,100 @@ const classOptions = [
   "7th Grade Finance B",
   "8th Grade Investing Lab",
   "High School Personal Finance",
+];
+
+const initialAdminUsers: AdminUser[] = [
+  {
+    id: "user-avery",
+    firstName: "Avery",
+    lastName: "Johnson",
+    email: "avery.johnson@student.lincolnusd.edu",
+    role: "Student",
+    className: "7th Grade Finance A",
+    enabled: true,
+    permissions: {
+      studentProfile: true,
+      teacherPortal: false,
+      adminPortal: false,
+      questImportExport: false,
+      portfolioCorrections: false,
+    },
+  },
+  {
+    id: "user-maya",
+    firstName: "Maya",
+    lastName: "Patel",
+    email: "maya.patel@student.lincolnusd.edu",
+    role: "Student",
+    className: "7th Grade Finance B",
+    enabled: true,
+    permissions: {
+      studentProfile: true,
+      teacherPortal: false,
+      adminPortal: false,
+      questImportExport: false,
+      portfolioCorrections: false,
+    },
+  },
+  {
+    id: "user-rivera",
+    firstName: "Elena",
+    lastName: "Rivera",
+    email: "erivera@lincolnusd.edu",
+    role: "Teacher",
+    className: "7th Grade Finance A",
+    enabled: true,
+    permissions: {
+      studentProfile: false,
+      teacherPortal: true,
+      adminPortal: false,
+      questImportExport: true,
+      portfolioCorrections: false,
+    },
+  },
+  {
+    id: "user-admin",
+    firstName: "Sam",
+    lastName: "Gordon",
+    email: "sgordon@lincolnusd.edu",
+    role: "Admin",
+    className: "District",
+    enabled: true,
+    permissions: {
+      studentProfile: true,
+      teacherPortal: true,
+      adminPortal: true,
+      questImportExport: true,
+      portfolioCorrections: true,
+    },
+  },
+];
+
+const initialSupportCases: SupportCase[] = [
+  {
+    id: "SUP-1042",
+    summary: "Teacher cannot see imported roster",
+    requester: "Elena Rivera",
+    category: "Roster",
+    status: "Pending support",
+    createdAt: "Today",
+  },
+  {
+    id: "SUP-1038",
+    summary: "Student password reset confirmation",
+    requester: "Sam Gordon",
+    category: "Account",
+    status: "Pending user",
+    createdAt: "Yesterday",
+  },
+  {
+    id: "SUP-1031",
+    summary: "Market feed returned delayed quotes",
+    requester: "District admin",
+    category: "Integration",
+    status: "Pending support",
+    createdAt: "Mar 12",
+  },
 ];
 
 const initialSchools: SchoolRecord[] = [
@@ -718,6 +848,11 @@ export default function Home() {
   const [portfolioActivity, setPortfolioActivity] = useState(
     initialPortfolioActivity
   );
+  const [portfolioAdjustment, setPortfolioAdjustment] = useState("25");
+  const [portfolioCorrectionReason, setPortfolioCorrectionReason] = useState(
+    "Teacher-approved correction"
+  );
+  const [portfolioCorrectionNotice, setPortfolioCorrectionNotice] = useState("");
   const [teacherQuests, setTeacherQuests] =
     useState<TeacherQuest[]>(initialTeacherQuests);
   const [selectedQuestId, setSelectedQuestId] = useState(
@@ -744,6 +879,20 @@ export default function Home() {
   const [discussionWarning, setDiscussionWarning] = useState("");
   const [activeAdminPage, setActiveAdminPage] =
     useState<AdminPage>("overview");
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>(initialAdminUsers);
+  const [userClassFilter, setUserClassFilter] = useState("all");
+  const [userRoleFilter, setUserRoleFilter] = useState("all");
+  const [selectedPermissionUserId, setSelectedPermissionUserId] = useState(
+    initialAdminUsers[0].id
+  );
+  const [supportCases, setSupportCases] =
+    useState<SupportCase[]>(initialSupportCases);
+  const [supportSummary, setSupportSummary] = useState("");
+  const [supportCategory, setSupportCategory] = useState("Account");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetNotice, setResetNotice] = useState("");
+  const [questTransferText, setQuestTransferText] = useState("");
+  const [questTransferNotice, setQuestTransferNotice] = useState("");
   const [schools, setSchools] = useState<SchoolRecord[]>(initialSchools);
   const [schoolName, setSchoolName] = useState("");
   const [schoolDistrict, setSchoolDistrict] = useState("Lincoln USD");
@@ -825,6 +974,16 @@ export default function Home() {
   const selectedPrivacyPosture =
     privacyPostures.find((posture) => posture.value === privacyPosture) ??
     privacyPostures[0];
+  const filteredAdminUsers = adminUsers.filter((user) => {
+    const classMatches =
+      userClassFilter === "all" || user.className === userClassFilter;
+    const roleMatches = userRoleFilter === "all" || user.role === userRoleFilter;
+
+    return classMatches && roleMatches;
+  });
+  const selectedPermissionUser =
+    adminUsers.find((user) => user.id === selectedPermissionUserId) ??
+    adminUsers[0];
 
   function updateCriterion(
     criterionId: string,
@@ -900,6 +1059,87 @@ export default function Home() {
       return [draftQuest, ...quests];
     });
     setSelectedQuestId(draftQuest.id);
+  }
+
+  function exportLearningQuests() {
+    setQuestTransferText(JSON.stringify(teacherQuests, null, 2));
+    setQuestTransferNotice("Learning quests exported as JSON.");
+  }
+
+  function importLearningQuests() {
+    try {
+      const parsed = JSON.parse(questTransferText) as TeacherQuest | TeacherQuest[];
+      const importedQuests = Array.isArray(parsed) ? parsed : [parsed];
+      const normalizedQuests = importedQuests.map((quest) => ({
+        ...quest,
+        id: `${quest.id || "quest"}-${Date.now()}`,
+        status: "Draft" as const,
+      }));
+
+      setTeacherQuests((quests) => [...normalizedQuests, ...quests]);
+      setQuestTransferNotice(`${normalizedQuests.length} learning quest imported.`);
+    } catch {
+      setQuestTransferNotice("Import failed. Paste valid learning quest JSON.");
+    }
+  }
+
+  function toggleUserEnabled(userId: string, enabled: boolean) {
+    setAdminUsers((users) =>
+      users.map((user) => (user.id === userId ? { ...user, enabled } : user))
+    );
+  }
+
+  function updateUserPermission(
+    userId: string,
+    permission: keyof AdminUser["permissions"],
+    enabled: boolean
+  ) {
+    setAdminUsers((users) =>
+      users.map((user) =>
+        user.id === userId
+          ? {
+              ...user,
+              permissions: {
+                ...user.permissions,
+                [permission]: user.role === "Admin" ? true : enabled,
+              },
+            }
+          : user
+      )
+    );
+  }
+
+  function createSupportCase() {
+    const trimmedSummary = supportSummary.trim();
+
+    if (!trimmedSummary) {
+      return;
+    }
+
+    setSupportCases((cases) => [
+      {
+        id: `SUP-${1043 + cases.length}`,
+        summary: trimmedSummary,
+        requester: "Sam Gordon",
+        category: supportCategory,
+        status: "Pending support",
+        createdAt: "Today",
+      },
+      ...cases,
+    ]);
+    setSupportSummary("");
+  }
+
+  function triggerPasswordReset() {
+    const trimmedEmail = resetEmail.trim();
+
+    if (!trimmedEmail) {
+      setResetNotice("Enter a user email to trigger a reset.");
+      return;
+    }
+
+    setResetNotice(`Password reset sent to ${trimmedEmail}. SSO comes later.`);
+    setResetEmail("");
   }
 
   function sendInboxMessage() {
@@ -1147,6 +1387,45 @@ export default function Home() {
       },
       ...currentActivity,
     ]);
+  }
+
+  function applyPortfolioCorrection() {
+    const adjustment = Number.parseFloat(portfolioAdjustment);
+
+    if (Number.isNaN(adjustment) || !portfolioCorrectionReason.trim()) {
+      setPortfolioCorrectionNotice("Enter an adjustment and audit reason.");
+      return;
+    }
+
+    setGoalBoost((value) => Math.max(0, value + Math.round(adjustment / 5)));
+    setPortfolioActivity((currentActivity) => [
+      {
+        id: `correction-${Date.now()}`,
+        date: "Today",
+        action: "Correction",
+        vehicle: "Portfolio",
+        amount: `${adjustment >= 0 ? "+" : "-"}$${Math.abs(adjustment).toFixed(2)}`,
+        note: portfolioCorrectionReason.trim(),
+      },
+      ...currentActivity,
+    ]);
+    setPortfolioCorrectionNotice("Portfolio correction applied and logged.");
+  }
+
+  function openAdminModule(title: string) {
+    const targets: Record<string, AdminPage> = {
+      Users: "users",
+      Permissions: "permissions",
+      Support: "support",
+      "Market APIs": "integrations",
+      "Portfolio corrections": "portfolio-corrections",
+    };
+
+    const target = targets[title];
+
+    if (target) {
+      setActiveAdminPage(target);
+    }
   }
 
   return (
@@ -1646,6 +1925,15 @@ export default function Home() {
                   </div>
                 </div>
 
+                <LearningQuestTransferPanel
+                  audience="Teacher"
+                  notice={questTransferNotice}
+                  onExport={exportLearningQuests}
+                  onImport={importLearningQuests}
+                  onTextChange={setQuestTransferText}
+                  transferText={questTransferText}
+                />
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="quest-title">Quest title</Label>
@@ -1983,6 +2271,8 @@ export default function Home() {
                 {activeAdminPage !== "overview" ? (
                   <AdminDrilldown
                     activePage={activeAdminPage}
+                    adminUsers={adminUsers}
+                    filteredAdminUsers={filteredAdminUsers}
                     integrationEndpoint={integrationEndpoint}
                     integrationProvider={integrationProvider}
                     integrationPollingFrequency={integrationPollingFrequency}
@@ -1991,9 +2281,11 @@ export default function Home() {
                     integrationToken={integrationToken}
                     integrationTokenRequired={integrationTokenRequired}
                     marketIntegrations={marketIntegrations}
+                    onApplyPortfolioCorrection={applyPortfolioCorrection}
                     onAddIntegration={addMarketIntegration}
                     onAddSchool={addSchool}
                     onBack={() => setActiveAdminPage("overview")}
+                    onCreateSupportCase={createSupportCase}
                     onDeleteIntegration={deleteMarketIntegration}
                     onDeleteSchool={deleteSchool}
                     onIntegrationEndpointChange={setIntegrationEndpoint}
@@ -2009,22 +2301,47 @@ export default function Home() {
                     }
                     onPrivacyContactChange={setPrivacyContact}
                     onPrivacyPostureChange={setPrivacyPosture}
+                    onPortfolioAdjustmentChange={setPortfolioAdjustment}
+                    onPortfolioCorrectionReasonChange={
+                      setPortfolioCorrectionReason
+                    }
+                    onQuestExport={exportLearningQuests}
+                    onQuestImport={importLearningQuests}
+                    onQuestTransferTextChange={setQuestTransferText}
+                    onSelectedPermissionUserChange={setSelectedPermissionUserId}
                     onSchoolClassCountChange={setSchoolClassCount}
                     onSchoolDistrictChange={setSchoolDistrict}
                     onSchoolNameChange={setSchoolName}
                     onSchoolStateChange={setSchoolState}
                     onSchoolStudentCountChange={setSchoolStudentCount}
+                    onSupportCategoryChange={setSupportCategory}
+                    onSupportSummaryChange={setSupportSummary}
                     onTestIntegration={testMarketIntegration}
                     onToggleIntegration={toggleMarketIntegration}
+                    onToggleUserEnabled={toggleUserEnabled}
                     privacyContact={privacyContact}
                     privacyPosture={privacyPosture}
+                    portfolioAdjustment={portfolioAdjustment}
+                    portfolioCorrectionNotice={portfolioCorrectionNotice}
+                    portfolioCorrectionReason={portfolioCorrectionReason}
+                    questTransferNotice={questTransferNotice}
+                    questTransferText={questTransferText}
                     schoolClassCount={schoolClassCount}
                     schoolDistrict={schoolDistrict}
                     schoolName={schoolName}
                     schools={schools}
                     schoolState={schoolState}
                     schoolStudentCount={schoolStudentCount}
+                    selectedPermissionUser={selectedPermissionUser}
+                    supportCases={supportCases}
+                    supportCategory={supportCategory}
+                    supportSummary={supportSummary}
                     selectedPrivacyPosture={selectedPrivacyPosture}
+                    userClassFilter={userClassFilter}
+                    userRoleFilter={userRoleFilter}
+                    onUpdateUserPermission={updateUserPermission}
+                    onUserClassFilterChange={setUserClassFilter}
+                    onUserRoleFilterChange={setUserRoleFilter}
                   />
                 ) : (
                   <>
@@ -2075,23 +2392,60 @@ export default function Home() {
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {adminModules.map((module) => (
-                  <article
-                    key={module.title}
-                    className="rounded-lg border border-border bg-background p-4"
-                  >
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-[#e8f0ed] text-[#28666e]">
-                        <module.icon className="size-5" aria-hidden="true" />
-                      </div>
-                      <Badge variant="outline" className="rounded-md bg-card">
-                        {module.status}
-                      </Badge>
-                    </div>
-                    <h4 className="font-semibold">{module.title}</h4>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      {module.detail}
-                    </p>
-                  </article>
+                  module.title === "Password resets" ? (
+                    <Dialog key={module.title}>
+                      <DialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border bg-background p-4 text-left transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          <AdminModuleCardContent module={module} />
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Password reset</DialogTitle>
+                          <DialogDescription>
+                            Trigger a reset email for a user. SSO reset routing
+                            will be added later.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2">
+                          <Label htmlFor="reset-email">User email</Label>
+                          <Input
+                            id="reset-email"
+                            placeholder="student@school.edu"
+                            value={resetEmail}
+                            onChange={(event) => setResetEmail(event.target.value)}
+                          />
+                          {resetNotice ? (
+                            <p className="text-sm text-muted-foreground">
+                              {resetNotice}
+                            </p>
+                          ) : null}
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            onClick={triggerPasswordReset}
+                            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+                          >
+                            <KeyRound className="size-4" aria-hidden="true" />
+                            Send reset
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  ) : (
+                    <button
+                      key={module.title}
+                      type="button"
+                      onClick={() => openAdminModule(module.title)}
+                      className="rounded-lg border border-border bg-background p-4 text-left transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <AdminModuleCardContent module={module} />
+                    </button>
+                  )
                 ))}
               </div>
             </section>
@@ -2152,6 +2506,15 @@ export default function Home() {
                     ))}
                   </TableBody>
                 </Table>
+
+                <LearningQuestTransferPanel
+                  audience="Admin"
+                  notice={questTransferNotice}
+                  onExport={exportLearningQuests}
+                  onImport={importLearningQuests}
+                  onTextChange={setQuestTransferText}
+                  transferText={questTransferText}
+                />
               </div>
 
               <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -2596,6 +2959,8 @@ function StudentPortfolioPage({
 
 function AdminDrilldown({
   activePage,
+  adminUsers,
+  filteredAdminUsers,
   schools,
   schoolName,
   schoolDistrict,
@@ -2613,6 +2978,17 @@ function AdminDrilldown({
   privacyPosture,
   selectedPrivacyPosture,
   privacyContact,
+  selectedPermissionUser,
+  supportCases,
+  supportSummary,
+  supportCategory,
+  portfolioAdjustment,
+  portfolioCorrectionReason,
+  portfolioCorrectionNotice,
+  questTransferText,
+  questTransferNotice,
+  userClassFilter,
+  userRoleFilter,
   onBack,
   onAddSchool,
   onDeleteSchool,
@@ -2634,8 +3010,24 @@ function AdminDrilldown({
   onIntegrationSymbolsChange,
   onPrivacyPostureChange,
   onPrivacyContactChange,
+  onSelectedPermissionUserChange,
+  onToggleUserEnabled,
+  onUpdateUserPermission,
+  onUserClassFilterChange,
+  onUserRoleFilterChange,
+  onCreateSupportCase,
+  onSupportSummaryChange,
+  onSupportCategoryChange,
+  onApplyPortfolioCorrection,
+  onPortfolioAdjustmentChange,
+  onPortfolioCorrectionReasonChange,
+  onQuestExport,
+  onQuestImport,
+  onQuestTransferTextChange,
 }: {
   activePage: AdminPage;
+  adminUsers: AdminUser[];
+  filteredAdminUsers: AdminUser[];
   schools: SchoolRecord[];
   schoolName: string;
   schoolDistrict: string;
@@ -2653,6 +3045,17 @@ function AdminDrilldown({
   privacyPosture: string;
   selectedPrivacyPosture: (typeof privacyPostures)[number];
   privacyContact: string;
+  selectedPermissionUser: AdminUser;
+  supportCases: SupportCase[];
+  supportSummary: string;
+  supportCategory: string;
+  portfolioAdjustment: string;
+  portfolioCorrectionReason: string;
+  portfolioCorrectionNotice: string;
+  questTransferText: string;
+  questTransferNotice: string;
+  userClassFilter: string;
+  userRoleFilter: string;
   onBack: () => void;
   onAddSchool: () => void;
   onDeleteSchool: (schoolId: string) => void;
@@ -2674,13 +3077,39 @@ function AdminDrilldown({
   onIntegrationSymbolsChange: (symbols: string) => void;
   onPrivacyPostureChange: (posture: string) => void;
   onPrivacyContactChange: (contact: string) => void;
+  onSelectedPermissionUserChange: (userId: string) => void;
+  onToggleUserEnabled: (userId: string, enabled: boolean) => void;
+  onUpdateUserPermission: (
+    userId: string,
+    permission: keyof AdminUser["permissions"],
+    enabled: boolean
+  ) => void;
+  onUserClassFilterChange: (className: string) => void;
+  onUserRoleFilterChange: (role: string) => void;
+  onCreateSupportCase: () => void;
+  onSupportSummaryChange: (summary: string) => void;
+  onSupportCategoryChange: (category: string) => void;
+  onApplyPortfolioCorrection: () => void;
+  onPortfolioAdjustmentChange: (amount: string) => void;
+  onPortfolioCorrectionReasonChange: (reason: string) => void;
+  onQuestExport: () => void;
+  onQuestImport: () => void;
+  onQuestTransferTextChange: (text: string) => void;
 }) {
   const pageTitle =
     activePage === "schools"
       ? "Schools"
       : activePage === "integrations"
         ? "Integrations"
-        : "Privacy posture";
+        : activePage === "privacy"
+          ? "Privacy posture"
+          : activePage === "users"
+            ? "Users"
+            : activePage === "permissions"
+              ? "Permissions"
+              : activePage === "support"
+                ? "Support"
+                : "Portfolio corrections";
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -2743,6 +3172,59 @@ function AdminDrilldown({
           privacyContact={privacyContact}
           privacyPosture={privacyPosture}
           selectedPrivacyPosture={selectedPrivacyPosture}
+        />
+      ) : null}
+
+      {activePage === "users" ? (
+        <UsersAdminPage
+          filteredUsers={filteredAdminUsers}
+          onClassFilterChange={onUserClassFilterChange}
+          onRoleFilterChange={onUserRoleFilterChange}
+          onToggleUserEnabled={onToggleUserEnabled}
+          selectedClass={userClassFilter}
+          selectedRole={userRoleFilter}
+        />
+      ) : null}
+
+      {activePage === "permissions" ? (
+        <PermissionsAdminPage
+          onSelectedUserChange={onSelectedPermissionUserChange}
+          onUpdateUserPermission={onUpdateUserPermission}
+          selectedUser={selectedPermissionUser}
+          users={adminUsers}
+        />
+      ) : null}
+
+      {activePage === "support" ? (
+        <SupportAdminPage
+          cases={supportCases}
+          category={supportCategory}
+          onCategoryChange={onSupportCategoryChange}
+          onCreateCase={onCreateSupportCase}
+          onSummaryChange={onSupportSummaryChange}
+          summary={supportSummary}
+        />
+      ) : null}
+
+      {activePage === "portfolio-corrections" ? (
+        <PortfolioCorrectionsAdminPage
+          adjustment={portfolioAdjustment}
+          notice={portfolioCorrectionNotice}
+          onAdjustmentChange={onPortfolioAdjustmentChange}
+          onApplyCorrection={onApplyPortfolioCorrection}
+          onReasonChange={onPortfolioCorrectionReasonChange}
+          reason={portfolioCorrectionReason}
+        />
+      ) : null}
+
+      {activePage === "permissions" ? (
+        <LearningQuestTransferPanel
+          audience="Admin"
+          notice={questTransferNotice}
+          onExport={onQuestExport}
+          onImport={onQuestImport}
+          onTextChange={onQuestTransferTextChange}
+          transferText={questTransferText}
         />
       ) : null}
     </section>
@@ -3214,6 +3696,427 @@ function PrivacyPostureAdminPage({
       </div>
     </div>
   );
+}
+
+function UsersAdminPage({
+  filteredUsers,
+  selectedClass,
+  selectedRole,
+  onClassFilterChange,
+  onRoleFilterChange,
+  onToggleUserEnabled,
+}: {
+  filteredUsers: AdminUser[];
+  selectedClass: string;
+  selectedRole: string;
+  onClassFilterChange: (className: string) => void;
+  onRoleFilterChange: (role: string) => void;
+  onToggleUserEnabled: (userId: string, enabled: boolean) => void;
+}) {
+  return (
+    <div className="grid gap-6">
+      <div className="grid gap-4 rounded-lg border border-border bg-background p-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Class</Label>
+          <Select value={selectedClass} onValueChange={onClassFilterChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All classes</SelectItem>
+              {classOptions.map((className) => (
+                <SelectItem key={className} value={className}>
+                  {className}
+                </SelectItem>
+              ))}
+              <SelectItem value="District">District</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Role</Label>
+          <Select value={selectedRole} onValueChange={onRoleFilterChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All roles</SelectItem>
+              <SelectItem value="Student">Student</SelectItem>
+              <SelectItem value="Teacher">Teacher</SelectItem>
+              <SelectItem value="Admin">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="min-w-[900px]">
+          <TableHeader>
+            <TableRow className="text-muted-foreground hover:bg-transparent">
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Class</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Profile</TableHead>
+              <TableHead>Enabled</TableHead>
+              <TableHead>Permissions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredUsers.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell className="font-medium">
+                  {user.firstName} {user.lastName}
+                </TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>{user.className}</TableCell>
+                <TableCell>{user.role}</TableCell>
+                <TableCell>
+                  <Button type="button" variant="outline" size="sm">
+                    Profile
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    checked={user.enabled}
+                    onCheckedChange={(checked) =>
+                      onToggleUserEnabled(user.id, checked)
+                    }
+                  />
+                </TableCell>
+                <TableCell>
+                  {permissionSummary(user.permissions)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function PermissionsAdminPage({
+  users,
+  selectedUser,
+  onSelectedUserChange,
+  onUpdateUserPermission,
+}: {
+  users: AdminUser[];
+  selectedUser: AdminUser;
+  onSelectedUserChange: (userId: string) => void;
+  onUpdateUserPermission: (
+    userId: string,
+    permission: keyof AdminUser["permissions"],
+    enabled: boolean
+  ) => void;
+}) {
+  const permissions = [
+    ["studentProfile", "Student profile"],
+    ["teacherPortal", "Teacher portal"],
+    ["adminPortal", "Admin portal"],
+    ["questImportExport", "Quest import/export"],
+    ["portfolioCorrections", "Portfolio corrections"],
+  ] as const;
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="rounded-lg border border-border bg-background p-4">
+        <Label>User</Label>
+        <Select value={selectedUser.id} onValueChange={onSelectedUserChange}>
+          <SelectTrigger className="mt-2 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {users.map((user) => (
+              <SelectItem key={user.id} value={user.id}>
+                {user.firstName} {user.lastName} - {user.role}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Admin users keep all system rights by default.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <h4 className="font-semibold">
+          {selectedUser.firstName} {selectedUser.lastName}
+        </h4>
+        <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+        <div className="mt-4 grid gap-3">
+          {permissions.map(([key, label]) => (
+            <div
+              key={key}
+              className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-4"
+            >
+              <div>
+                <p className="font-medium">{label}</p>
+                <p className="text-sm text-muted-foreground">
+                  {permissionDetail(key)}
+                </p>
+              </div>
+              <Switch
+                checked={selectedUser.permissions[key]}
+                disabled={selectedUser.role === "Admin"}
+                onCheckedChange={(checked) =>
+                  onUpdateUserPermission(selectedUser.id, key, checked)
+                }
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SupportAdminPage({
+  cases,
+  summary,
+  category,
+  onSummaryChange,
+  onCategoryChange,
+  onCreateCase,
+}: {
+  cases: SupportCase[];
+  summary: string;
+  category: string;
+  onSummaryChange: (summary: string) => void;
+  onCategoryChange: (category: string) => void;
+  onCreateCase: () => void;
+}) {
+  return (
+    <div className="grid gap-6">
+      <div className="grid gap-4 rounded-lg border border-border bg-background p-4 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+        <div className="space-y-2">
+          <Label htmlFor="support-summary">New case</Label>
+          <Input
+            id="support-summary"
+            placeholder="Describe the issue"
+            value={summary}
+            onChange={(event) => onSummaryChange(event.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Category</Label>
+          <Select value={category} onValueChange={onCategoryChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Account">Account</SelectItem>
+              <SelectItem value="Roster">Roster</SelectItem>
+              <SelectItem value="Integration">Integration</SelectItem>
+              <SelectItem value="Portfolio">Portfolio</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-end">
+          <Button
+            type="button"
+            onClick={onCreateCase}
+            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            Create case
+          </Button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="min-w-[760px]">
+          <TableHeader>
+            <TableRow className="text-muted-foreground hover:bg-transparent">
+              <TableHead>Case</TableHead>
+              <TableHead>Summary</TableHead>
+              <TableHead>Requester</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {cases.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-medium">{item.id}</TableCell>
+                <TableCell>{item.summary}</TableCell>
+                <TableCell>{item.requester}</TableCell>
+                <TableCell>{item.category}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="rounded-md bg-card">
+                    {item.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>{item.createdAt}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function PortfolioCorrectionsAdminPage({
+  adjustment,
+  reason,
+  notice,
+  onAdjustmentChange,
+  onReasonChange,
+  onApplyCorrection,
+}: {
+  adjustment: string;
+  reason: string;
+  notice: string;
+  onAdjustmentChange: (amount: string) => void;
+  onReasonChange: (reason: string) => void;
+  onApplyCorrection: () => void;
+}) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="rounded-lg border border-border bg-background p-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Student</Label>
+            <Input value="Avery Johnson" readOnly />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="correction-amount">Increase/decrease value</Label>
+            <Input
+              id="correction-amount"
+              type="number"
+              value={adjustment}
+              onChange={(event) => onAdjustmentChange(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          <Label htmlFor="correction-reason">Audit reason</Label>
+          <Textarea
+            id="correction-reason"
+            value={reason}
+            onChange={(event) => onReasonChange(event.target.value)}
+          />
+        </div>
+        <Button
+          type="button"
+          onClick={onApplyCorrection}
+          className="mt-4 bg-[#28666e] text-white hover:bg-[#22565d]"
+        >
+          <WalletCards className="size-4" aria-hidden="true" />
+          Apply correction
+        </Button>
+      </div>
+      <div className="rounded-lg border border-border bg-card p-4">
+        <h4 className="font-semibold">Correction guardrails</h4>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Corrections affect simulated value only and should carry an audit
+          reason before they are applied to the student portfolio history.
+        </p>
+        {notice ? (
+          <p className="mt-4 rounded-md bg-[#e8f0ed] p-3 text-sm text-[#24493f]">
+            {notice}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AdminModuleCardContent({
+  module,
+}: {
+  module: (typeof adminModules)[number];
+}) {
+  return (
+    <>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex size-10 items-center justify-center rounded-lg bg-[#e8f0ed] text-[#28666e]">
+          <module.icon className="size-5" aria-hidden="true" />
+        </div>
+        <Badge variant="outline" className="rounded-md bg-card">
+          {module.status}
+        </Badge>
+      </div>
+      <h4 className="font-semibold">{module.title}</h4>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {module.detail}
+      </p>
+    </>
+  );
+}
+
+function LearningQuestTransferPanel({
+  audience,
+  transferText,
+  notice,
+  onTextChange,
+  onExport,
+  onImport,
+}: {
+  audience: "Teacher" | "Admin";
+  transferText: string;
+  notice: string;
+  onTextChange: (text: string) => void;
+  onExport: () => void;
+  onImport: () => void;
+}) {
+  return (
+    <div className="mt-5 rounded-lg border border-border bg-background p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h4 className="font-semibold">Learning quest import/export</h4>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {audience}s can move quest templates between classrooms or district
+            libraries using JSON.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={onExport}>
+            <Download className="size-4" aria-hidden="true" />
+            Export
+          </Button>
+          <Button
+            type="button"
+            onClick={onImport}
+            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            <Upload className="size-4" aria-hidden="true" />
+            Import
+          </Button>
+        </div>
+      </div>
+      <Textarea
+        className="mt-4 min-h-32 font-mono text-sm"
+        placeholder="Paste exported learning quest JSON"
+        value={transferText}
+        onChange={(event) => onTextChange(event.target.value)}
+      />
+      {notice ? (
+        <p className="mt-3 text-sm text-muted-foreground">{notice}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function permissionSummary(permissions: AdminUser["permissions"]) {
+  const enabled = Object.values(permissions).filter(Boolean).length;
+
+  return `${enabled} of ${Object.keys(permissions).length} enabled`;
+}
+
+function permissionDetail(permission: keyof AdminUser["permissions"]) {
+  const details: Record<keyof AdminUser["permissions"], string> = {
+    studentProfile: "Allows access to the student profile experience.",
+    teacherPortal: "Allows access to classroom and teacher quest tools.",
+    adminPortal: "Allows system-wide administration rights.",
+    questImportExport: "Allows learning quest template import and export.",
+    portfolioCorrections: "Allows audited simulated portfolio adjustments.",
+  };
+
+  return details[permission];
 }
 
 function MessageWorkspace({

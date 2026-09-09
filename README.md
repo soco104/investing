@@ -18,6 +18,12 @@ views that focus on learning evidence instead of real-money trading outcomes.
 - Admin portal for user management, permissions, support routing, market API
   setup, password resets, portfolio corrections, template governance, and
   scoring policy controls
+- Admin user management with class and role filters, profile links, enabled
+  status, and visible permission levels
+- Admin permission management for student profile access, teacher portal access,
+  Admin rights, quest import/export, and portfolio corrections
+- Admin support case tracking with new case creation and pending support/user
+  statuses
 - Admin drill-in pages for school setup, market data integrations, and district
   privacy posture selection
 - Admin school setup captures school, district, state, class count, and student
@@ -26,6 +32,7 @@ views that focus on learning evidence instead of real-money trading outcomes.
   polling cadence, target class, backend GET test status, and class-level
   cleanup controls. Leaving allowed symbols blank permits up to 200 imported
   symbols for the MVP
+- Teachers and Admins can export and import learning quest templates as JSON
 - Mock market data API for classroom-safe quote behavior
 - Initial database schema for districts, schools, classrooms, students,
   simulated portfolios, holdings, lessons, teacher-created quests, hidden
@@ -33,8 +40,8 @@ views that focus on learning evidence instead of real-money trading outcomes.
   threads, classroom discussion rooms, message moderation status, admin users,
   role assignments, support tickets, market data integrations, password reset
   requests, privacy posture settings, simulated portfolio activity,
-  class-level market integration assignments, portfolio correction audits, and
-  lesson progress
+  user permission grants, class-level market integration assignments, portfolio
+  correction audits, and lesson progress
 
 ## Development
 

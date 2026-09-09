@@ -900,6 +900,7 @@ export default function Home() {
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>(initialAdminUsers);
   const [userClassFilter, setUserClassFilter] = useState("all");
   const [userRoleFilter, setUserRoleFilter] = useState("all");
+  const [userImportNotice, setUserImportNotice] = useState("");
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState(
     initialAdminUsers[0].id
   );
@@ -1225,6 +1226,32 @@ export default function Home() {
           : user
       )
     );
+  }
+
+  function importUsersFromCsv(csvText: string) {
+    const importedUsers = parseUsersCsv(csvText);
+
+    if (!importedUsers.length) {
+      setUserImportNotice(
+        "No users imported. Check that the CSV includes at least an email column."
+      );
+      return;
+    }
+
+    setAdminUsers((users) => {
+      const existingEmails = new Set(users.map((user) => user.email.toLowerCase()));
+      const newUsers = importedUsers.filter(
+        (user) => !existingEmails.has(user.email.toLowerCase())
+      );
+
+      setUserImportNotice(
+        `${newUsers.length} users imported. ${
+          importedUsers.length - newUsers.length
+        } duplicate emails skipped.`
+      );
+
+      return [...newUsers, ...users];
+    });
   }
 
   function createSupportCase() {
@@ -2460,6 +2487,7 @@ export default function Home() {
                     onIntegrationTokenRequiredChange={
                       setIntegrationTokenRequired
                     }
+                    onImportUsers={importUsersFromCsv}
                     onPrivacyContactChange={setPrivacyContact}
                     onPrivacyPostureChange={setPrivacyPosture}
                     onPortfolioAdjustmentChange={setPortfolioAdjustment}
@@ -2500,6 +2528,7 @@ export default function Home() {
                     supportSummary={supportSummary}
                     selectedPrivacyPosture={selectedPrivacyPosture}
                     userClassFilter={userClassFilter}
+                    userImportNotice={userImportNotice}
                     userRoleFilter={userRoleFilter}
                     onUpdateUserPermission={updateUserPermission}
                     onUserClassFilterChange={setUserClassFilter}
@@ -3535,6 +3564,7 @@ function AdminDrilldown({
   questTransferText,
   questTransferNotice,
   userClassFilter,
+  userImportNotice,
   userRoleFilter,
   onBack,
   onAddSchool,
@@ -3555,6 +3585,7 @@ function AdminDrilldown({
   onIntegrationPollingFrequencyChange,
   onIntegrationTargetClassChange,
   onIntegrationSymbolsChange,
+  onImportUsers,
   onPrivacyPostureChange,
   onPrivacyContactChange,
   onSelectedPermissionUserChange,
@@ -3603,6 +3634,7 @@ function AdminDrilldown({
   questTransferText: string;
   questTransferNotice: string;
   userClassFilter: string;
+  userImportNotice: string;
   userRoleFilter: string;
   onBack: () => void;
   onAddSchool: () => void;
@@ -3623,6 +3655,7 @@ function AdminDrilldown({
   onIntegrationPollingFrequencyChange: (frequency: string) => void;
   onIntegrationTargetClassChange: (className: string) => void;
   onIntegrationSymbolsChange: (symbols: string) => void;
+  onImportUsers: (csvText: string) => void;
   onPrivacyPostureChange: (posture: string) => void;
   onPrivacyContactChange: (contact: string) => void;
   onSelectedPermissionUserChange: (userId: string) => void;
@@ -3727,7 +3760,9 @@ function AdminDrilldown({
       {activePage === "users" ? (
         <UsersAdminPage
           filteredUsers={filteredAdminUsers}
+          importNotice={userImportNotice}
           onClassFilterChange={onUserClassFilterChange}
+          onImportUsers={onImportUsers}
           onOpenProfile={onOpenUserProfile}
           onRoleFilterChange={onUserRoleFilterChange}
           onToggleUserEnabled={onToggleUserEnabled}
@@ -4252,7 +4287,9 @@ function UsersAdminPage({
   filteredUsers,
   selectedClass,
   selectedRole,
+  importNotice,
   onClassFilterChange,
+  onImportUsers,
   onOpenProfile,
   onRoleFilterChange,
   onToggleUserEnabled,
@@ -4260,14 +4297,52 @@ function UsersAdminPage({
   filteredUsers: AdminUser[];
   selectedClass: string;
   selectedRole: string;
+  importNotice: string;
   onClassFilterChange: (className: string) => void;
+  onImportUsers: (csvText: string) => void;
   onOpenProfile: (userId: string) => void;
   onRoleFilterChange: (role: string) => void;
   onToggleUserEnabled: (userId: string, enabled: boolean) => void;
 }) {
+  function handleCsvUpload(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      onImportUsers(String(reader.result ?? ""));
+    };
+    reader.readAsText(file);
+  }
+
   return (
     <div className="grid gap-6">
-      <div className="grid gap-4 rounded-lg border border-border bg-background p-4 md:grid-cols-2">
+      <div className="grid gap-4 rounded-lg border border-border bg-background p-4 xl:grid-cols-[minmax(0,1fr)_220px_220px]">
+        <div>
+          <h4 className="font-semibold">Import users</h4>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upload a CSV with firstName, lastName, email, role, class, and alias.
+          </p>
+          <Label
+            htmlFor="user-csv-upload"
+            className="mt-3 flex w-fit cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium transition hover:bg-background"
+          >
+            <Upload className="size-4 text-[#28666e]" aria-hidden="true" />
+            Upload CSV
+          </Label>
+          <Input
+            id="user-csv-upload"
+            accept=".csv,text/csv"
+            className="sr-only"
+            type="file"
+            onChange={(event) => handleCsvUpload(event.target.files?.[0])}
+          />
+          {importNotice ? (
+            <p className="mt-2 text-sm text-muted-foreground">{importNotice}</p>
+          ) : null}
+        </div>
         <div className="space-y-2">
           <Label>Class</Label>
           <Select value={selectedClass} onValueChange={onClassFilterChange}>
@@ -4676,6 +4751,150 @@ function permissionDetail(permission: keyof AdminUser["permissions"]) {
   };
 
   return details[permission];
+}
+
+function parseUsersCsv(csvText: string): AdminUser[] {
+  const rows = parseCsvRows(csvText).filter((row) =>
+    row.some((cell) => cell.trim())
+  );
+
+  if (rows.length < 2) {
+    return [];
+  }
+
+  const headers = rows[0].map(normalizeCsvHeader);
+
+  return rows
+    .slice(1)
+    .map((row, index) => {
+      const record = Object.fromEntries(
+        headers.map((header, headerIndex) => [header, row[headerIndex]?.trim() ?? ""])
+      );
+      const email = record.email;
+
+      if (!email) {
+        return null;
+      }
+
+      const role = normalizeRole(record.role);
+      const firstName = record.firstname || record.first || "Imported";
+      const lastName = record.lastname || record.last || "User";
+      const className =
+        record.class || record.classname || record.classroom || "Unassigned";
+
+      return {
+        id: `imported-${Date.now()}-${index}`,
+        firstName,
+        lastName,
+        alias:
+          record.alias ||
+          record.username ||
+          `${firstName}${lastName}`.replace(/\s/g, ""),
+        email,
+        role,
+        className,
+        classes: [className],
+        profileNote: "Imported from district CSV.",
+        enabled: true,
+        permissions: permissionsForRole(role),
+      };
+    })
+    .filter((user): user is AdminUser => Boolean(user));
+}
+
+function parseCsvRows(csvText: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < csvText.length; index += 1) {
+    const char = csvText[index];
+    const nextChar = csvText[index + 1];
+
+    if (char === '"' && nextChar === '"') {
+      cell += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        index += 1;
+      }
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell);
+  rows.push(row);
+
+  return rows;
+}
+
+function normalizeCsvHeader(header: string) {
+  return header.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function normalizeRole(role: string): AdminUser["role"] {
+  const normalizedRole = role.trim().toLowerCase();
+
+  if (normalizedRole === "teacher") {
+    return "Teacher";
+  }
+
+  if (normalizedRole === "admin") {
+    return "Admin";
+  }
+
+  return "Student";
+}
+
+function permissionsForRole(role: AdminUser["role"]): AdminUser["permissions"] {
+  if (role === "Admin") {
+    return {
+      studentProfile: true,
+      teacherPortal: true,
+      adminPortal: true,
+      questImportExport: true,
+      portfolioCorrections: true,
+    };
+  }
+
+  if (role === "Teacher") {
+    return {
+      studentProfile: false,
+      teacherPortal: true,
+      adminPortal: false,
+      questImportExport: true,
+      portfolioCorrections: false,
+    };
+  }
+
+  return {
+    studentProfile: true,
+    teacherPortal: false,
+    adminPortal: false,
+    questImportExport: false,
+    portfolioCorrections: false,
+  };
 }
 
 function MessageWorkspace({

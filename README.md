@@ -22,7 +22,8 @@ views that focus on learning evidence instead of real-money trading outcomes.
   setup, password resets, portfolio corrections, template governance, and
   scoring policy controls
 - Admin user management with class and role filters, profile links, enabled
-  status, and visible permission levels
+  status, visible permission levels, and CSV user import. CSV uploads accept
+  firstName, lastName, email, role, class, and alias columns
 - Admin permission management for student profile access, teacher portal access,
   Admin rights, quest import/export, and portfolio corrections
 - Admin support case tracking with new case creation and pending support/user

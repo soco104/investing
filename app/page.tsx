@@ -266,7 +266,7 @@ type Conversation = {
   id: string;
   title: string;
   participants: string;
-  kind: "Teacher" | "Classmate";
+  kind: "Teacher" | "Classmate" | "Discussion";
   unread: number;
   messages: ConversationMessage[];
 };
@@ -346,7 +346,7 @@ const initialTeacherQuests: TeacherQuest[] = [
   },
 ];
 
-const initialConversations: Conversation[] = [
+const initialInboxConversations: Conversation[] = [
   {
     id: "teacher-risk-feedback",
     title: "Ms. Rivera",
@@ -371,10 +371,29 @@ const initialConversations: Conversation[] = [
     ],
   },
   {
+    id: "teacher-roth-lab",
+    title: "Roth IRA Lab Help",
+    participants: "Avery and Mr. Chen",
+    kind: "Teacher",
+    unread: 0,
+    messages: [
+      {
+        id: "msg-5",
+        sender: "Mr. Chen",
+        role: "Teacher",
+        body: "Remember that the Roth IRA lab uses earned income from the scenario. The app is not opening a real account.",
+        sentAt: "Mon",
+      },
+    ],
+  },
+];
+
+const initialDiscussionRooms: Conversation[] = [
+  {
     id: "class-budget-team",
     title: "Budget Quest Team",
     participants: "Avery, Jordan, Maya",
-    kind: "Classmate",
+    kind: "Discussion",
     unread: 0,
     messages: [
       {
@@ -394,18 +413,25 @@ const initialConversations: Conversation[] = [
     ],
   },
   {
-    id: "teacher-roth-lab",
-    title: "Roth IRA Lab Help",
-    participants: "Avery and Mr. Chen",
-    kind: "Teacher",
-    unread: 0,
+    id: "market-drop-room",
+    title: "Market Drop Discussion",
+    participants: "Grade 7 Finance",
+    kind: "Discussion",
+    unread: 2,
     messages: [
       {
-        id: "msg-5",
-        sender: "Mr. Chen",
+        id: "msg-6",
+        sender: "Ms. Rivera",
         role: "Teacher",
-        body: "Remember that the Roth IRA lab uses earned income from the scenario. The app is not opening a real account.",
-        sentAt: "Mon",
+        body: "What did you notice about the portfolio that held bonds during the market drop?",
+        sentAt: "8:55 AM",
+      },
+      {
+        id: "msg-7",
+        sender: "Leo",
+        role: "Student",
+        body: "It did not grow as fast before, but it lost less when growth stocks dropped.",
+        sentAt: "9:03 AM",
       },
     ],
   },
@@ -451,13 +477,22 @@ export default function Home() {
   const [draftQuest, setDraftQuest] = useState<TeacherQuest>(
     initialTeacherQuests[0]
   );
-  const [conversations, setConversations] =
-    useState<Conversation[]>(initialConversations);
-  const [selectedConversationId, setSelectedConversationId] = useState(
-    initialConversations[0].id
+  const [inboxConversations, setInboxConversations] = useState<Conversation[]>(
+    initialInboxConversations
   );
-  const [messageDraft, setMessageDraft] = useState("");
-  const [messageWarning, setMessageWarning] = useState("");
+  const [discussionRooms, setDiscussionRooms] = useState<Conversation[]>(
+    initialDiscussionRooms
+  );
+  const [selectedInboxId, setSelectedInboxId] = useState(
+    initialInboxConversations[0].id
+  );
+  const [selectedDiscussionId, setSelectedDiscussionId] = useState(
+    initialDiscussionRooms[0].id
+  );
+  const [inboxDraft, setInboxDraft] = useState("");
+  const [discussionDraft, setDiscussionDraft] = useState("");
+  const [inboxWarning, setInboxWarning] = useState("");
+  const [discussionWarning, setDiscussionWarning] = useState("");
 
   const portfolio = useMemo(
     () =>
@@ -486,10 +521,12 @@ export default function Home() {
     (total, criterion) => total + criterion.points,
     0
   );
-  const selectedConversation =
-    conversations.find(
-      (conversation) => conversation.id === selectedConversationId
-    ) ?? conversations[0];
+  const selectedInboxConversation =
+    inboxConversations.find((conversation) => conversation.id === selectedInboxId) ??
+    inboxConversations[0];
+  const selectedDiscussionRoom =
+    discussionRooms.find((room) => room.id === selectedDiscussionId) ??
+    discussionRooms[0];
 
   function updateCriterion(
     criterionId: string,
@@ -567,23 +604,23 @@ export default function Home() {
     setSelectedQuestId(draftQuest.id);
   }
 
-  function sendMessage() {
-    const trimmedMessage = messageDraft.trim();
+  function sendInboxMessage() {
+    const trimmedMessage = inboxDraft.trim();
 
     if (!trimmedMessage) {
       return;
     }
 
     if (containsProfanity(trimmedMessage)) {
-      setMessageWarning(
+      setInboxWarning(
         "Message blocked. Rewrite it using respectful classroom language."
       );
       return;
     }
 
-    setConversations((currentConversations) =>
+    setInboxConversations((currentConversations) =>
       currentConversations.map((conversation) =>
-        conversation.id === selectedConversationId
+        conversation.id === selectedInboxId
           ? {
               ...conversation,
               messages: [
@@ -600,8 +637,45 @@ export default function Home() {
           : conversation
       )
     );
-    setMessageDraft("");
-    setMessageWarning("");
+    setInboxDraft("");
+    setInboxWarning("");
+  }
+
+  function sendDiscussionMessage() {
+    const trimmedMessage = discussionDraft.trim();
+
+    if (!trimmedMessage) {
+      return;
+    }
+
+    if (containsProfanity(trimmedMessage)) {
+      setDiscussionWarning(
+        "Message blocked. Rewrite it using respectful classroom language."
+      );
+      return;
+    }
+
+    setDiscussionRooms((currentRooms) =>
+      currentRooms.map((room) =>
+        room.id === selectedDiscussionId
+          ? {
+              ...room,
+              messages: [
+                ...room.messages,
+                {
+                  id: `msg-${Date.now()}`,
+                  sender: "Avery",
+                  role: "Student",
+                  body: trimmedMessage,
+                  sentAt: "Just now",
+                },
+              ],
+            }
+          : room
+      )
+    );
+    setDiscussionDraft("");
+    setDiscussionWarning("");
   }
 
   return (
@@ -685,6 +759,9 @@ export default function Home() {
               </TabsTrigger>
               <TabsTrigger value="inbox" className="min-h-9 px-3">
                 Inbox
+              </TabsTrigger>
+              <TabsTrigger value="discussion" className="min-h-9 px-3">
+                Discussion
               </TabsTrigger>
               <TabsTrigger value="teacher" className="min-h-9 px-3">
                 Teacher
@@ -903,11 +980,11 @@ export default function Home() {
                   <SummaryCard
                     icon={<Mail className="size-5" />}
                     label="Inbox"
-                    value={`${conversations.reduce(
+                    value={`${inboxConversations.reduce(
                       (total, conversation) => total + conversation.unread,
                       0
                     )} unread`}
-                    detail="Teacher and classmate messages"
+                    detail="Messages for Avery Johnson"
                   />
                   <SummaryCard
                     icon={<ShieldCheck className="size-5" />}
@@ -916,151 +993,72 @@ export default function Home() {
                     detail="Text-only messages"
                   />
                   <SummaryCard
-                    icon={<UsersRound className="size-5" />}
-                    label="Allowed chats"
-                    value="Classroom"
-                    detail="District roster only"
+                    icon={<MessageCircle className="size-5" />}
+                    label="Direct threads"
+                    value={`${inboxConversations.length}`}
+                    detail="Teacher and approved peer chats"
                   />
                 </section>
 
-                <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-                  <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-semibold">Messages</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Text-only classroom conversations.
-                        </p>
-                      </div>
-                      <MessageCircle className="size-5 text-muted-foreground" />
-                    </div>
+                <MessageWorkspace
+                  conversations={inboxConversations}
+                  draft={inboxDraft}
+                  listDescription="Direct messages tied to this user profile."
+                  listTitle="Profile inbox"
+                  onClearWarning={() => setInboxWarning("")}
+                  onDraftChange={setInboxDraft}
+                  onSelectConversation={setSelectedInboxId}
+                  onSend={sendInboxMessage}
+                  selectedConversation={selectedInboxConversation}
+                  selectedConversationId={selectedInboxId}
+                  threadBadge="User profile"
+                  warning={inboxWarning}
+                />
+              </>
+            ) : null}
+          </TabsContent>
 
-                    <div className="space-y-3">
-                      {conversations.map((conversation) => (
-                        <button
-                          key={conversation.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedConversationId(conversation.id);
-                            setMessageWarning("");
-                          }}
-                          className={`w-full rounded-lg border p-4 text-left transition ${
-                            selectedConversationId === conversation.id
-                              ? "border-[#28666e] bg-[#e8f0ed]"
-                              : "border-border bg-background hover:bg-muted/50"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold">{conversation.title}</p>
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                {conversation.participants}
-                              </p>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className="shrink-0 rounded-md bg-card"
-                            >
-                              {conversation.kind}
-                            </Badge>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              {conversation.messages.at(-1)?.sentAt}
-                            </span>
-                            {conversation.unread > 0 ? (
-                              <span className="rounded-md bg-[#28666e] px-2 py-1 text-xs font-semibold text-white">
-                                {conversation.unread} new
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-border bg-card shadow-sm">
-                    <div className="border-b border-border p-4 sm:p-5">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <MessageCircle className="size-5 text-[#28666e]" />
-                            <h3 className="text-lg font-semibold">
-                              {selectedConversation.title}
-                            </h3>
-                          </div>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {selectedConversation.participants}
-                          </p>
-                        </div>
-                        <Badge className="rounded-md bg-[#fff3da] text-[#7a4b00] hover:bg-[#fff3da]">
-                          Text only
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div className="max-h-[430px] space-y-4 overflow-y-auto p-4 sm:p-5">
-                      {selectedConversation.messages.map((message) => (
-                        <article
-                          key={message.id}
-                          className={`max-w-[82%] rounded-lg border p-4 ${
-                            message.sender === "Avery"
-                              ? "ml-auto border-[#28666e]/20 bg-[#e8f0ed]"
-                              : "border-border bg-background"
-                          }`}
-                        >
-                          <div className="mb-2 flex flex-wrap items-center gap-2">
-                            <span className="font-semibold">{message.sender}</span>
-                            <Badge variant="outline" className="rounded-md bg-card">
-                              {message.role}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {message.sentAt}
-                            </span>
-                          </div>
-                          <p className="text-sm leading-6">{message.body}</p>
-                        </article>
-                      ))}
-                    </div>
-
-                    <div className="border-t border-border p-4 sm:p-5">
-                      {messageWarning ? (
-                        <div className="mb-3 flex items-start gap-2 rounded-lg border border-[#c44536]/30 bg-[#fff0ed] p-3 text-sm text-[#8a3025]">
-                          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-                          <span>{messageWarning}</span>
-                        </div>
-                      ) : null}
-
-                      <Label htmlFor="message-draft">Message</Label>
-                      <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                        <Textarea
-                          id="message-draft"
-                          value={messageDraft}
-                          onChange={(event) => {
-                            setMessageDraft(event.target.value);
-                            if (messageWarning) {
-                              setMessageWarning("");
-                            }
-                          }}
-                          placeholder="Write a respectful classroom message..."
-                          className="min-h-20 resize-none"
-                        />
-                        <Button
-                          type="button"
-                          onClick={sendMessage}
-                          className="h-full min-h-11 bg-[#28666e] text-white hover:bg-[#22565d]"
-                        >
-                          <Send className="size-4" aria-hidden="true" />
-                          Send
-                        </Button>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                        <ShieldCheck className="size-4" aria-hidden="true" />
-                        Messages are limited to text and checked before sending.
-                      </div>
-                    </div>
-                  </div>
+          <TabsContent value="discussion" className="mt-6 space-y-6">
+            {activeTab === "discussion" ? (
+              <>
+                <section className="grid gap-4 md:grid-cols-3">
+                  <SummaryCard
+                    icon={<UsersRound className="size-5" />}
+                    label="Discussion board"
+                    value={`${discussionRooms.length} rooms`}
+                    detail="Shared classroom spaces"
+                  />
+                  <SummaryCard
+                    icon={<Mail className="size-5" />}
+                    label="New posts"
+                    value={`${discussionRooms.reduce(
+                      (total, room) => total + room.unread,
+                      0
+                    )} unread`}
+                    detail="Across Avery's classes"
+                  />
+                  <SummaryCard
+                    icon={<ShieldCheck className="size-5" />}
+                    label="Safety filter"
+                    value="On"
+                    detail="Text-only posts"
+                  />
                 </section>
+
+                <MessageWorkspace
+                  conversations={discussionRooms}
+                  draft={discussionDraft}
+                  listDescription="Shared classroom rooms for quest discussion."
+                  listTitle="Discussion rooms"
+                  onClearWarning={() => setDiscussionWarning("")}
+                  onDraftChange={setDiscussionDraft}
+                  onSelectConversation={setSelectedDiscussionId}
+                  onSend={sendDiscussionMessage}
+                  selectedConversation={selectedDiscussionRoom}
+                  selectedConversationId={selectedDiscussionId}
+                  threadBadge="Classroom room"
+                  warning={discussionWarning}
+                />
               </>
             ) : null}
           </TabsContent>
@@ -1722,6 +1720,172 @@ function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
         </Button>
       </DialogFooter>
     </DialogContent>
+  );
+}
+
+function MessageWorkspace({
+  conversations,
+  selectedConversation,
+  selectedConversationId,
+  listTitle,
+  listDescription,
+  threadBadge,
+  draft,
+  warning,
+  onSelectConversation,
+  onDraftChange,
+  onClearWarning,
+  onSend,
+}: {
+  conversations: Conversation[];
+  selectedConversation: Conversation;
+  selectedConversationId: string;
+  listTitle: string;
+  listDescription: string;
+  threadBadge: string;
+  draft: string;
+  warning: string;
+  onSelectConversation: (conversationId: string) => void;
+  onDraftChange: (message: string) => void;
+  onClearWarning: () => void;
+  onSend: () => void;
+}) {
+  const composerId = `${selectedConversation.id}-message`;
+
+  return (
+    <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">{listTitle}</h3>
+            <p className="text-sm text-muted-foreground">{listDescription}</p>
+          </div>
+          <MessageCircle className="size-5 text-muted-foreground" />
+        </div>
+
+        <div className="space-y-3">
+          {conversations.map((conversation) => (
+            <button
+              key={conversation.id}
+              type="button"
+              onClick={() => {
+                onSelectConversation(conversation.id);
+                onClearWarning();
+              }}
+              className={`w-full rounded-lg border p-4 text-left transition ${
+                selectedConversationId === conversation.id
+                  ? "border-[#28666e] bg-[#e8f0ed]"
+                  : "border-border bg-background hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{conversation.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {conversation.participants}
+                  </p>
+                </div>
+                <Badge variant="outline" className="shrink-0 rounded-md bg-card">
+                  {conversation.kind}
+                </Badge>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {conversation.messages.at(-1)?.sentAt}
+                </span>
+                {conversation.unread > 0 ? (
+                  <span className="rounded-md bg-[#28666e] px-2 py-1 text-xs font-semibold text-white">
+                    {conversation.unread} new
+                  </span>
+                ) : null}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card shadow-sm">
+        <div className="border-b border-border p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <MessageCircle className="size-5 text-[#28666e]" />
+                <h3 className="text-lg font-semibold">
+                  {selectedConversation.title}
+                </h3>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {selectedConversation.participants}
+              </p>
+            </div>
+            <Badge className="rounded-md bg-[#fff3da] text-[#7a4b00] hover:bg-[#fff3da]">
+              {threadBadge}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="max-h-[430px] space-y-4 overflow-y-auto p-4 sm:p-5">
+          {selectedConversation.messages.map((message) => (
+            <article
+              key={message.id}
+              className={`max-w-[82%] rounded-lg border p-4 ${
+                message.sender === "Avery"
+                  ? "ml-auto border-[#28666e]/20 bg-[#e8f0ed]"
+                  : "border-border bg-background"
+              }`}
+            >
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="font-semibold">{message.sender}</span>
+                <Badge variant="outline" className="rounded-md bg-card">
+                  {message.role}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {message.sentAt}
+                </span>
+              </div>
+              <p className="text-sm leading-6">{message.body}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="border-t border-border p-4 sm:p-5">
+          {warning ? (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-[#c44536]/30 bg-[#fff0ed] p-3 text-sm text-[#8a3025]">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+              <span>{warning}</span>
+            </div>
+          ) : null}
+
+          <Label htmlFor={composerId}>Message</Label>
+          <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <Textarea
+              id={composerId}
+              value={draft}
+              onChange={(event) => {
+                onDraftChange(event.target.value);
+                if (warning) {
+                  onClearWarning();
+                }
+              }}
+              placeholder="Write a respectful classroom message..."
+              className="min-h-20 resize-none"
+            />
+            <Button
+              type="button"
+              onClick={onSend}
+              className="h-full min-h-11 bg-[#28666e] text-white hover:bg-[#22565d]"
+            >
+              <Send className="size-4" aria-hidden="true" />
+              Send
+            </Button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <ShieldCheck className="size-4" aria-hidden="true" />
+            Messages are limited to text and checked before sending.
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -152,10 +152,10 @@ export const questSubmissions = sqliteTable("quest_submissions", {
 
 export const conversations = sqliteTable("conversations", {
   id: text("id").primaryKey(),
-  classroomId: text("classroom_id")
-    .notNull()
-    .references(() => classrooms.id),
+  ownerUserId: text("owner_user_id"),
+  classroomId: text("classroom_id").references(() => classrooms.id),
   title: text("title").notNull(),
+  scope: text("scope").notNull().default("direct"),
   kind: text("kind").notNull(),
   textOnly: integer("text_only", { mode: "boolean" }).notNull().default(true),
   createdByUserId: text("created_by_user_id").notNull(),

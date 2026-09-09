@@ -6,7 +6,12 @@ import {
   Building2,
   CalendarClock,
   ChartNoAxesCombined,
+  ClipboardList,
   ChevronRight,
+  Eye,
+  EyeOff,
+  FilePenLine,
+  Gauge,
   GraduationCap,
   Landmark,
   LineChart,
@@ -14,9 +19,14 @@ import {
   Medal,
   PiggyBank,
   Play,
+  Plus,
+  Save,
   School,
+  Settings2,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
+  Target,
   TrendingUp,
   UsersRound,
   WalletCards,
@@ -25,7 +35,18 @@ import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -35,6 +56,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 const allocation = [
   { name: "Index stocks", value: 44, color: "#28666e" },
@@ -124,6 +146,105 @@ const mastery = [
   { concept: "Taxes", score: 54 },
 ];
 
+type ScoringRule = {
+  id: string;
+  label: string;
+  points: number;
+  visibleToStudents: boolean;
+};
+
+type TeacherQuest = {
+  id: string;
+  title: string;
+  objective: string;
+  marketMode: "none" | "watchlist" | "scenario";
+  marketSymbols: string;
+  marketWindow: string;
+  requireReflection: boolean;
+  scoreVisibility: "hidden" | "summary" | "full";
+  criteria: ScoringRule[];
+  status: "Draft" | "Assigned" | "Review";
+  assigned: number;
+  submitted: number;
+  avgScore: number;
+  flagged: number;
+};
+
+const initialTeacherQuests: TeacherQuest[] = [
+  {
+    id: "quest-diversification-drop",
+    title: "Ride out a market drop",
+    objective:
+      "Students rebalance a simulated portfolio after a broad market dip and explain how diversification changes risk.",
+    marketMode: "scenario",
+    marketSymbols: "SPY, QQQ, BND",
+    marketWindow: "10 trading days",
+    requireReflection: true,
+    scoreVisibility: "summary",
+    criteria: [
+      {
+        id: "risk-explanation",
+        label: "Explains risk tradeoffs using evidence",
+        points: 40,
+        visibleToStudents: true,
+      },
+      {
+        id: "rebalance-choice",
+        label: "Maintains diversified allocation after volatility",
+        points: 35,
+        visibleToStudents: false,
+      },
+      {
+        id: "reflection-quality",
+        label: "Connects decision to long-term goal",
+        points: 25,
+        visibleToStudents: true,
+      },
+    ],
+    status: "Assigned",
+    assigned: 31,
+    submitted: 22,
+    avgScore: 84,
+    flagged: 3,
+  },
+  {
+    id: "quest-roth-lab",
+    title: "Open the Roth IRA lab",
+    objective:
+      "Students compare taxable investing with a Roth IRA simulation after earning summer income.",
+    marketMode: "watchlist",
+    marketSymbols: "VTI, VXUS, BND",
+    marketWindow: "1 school quarter",
+    requireReflection: true,
+    scoreVisibility: "hidden",
+    criteria: [
+      {
+        id: "eligibility",
+        label: "Identifies earned income eligibility",
+        points: 30,
+        visibleToStudents: false,
+      },
+      {
+        id: "compound-growth",
+        label: "Models compound growth over time",
+        points: 45,
+        visibleToStudents: true,
+      },
+      {
+        id: "tax-advantage",
+        label: "Describes tax-free qualified growth",
+        points: 25,
+        visibleToStudents: false,
+      },
+    ],
+    status: "Draft",
+    assigned: 0,
+    submitted: 0,
+    avgScore: 0,
+    flagged: 0,
+  },
+];
+
 const implementation = [
   "Single student profile across web, iOS, and Android",
   "Teacher roster, assignments, and concept mastery reports",
@@ -136,6 +257,14 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("student");
   const [scenarioDay, setScenarioDay] = useState(0);
   const [goalBoost, setGoalBoost] = useState(0);
+  const [teacherQuests, setTeacherQuests] =
+    useState<TeacherQuest[]>(initialTeacherQuests);
+  const [selectedQuestId, setSelectedQuestId] = useState(
+    initialTeacherQuests[0].id
+  );
+  const [draftQuest, setDraftQuest] = useState<TeacherQuest>(
+    initialTeacherQuests[0]
+  );
 
   const portfolio = useMemo(
     () =>
@@ -154,6 +283,92 @@ export default function Home() {
     ((latestValue - portfolio[0].value) / portfolio[0].value) * 100
   );
   const readinessScore = Math.min(98, 71 + scenarioDay * 3 + goalBoost);
+  const selectedQuest =
+    teacherQuests.find((quest) => quest.id === selectedQuestId) ??
+    teacherQuests[0];
+  const hiddenRuleCount = draftQuest.criteria.filter(
+    (criterion) => !criterion.visibleToStudents
+  ).length;
+  const draftPoints = draftQuest.criteria.reduce(
+    (total, criterion) => total + criterion.points,
+    0
+  );
+
+  function updateCriterion(
+    criterionId: string,
+    updates: Partial<ScoringRule>
+  ) {
+    setDraftQuest((quest) => ({
+      ...quest,
+      criteria: quest.criteria.map((criterion) =>
+        criterion.id === criterionId
+          ? { ...criterion, ...updates }
+          : criterion
+      ),
+    }));
+  }
+
+  function loadQuest(quest: TeacherQuest) {
+    setSelectedQuestId(quest.id);
+    setDraftQuest(quest);
+  }
+
+  function createBlankQuest() {
+    const nextQuest: TeacherQuest = {
+      id: `quest-${Date.now()}`,
+      title: "New learning quest",
+      objective:
+        "Students will make a simulated financial decision and justify it with evidence.",
+      marketMode: "none",
+      marketSymbols: "",
+      marketWindow: "No market window",
+      requireReflection: true,
+      scoreVisibility: "hidden",
+      criteria: [
+        {
+          id: "decision-quality",
+          label: "Decision matches the learning objective",
+          points: 40,
+          visibleToStudents: true,
+        },
+        {
+          id: "teacher-hidden-signal",
+          label: "Teacher-only misconception check",
+          points: 30,
+          visibleToStudents: false,
+        },
+        {
+          id: "reflection",
+          label: "Reflection uses portfolio evidence",
+          points: 30,
+          visibleToStudents: true,
+        },
+      ],
+      status: "Draft",
+      assigned: 0,
+      submitted: 0,
+      avgScore: 0,
+      flagged: 0,
+    };
+
+    setSelectedQuestId(nextQuest.id);
+    setDraftQuest(nextQuest);
+  }
+
+  function saveDraftQuest() {
+    setTeacherQuests((quests) => {
+      const exists = quests.some((quest) => quest.id === draftQuest.id);
+
+      if (exists) {
+        return quests.map((quest) =>
+          quest.id === draftQuest.id ? draftQuest : quest
+        );
+      }
+
+      return [draftQuest, ...quests];
+    });
+    setSelectedQuestId(draftQuest.id);
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -456,6 +671,306 @@ export default function Home() {
               />
             </section>
 
+            <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="size-5 text-[#28666e]" />
+                      <h3 className="text-lg font-semibold">Quest Studio</h3>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Create, modify, and score teacher-owned learning quests.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={createBlankQuest}>
+                      <Plus className="size-4" aria-hidden="true" />
+                      New quest
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={saveDraftQuest}
+                      className="bg-[#28666e] text-white hover:bg-[#22565d]"
+                    >
+                      <Save className="size-4" aria-hidden="true" />
+                      Save draft
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="quest-title">Quest title</Label>
+                    <Input
+                      id="quest-title"
+                      value={draftQuest.title}
+                      onChange={(event) =>
+                        setDraftQuest((quest) => ({
+                          ...quest,
+                          title: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Student score visibility</Label>
+                    <Select
+                      value={draftQuest.scoreVisibility}
+                      onValueChange={(value) =>
+                        setDraftQuest((quest) => ({
+                          ...quest,
+                          scoreVisibility: value as TeacherQuest["scoreVisibility"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hidden">Hide scoring rules</SelectItem>
+                        <SelectItem value="summary">Show score summary</SelectItem>
+                        <SelectItem value="full">Show full rubric</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="quest-objective">Learning objective</Label>
+                  <Textarea
+                    id="quest-objective"
+                    className="min-h-24"
+                    value={draftQuest.objective}
+                    onChange={(event) =>
+                      setDraftQuest((quest) => ({
+                        ...quest,
+                        objective: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="mt-5 rounded-lg border border-border bg-background p-4">
+                  <div className="mb-4 flex items-center gap-2">
+                    <SlidersHorizontal className="size-5 text-[#28666e]" />
+                    <h4 className="font-semibold">Optional market parameters</h4>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label>Market mode</Label>
+                      <Select
+                        value={draftQuest.marketMode}
+                        onValueChange={(value) =>
+                          setDraftQuest((quest) => ({
+                            ...quest,
+                            marketMode: value as TeacherQuest["marketMode"],
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No market data</SelectItem>
+                          <SelectItem value="watchlist">Watchlist</SelectItem>
+                          <SelectItem value="scenario">Scenario event</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="market-symbols">Symbols</Label>
+                      <Input
+                        id="market-symbols"
+                        placeholder="SPY, QQQ, BND"
+                        value={draftQuest.marketSymbols}
+                        onChange={(event) =>
+                          setDraftQuest((quest) => ({
+                            ...quest,
+                            marketSymbols: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="market-window">Market window</Label>
+                      <Input
+                        id="market-window"
+                        value={draftQuest.marketWindow}
+                        onChange={(event) =>
+                          setDraftQuest((quest) => ({
+                            ...quest,
+                            marketWindow: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-4 rounded-md bg-muted/60 p-3">
+                    <div>
+                      <Label htmlFor="reflection-required">
+                        Require written reflection
+                      </Label>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Used for teacher review and standards evidence.
+                      </p>
+                    </div>
+                    <Switch
+                      id="reflection-required"
+                      checked={draftQuest.requireReflection}
+                      onCheckedChange={(checked) =>
+                        setDraftQuest((quest) => ({
+                          ...quest,
+                          requireReflection: checked,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Target className="size-5 text-[#28666e]" />
+                      <h4 className="font-semibold">Scoring rules</h4>
+                    </div>
+                    <Badge variant="outline" className="rounded-md">
+                      {draftPoints} pts total
+                    </Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {draftQuest.criteria.map((criterion) => (
+                      <div
+                        key={criterion.id}
+                        className="grid gap-3 rounded-lg border border-border bg-background p-3 md:grid-cols-[minmax(0,1fr)_90px_170px]"
+                      >
+                        <div className="space-y-2">
+                          <Label htmlFor={`${criterion.id}-label`}>
+                            Objective signal
+                          </Label>
+                          <Input
+                            id={`${criterion.id}-label`}
+                            value={criterion.label}
+                            onChange={(event) =>
+                              updateCriterion(criterion.id, {
+                                label: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`${criterion.id}-points`}>Points</Label>
+                          <Input
+                            id={`${criterion.id}-points`}
+                            min={0}
+                            max={100}
+                            type="number"
+                            value={criterion.points}
+                            onChange={(event) =>
+                              updateCriterion(criterion.id, {
+                                points: Number(event.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <Label
+                            htmlFor={`${criterion.id}-visibility`}
+                            className="flex min-h-9 items-center gap-2 rounded-md border border-border px-3"
+                          >
+                            <Checkbox
+                              id={`${criterion.id}-visibility`}
+                              checked={criterion.visibleToStudents}
+                              onCheckedChange={(checked) =>
+                                updateCriterion(criterion.id, {
+                                  visibleToStudents: checked === true,
+                                })
+                              }
+                            />
+                            Visible to students
+                          </Label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">Monitor quests</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Track completion and review hidden scoring signals.
+                    </p>
+                  </div>
+                  <Gauge className="size-5 text-muted-foreground" />
+                </div>
+
+                <div className="space-y-3">
+                  {teacherQuests.map((quest) => (
+                    <button
+                      key={quest.id}
+                      type="button"
+                      onClick={() => loadQuest(quest)}
+                      className={`w-full rounded-lg border p-4 text-left transition ${
+                        selectedQuestId === quest.id
+                          ? "border-[#28666e] bg-[#e8f0ed]"
+                          : "border-border bg-background hover:bg-muted/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{quest.title}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {quest.assigned} assigned / {quest.submitted} submitted
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 rounded-md bg-card"
+                        >
+                          {quest.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <QuestMonitorMetric label="Avg" value={`${quest.avgScore}%`} />
+                        <QuestMonitorMetric
+                          label="Hidden"
+                          value={
+                            quest.criteria.filter(
+                              (criterion) => !criterion.visibleToStudents
+                            ).length
+                          }
+                        />
+                        <QuestMonitorMetric label="Review" value={quest.flagged} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-5 rounded-lg border border-border bg-background p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    {selectedQuest.scoreVisibility === "hidden" ? (
+                      <EyeOff className="size-4 text-[#a13d2e]" />
+                    ) : (
+                      <Eye className="size-4 text-[#28666e]" />
+                    )}
+                    <h4 className="font-semibold">Current draft policy</h4>
+                  </div>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {hiddenRuleCount} scoring rule
+                    {hiddenRuleCount === 1 ? " is" : "s are"} hidden from
+                    students unless the teacher changes visibility.
+                  </p>
+                </div>
+              </div>
+            </section>
+
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -537,6 +1052,89 @@ export default function Home() {
                 value="API layer"
                 detail="Market data and SSO ready"
               />
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <FilePenLine className="size-5 text-[#28666e]" />
+                      <h3 className="text-lg font-semibold">
+                        System quest library
+                      </h3>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Admins manage district templates and review how teachers
+                      use hidden scoring.
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline">
+                    <Settings2 className="size-4" aria-hidden="true" />
+                    Standards map
+                  </Button>
+                </div>
+
+                <Table className="min-w-[680px]">
+                  <TableHeader>
+                    <TableRow className="text-muted-foreground hover:bg-transparent">
+                      <TableHead>Quest template</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead>Market mode</TableHead>
+                      <TableHead>Student visibility</TableHead>
+                      <TableHead>Use</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teacherQuests.map((quest) => (
+                      <TableRow key={quest.id}>
+                        <TableCell className="font-medium">{quest.title}</TableCell>
+                        <TableCell>Grade 7 Finance</TableCell>
+                        <TableCell className="capitalize">
+                          {quest.marketMode}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={
+                              quest.scoreVisibility === "hidden"
+                                ? "rounded-md border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+                                : "rounded-md border-[#28666e]/30 bg-[#e8f0ed] text-[#24493f]"
+                            }
+                          >
+                            {quest.scoreVisibility}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{quest.assigned} students</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="size-5 text-[#28666e]" />
+                  <h3 className="text-lg font-semibold">Admin controls</h3>
+                </div>
+                <div className="mt-4 space-y-4">
+                  <AdminPolicy
+                    title="Default hidden rubric"
+                    detail="New teacher quests start with teacher-only scoring signals enabled."
+                    enabled
+                  />
+                  <AdminPolicy
+                    title="Market data disclosure"
+                    detail="Student views label quotes as delayed, simulated, and not advice."
+                    enabled
+                  />
+                  <AdminPolicy
+                    title="Template approval"
+                    detail="Teachers can draft locally; district templates require admin approval."
+                    enabled={false}
+                  />
+                </div>
+              </div>
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -763,6 +1361,41 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className="font-semibold">{value}</span>
+    </div>
+  );
+}
+
+function QuestMonitorMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-md bg-card px-3 py-2">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function AdminPolicy({
+  title,
+  detail,
+  enabled,
+}: {
+  title: string;
+  detail: string;
+  enabled: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-background p-4">
+      <div>
+        <p className="font-medium">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{detail}</p>
+      </div>
+      <Switch checked={enabled} aria-label={title} />
     </div>
   );
 }

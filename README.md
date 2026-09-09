@@ -8,11 +8,15 @@ views that focus on learning evidence instead of real-money trading outcomes.
 ## Version 1 Scope
 
 - Web-first student dashboard for simulated portfolio learning
-- Teacher view for assignments, roster progress, and concept mastery
-- District view for rollout, privacy posture, and integration planning
+- Teacher view for assignments, roster progress, concept mastery, and quest
+  authoring
+- District/system administrator view for rollout, privacy posture, integration
+  planning, template governance, and scoring policy controls
 - Mock market data API for classroom-safe quote behavior
 - Initial database schema for districts, schools, classrooms, students,
-  simulated portfolios, holdings, lessons, and lesson progress
+  simulated portfolios, holdings, lessons, teacher-created quests, hidden
+  scoring rules, market parameters, assignments, submissions, and lesson
+  progress
 
 ## Development
 
@@ -46,6 +50,8 @@ npm run lint
 - No real trades, bank transfers, brokerage accounts, or financial advice
 - Designed for student privacy workflows expected by districts
 - Market data should be routed through a provider adapter before production use
+- Student-facing quest screens should only expose scoring rules that a teacher
+  or system administrator has explicitly made visible
 
 ## License
 

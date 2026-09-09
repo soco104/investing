@@ -1693,6 +1693,7 @@ export default function Home() {
                   <UserProfilePage
                     activity={portfolioActivity}
                     allocationTargets={allocationTargets}
+                    inboxConversations={inboxConversations}
                     latestValue={latestValue}
                     onBack={() => setActiveStudentPage("dashboard")}
                     onMessage={messageUser}
@@ -3176,6 +3177,7 @@ function UserProfilePage({
   portfolio,
   allocationTargets,
   activity,
+  inboxConversations,
   latestValue,
   totalGrowth,
   quests,
@@ -3186,6 +3188,7 @@ function UserProfilePage({
   portfolio: typeof basePortfolio;
   allocationTargets: typeof allocation;
   activity: PortfolioActivity[];
+  inboxConversations: Conversation[];
   latestValue: number;
   totalGrowth: number;
   quests: TeacherQuest[];
@@ -3196,6 +3199,7 @@ function UserProfilePage({
     return (
       <TeacherProfilePage
         onBack={onBack}
+        inboxConversations={inboxConversations}
         onMessage={onMessage}
         quests={quests}
         user={user}
@@ -3283,14 +3287,23 @@ function UserProfilePage({
 function TeacherProfilePage({
   user,
   quests,
+  inboxConversations,
   onBack,
   onMessage,
 }: {
   user: AdminUser;
   quests: TeacherQuest[];
+  inboxConversations: Conversation[];
   onBack: () => void;
   onMessage: (userId: string) => void;
 }) {
+  const teacherInbox = inboxConversations.filter(
+    (conversation) =>
+      conversation.kind === "Teacher" ||
+      conversation.participants.toLowerCase().includes(user.alias.toLowerCase()) ||
+      conversation.title.toLowerCase().includes(user.lastName.toLowerCase())
+  );
+
   return (
     <section className="space-y-6">
       <ProfileHeader onBack={onBack} onMessage={onMessage} user={user} />
@@ -3357,6 +3370,59 @@ function TeacherProfilePage({
           </div>
         </div>
       </section>
+
+      <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Inbox</h3>
+            <p className="text-sm text-muted-foreground">
+              Recent text-only conversations connected to this teacher.
+            </p>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-md bg-background">
+            {teacherInbox.reduce(
+              (total, conversation) => total + conversation.unread,
+              0
+            )} unread
+          </Badge>
+        </div>
+        <div className="grid gap-3">
+          {teacherInbox.map((conversation) => {
+            const latestMessage =
+              conversation.messages[conversation.messages.length - 1];
+
+            return (
+              <div
+                key={conversation.id}
+                className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{conversation.title}</p>
+                    <Badge variant="outline" className="rounded-md bg-card">
+                      {conversation.unread} unread
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {conversation.participants}
+                  </p>
+                  <p className="mt-2 text-sm leading-6">
+                    {latestMessage?.body ?? "No messages yet."}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onMessage(user.id)}
+                >
+                  <MessageCircle className="size-4" aria-hidden="true" />
+                  Message
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </section>
   );
 }
@@ -3374,7 +3440,7 @@ function ProfileHeader({
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
       <Button type="button" variant="ghost" onClick={onBack} className="mb-2 px-0">
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Student home
+        Back
       </Button>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>

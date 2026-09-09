@@ -347,6 +347,7 @@ type AdminPage =
   | "users"
   | "permissions"
   | "support"
+  | "monitoring"
   | "portfolio-corrections";
 
 type AdminUser = {
@@ -376,6 +377,24 @@ type SupportCase = {
   category: string;
   status: "Pending support" | "Pending user";
   createdAt: string;
+};
+
+type MonitoringEvent = {
+  id: string;
+  severity: "Info" | "Warn" | "Error";
+  source: string;
+  message: string;
+  route: string;
+  age: string;
+};
+
+type PerformanceMetric = {
+  id: string;
+  route: string;
+  operation: string;
+  duration: string;
+  status: "OK" | "Slow" | "Failed";
+  traceId: string;
 };
 
 type SchoolRecord = {
@@ -514,6 +533,60 @@ const initialSupportCases: SupportCase[] = [
     category: "Integration",
     status: "Pending support",
     createdAt: "Mar 12",
+  },
+];
+
+const monitoringEvents: MonitoringEvent[] = [
+  {
+    id: "err-1041",
+    severity: "Warn",
+    source: "Integration",
+    message: "District Market Provider is missing an API token.",
+    route: "/api/integration-test",
+    age: "4 min ago",
+  },
+  {
+    id: "err-1038",
+    severity: "Info",
+    source: "Messaging",
+    message: "Blocked a message with disallowed classroom language.",
+    route: "/inbox",
+    age: "18 min ago",
+  },
+  {
+    id: "err-1032",
+    severity: "Error",
+    source: "Frontend",
+    message: "Example UI crash logs through app/error.tsx.",
+    route: "/",
+    age: "1 day ago",
+  },
+];
+
+const performanceMetrics: PerformanceMetric[] = [
+  {
+    id: "perf-market",
+    route: "/api/market",
+    operation: "marketSnapshot",
+    duration: "42 ms",
+    status: "OK",
+    traceId: "otel-ready",
+  },
+  {
+    id: "perf-integration",
+    route: "/api/integration-test",
+    operation: "providerGet",
+    duration: "812 ms",
+    status: "Slow",
+    traceId: "otel-ready",
+  },
+  {
+    id: "perf-home",
+    route: "/",
+    operation: "navigation",
+    duration: "286 ms",
+    status: "OK",
+    traceId: "client-web-vitals",
   },
 ];
 
@@ -831,6 +904,12 @@ const adminModules = [
     detail: "Track login issues, blocked messages, sync errors, and support contact routing.",
     status: "4 open",
     icon: Wrench,
+  },
+  {
+    title: "Monitoring",
+    detail: "Review app errors, slow requests, integration health, and OTEL hooks.",
+    status: "OTEL ready",
+    icon: Gauge,
   },
   {
     title: "Market APIs",
@@ -1562,6 +1641,7 @@ export default function Home() {
       Users: "users",
       Permissions: "permissions",
       Support: "support",
+      Monitoring: "monitoring",
       "Market APIs": "integrations",
       "Portfolio corrections": "portfolio-corrections",
     };
@@ -3691,7 +3771,9 @@ function AdminDrilldown({
               ? "Permissions"
               : activePage === "support"
                 ? "Support"
-                : "Portfolio corrections";
+                : activePage === "monitoring"
+                  ? "Monitoring"
+                  : "Portfolio corrections";
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -3801,6 +3883,8 @@ function AdminDrilldown({
           reason={portfolioCorrectionReason}
         />
       ) : null}
+
+      {activePage === "monitoring" ? <MonitoringAdminPage /> : null}
 
       {activePage === "permissions" ? (
         <LearningQuestTransferPanel
@@ -4279,6 +4363,153 @@ function PrivacyPostureAdminPage({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function MonitoringAdminPage() {
+  return (
+    <div className="grid gap-6">
+      <section className="grid gap-4 md:grid-cols-4">
+        <SummaryCard
+          icon={<TriangleAlert className="size-5" />}
+          label="Open errors"
+          value="1"
+          detail="Critical or failed events"
+        />
+        <SummaryCard
+          icon={<Gauge className="size-5" />}
+          label="Slow calls"
+          value="1"
+          detail="Over 750 ms"
+        />
+        <SummaryCard
+          icon={<PlugZap className="size-5" />}
+          label="Integration health"
+          value="2 / 3"
+          detail="Providers passing"
+        />
+        <SummaryCard
+          icon={<LineChart className="size-5" />}
+          label="OTEL hooks"
+          value="Ready"
+          detail="Tracer/exporter placeholder"
+        />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">Recent errors</h3>
+              <p className="text-sm text-muted-foreground">
+                Frontend, backend, messaging, and integration events.
+              </p>
+            </div>
+            <Badge variant="outline" className="rounded-md bg-background">
+              /api/observability/errors
+            </Badge>
+          </div>
+          <div className="overflow-x-auto">
+            <Table className="min-w-[760px]">
+              <TableHeader>
+                <TableRow className="text-muted-foreground hover:bg-transparent">
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Message</TableHead>
+                  <TableHead>Route</TableHead>
+                  <TableHead>Age</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {monitoringEvents.map((event) => (
+                  <TableRow key={event.id}>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={
+                          event.severity === "Error"
+                            ? "rounded-md border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+                            : "rounded-md bg-card"
+                        }
+                      >
+                        {event.severity}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{event.source}</TableCell>
+                    <TableCell>{event.message}</TableCell>
+                    <TableCell>{event.route}</TableCell>
+                    <TableCell>{event.age}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <h3 className="text-lg font-semibold">OTEL future state</h3>
+          <div className="mt-4 space-y-3">
+            <AdminPolicy
+              detail="Trace IDs are generated for backend API and frontend browser events."
+              enabled
+              title="Trace context"
+            />
+            <AdminPolicy
+              detail="Span helper wraps operations and returns duration metadata."
+              enabled
+              title="Span hooks"
+            />
+            <AdminPolicy
+              detail="Exporter endpoint is intentionally deferred until a vendor is selected."
+              enabled={false}
+              title="External exporter"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">Performance events</h3>
+            <p className="text-sm text-muted-foreground">
+              Request timing, route status, and integration latency.
+            </p>
+          </div>
+          <Badge variant="outline" className="rounded-md bg-background">
+            /api/observability/performance
+          </Badge>
+        </div>
+        <div className="overflow-x-auto">
+          <Table className="min-w-[760px]">
+            <TableHeader>
+              <TableRow className="text-muted-foreground hover:bg-transparent">
+                <TableHead>Route</TableHead>
+                <TableHead>Operation</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Trace</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {performanceMetrics.map((metric) => (
+                <TableRow key={metric.id}>
+                  <TableCell className="font-medium">{metric.route}</TableCell>
+                  <TableCell>{metric.operation}</TableCell>
+                  <TableCell>{metric.duration}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="rounded-md bg-card">
+                      {metric.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{metric.traceId}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
     </div>
   );
 }

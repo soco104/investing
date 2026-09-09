@@ -1,3 +1,5 @@
+import { startOtelSpan } from "@/lib/observability";
+
 const marketSnapshot = [
   {
     ticker: "SPY",
@@ -30,9 +32,20 @@ const marketSnapshot = [
 ];
 
 export async function GET() {
+  const span = startOtelSpan("market.snapshot", {
+    route: "/api/market",
+    source: "mock-provider",
+  });
+  const endedSpan = span.end({ symbolCount: marketSnapshot.length });
+
   return Response.json({
     mode: "simulated-delayed",
     source: "mock-provider",
+    telemetry: {
+      durationMs: endedSpan.durationMs,
+      otelReady: true,
+      traceId: endedSpan.traceId,
+    },
     updatedAt: new Date().toISOString(),
     disclosure:
       "Educational market context only. This endpoint does not place trades or provide financial advice.",

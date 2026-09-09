@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { MonitoringClient } from "./monitoring-client";
 
 export const metadata: Metadata = {
   title: "FutureFund Classroom",
@@ -21,7 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <MonitoringClient />
+        {children}
+      </body>
     </html>
   );
 }

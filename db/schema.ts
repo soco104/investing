@@ -322,6 +322,41 @@ export const adminAuditEvents = sqliteTable("admin_audit_events", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+export const appErrorEvents = sqliteTable("app_error_events", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id").references(() => districts.id),
+  severity: text("severity").notNull(),
+  source: text("source").notNull(),
+  message: text("message").notNull(),
+  route: text("route").notNull(),
+  userRole: text("user_role"),
+  traceId: text("trace_id").notNull(),
+  contextJson: text("context_json"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const performanceEvents = sqliteTable("performance_events", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id").references(() => districts.id),
+  route: text("route").notNull(),
+  operation: text("operation").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  status: text("status").notNull(),
+  traceId: text("trace_id").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const otelSpanEvents = sqliteTable("otel_span_events", {
+  id: text("id").primaryKey(),
+  traceId: text("trace_id").notNull(),
+  spanName: text("span_name").notNull(),
+  parentSpanId: text("parent_span_id"),
+  attributesJson: text("attributes_json").notNull().default("{}"),
+  durationMs: integer("duration_ms").notNull(),
+  exporterStatus: text("exporter_status").notNull().default("pending"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 export const conversations = sqliteTable("conversations", {
   id: text("id").primaryKey(),
   ownerUserId: text("owner_user_id"),
@@ -384,6 +419,8 @@ export const districtsRelations = relations(districts, ({ many }) => ({
   marketDataIntegrations: many(marketDataIntegrations),
   privacyPostureSettings: many(privacyPostureSettings),
   auditEvents: many(adminAuditEvents),
+  appErrorEvents: many(appErrorEvents),
+  performanceEvents: many(performanceEvents),
 }));
 
 export const schoolsRelations = relations(schools, ({ one, many }) => ({
@@ -618,6 +655,23 @@ export const adminAuditEventsRelations = relations(
   ({ one }) => ({
     district: one(districts, {
       fields: [adminAuditEvents.districtId],
+      references: [districts.id],
+    }),
+  })
+);
+
+export const appErrorEventsRelations = relations(appErrorEvents, ({ one }) => ({
+  district: one(districts, {
+    fields: [appErrorEvents.districtId],
+    references: [districts.id],
+  }),
+}));
+
+export const performanceEventsRelations = relations(
+  performanceEvents,
+  ({ one }) => ({
+    district: one(districts, {
+      fields: [performanceEvents.districtId],
       references: [districts.id],
     }),
   })

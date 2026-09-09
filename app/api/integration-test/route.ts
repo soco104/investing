@@ -1,3 +1,5 @@
+import { startOtelSpan, statusFromDuration } from "@/lib/observability";
+
 type IntegrationTestRequest = {
   endpoint?: string;
   maxSymbols?: number;
@@ -5,12 +7,22 @@ type IntegrationTestRequest = {
 };
 
 export async function POST(request: Request) {
+  const span = startOtelSpan("integration.get-test", {
+    route: "/api/integration-test",
+  });
   const body = (await request.json()) as IntegrationTestRequest;
   const endpoint = body.endpoint?.trim();
 
   if (!endpoint) {
+    const endedSpan = span.end({ failed: true, reason: "missing_endpoint" });
+
     return Response.json(
       {
+        telemetry: {
+          durationMs: endedSpan.durationMs,
+          status: statusFromDuration(endedSpan.durationMs, true),
+          traceId: endedSpan.traceId,
+        },
         ok: false,
         importedSymbols: 0,
         message: "Endpoint is required before running GET.",
@@ -22,7 +34,14 @@ export async function POST(request: Request) {
   const symbolLimit = Math.min(Math.max(body.maxSymbols ?? 200, 1), 200);
 
   if (endpoint.startsWith("/api/market")) {
+    const endedSpan = span.end({ endpoint, importedSymbols: 4 });
+
     return Response.json({
+      telemetry: {
+        durationMs: endedSpan.durationMs,
+        status: statusFromDuration(endedSpan.durationMs),
+        traceId: endedSpan.traceId,
+      },
       ok: true,
       importedSymbols: 4,
       message: "GET succeeded from the classroom-safe market endpoint.",
@@ -38,8 +57,17 @@ export async function POST(request: Request) {
         : undefined,
       method: "GET",
     });
+    const endedSpan = span.end({
+      endpoint,
+      statusCode: response.status,
+    });
 
     return Response.json({
+      telemetry: {
+        durationMs: endedSpan.durationMs,
+        status: statusFromDuration(endedSpan.durationMs, !response.ok),
+        traceId: endedSpan.traceId,
+      },
       ok: response.ok,
       importedSymbols: response.ok ? symbolLimit : 0,
       message: response.ok
@@ -47,8 +75,15 @@ export async function POST(request: Request) {
         : `GET returned ${response.status}.`,
     });
   } catch {
+    const endedSpan = span.end({ endpoint, failed: true });
+
     return Response.json(
       {
+        telemetry: {
+          durationMs: endedSpan.durationMs,
+          status: statusFromDuration(endedSpan.durationMs, true),
+          traceId: endedSpan.traceId,
+        },
         ok: false,
         importedSymbols: 0,
         message: "GET failed. Check the endpoint, token, or provider access.",

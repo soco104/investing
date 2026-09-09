@@ -28,6 +28,8 @@ views that focus on learning evidence instead of real-money trading outcomes.
   Admin rights, quest import/export, and portfolio corrections
 - Admin support case tracking with new case creation and pending support/user
   statuses
+- Admin monitoring page for recent errors, slow requests, integration health,
+  and OTEL-ready trace/span hooks
 - Admin drill-in pages for school setup, market data integrations, and district
   privacy posture selection
 - Admin school setup captures school, district, state, class count, and student
@@ -38,6 +40,8 @@ views that focus on learning evidence instead of real-money trading outcomes.
   symbols for the MVP
 - Teachers and Admins can export and import learning quest templates as JSON
 - Mock market data API for classroom-safe quote behavior
+- Observability APIs for app error events and performance events, plus a
+  frontend error boundary and browser timing reporter
 - Initial database schema for districts, schools, classrooms, students,
   simulated portfolios, holdings, lessons, teacher-created quests, hidden
   scoring rules, market parameters, assignments, submissions, user-owned inbox
@@ -45,7 +49,8 @@ views that focus on learning evidence instead of real-money trading outcomes.
   role assignments, support tickets, market data integrations, password reset
   requests, privacy posture settings, simulated portfolio activity,
   user permission grants, class-level market integration assignments, portfolio
-  correction audits, and lesson progress
+  correction audits, app error events, performance events, OTEL span events,
+  and lesson progress
 
 ## Development
 

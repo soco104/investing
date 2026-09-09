@@ -36,6 +36,15 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -76,13 +85,45 @@ const basePortfolio = [
   { month: "Mar", value: 1326 },
 ];
 
-const missions = [
+type StudentQuest = {
+  title: string;
+  concept: string;
+  points: number;
+  progress: number;
+  status: string;
+  objective: string;
+  scenario: string;
+  marketSetup?: string;
+  portfolioTask: string;
+  steps: string[];
+  visibleScoring: Array<{ label: string; points: number }>;
+  deliverable: string;
+};
+
+const missions: StudentQuest[] = [
   {
     title: "Build a first budget",
     concept: "Needs, wants, savings",
     points: 140,
     progress: 90,
     status: "Ready to submit",
+    objective:
+      "Create a simple monthly plan that covers needs first, sets aside savings, and leaves room for one want.",
+    scenario:
+      "You earned $120 from weekend work and need to plan how it moves through your wallet before investing anything.",
+    portfolioTask:
+      "Move money into cash buffer, savings goal, and long-term investing buckets.",
+    steps: [
+      "Sort the expenses into needs, wants, and savings.",
+      "Keep at least 20% in savings before choosing investments.",
+      "Explain one tradeoff you made and why it fits your goal.",
+    ],
+    visibleScoring: [
+      { label: "Budget covers required expenses", points: 45 },
+      { label: "Savings choice supports the goal", points: 45 },
+      { label: "Reflection explains the tradeoff", points: 50 },
+    ],
+    deliverable: "Submit your budget split and one short reflection.",
   },
   {
     title: "Ride out a market drop",
@@ -90,6 +131,25 @@ const missions = [
     points: 210,
     progress: 68,
     status: "In progress",
+    objective:
+      "Use diversification to respond to market volatility without chasing short-term panic decisions.",
+    scenario:
+      "Growth stocks fell this week, but bonds and cash stayed steadier. Your goal is still five years away.",
+    marketSetup:
+      "Watchlist: SPY, QQQ, BND. Scenario window: 10 trading days after a broad market dip.",
+    portfolioTask:
+      "Rebalance the simulated portfolio while keeping risk aligned with the goal timeline.",
+    steps: [
+      "Review how each asset moved during the market day.",
+      "Choose whether to rebalance, hold, or move more into cash.",
+      "Explain how diversification changed the portfolio outcome.",
+    ],
+    visibleScoring: [
+      { label: "Identifies which assets changed risk", points: 60 },
+      { label: "Decision fits the five-year goal", points: 70 },
+      { label: "Reflection uses portfolio evidence", points: 80 },
+    ],
+    deliverable: "Submit your portfolio choice and risk explanation.",
   },
   {
     title: "Open the Roth IRA lab",
@@ -97,6 +157,25 @@ const missions = [
     points: 180,
     progress: 42,
     status: "Next lesson",
+    objective:
+      "Compare a regular investing account with a Roth IRA simulation and explain why eligibility matters.",
+    scenario:
+      "You earned summer income and can choose how much to place in a retirement lab for long-term growth.",
+    marketSetup:
+      "Watchlist: VTI, VXUS, BND. Time horizon: one school quarter projected into retirement.",
+    portfolioTask:
+      "Allocate simulated earned income between spending, savings, and the Roth IRA lab.",
+    steps: [
+      "Confirm the money came from earned income in the scenario.",
+      "Choose a contribution amount that still leaves short-term savings.",
+      "Compare taxable growth with Roth IRA qualified growth.",
+    ],
+    visibleScoring: [
+      { label: "Understands earned income eligibility", points: 50 },
+      { label: "Contribution choice keeps a balanced plan", points: 55 },
+      { label: "Explains long-term tax-free growth", points: 75 },
+    ],
+    deliverable: "Submit your Roth IRA lab contribution and comparison.",
   },
 ];
 
@@ -550,29 +629,41 @@ export default function Home() {
                 </div>
                 <div className="space-y-4">
                   {missions.map((mission) => (
-                    <article
-                      key={mission.title}
-                      className="rounded-lg border border-border bg-background p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h4 className="font-semibold">{mission.title}</h4>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {mission.concept}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="rounded-md">
-                          {mission.points} pts
-                        </Badge>
-                      </div>
-                      <div className="mt-4">
-                        <div className="mb-2 flex justify-between text-sm">
-                          <span>{mission.status}</span>
-                          <span>{mission.progress}%</span>
-                        </div>
-                        <Progress value={mission.progress} className="h-2 bg-[#e8f0ed]" />
-                      </div>
-                    </article>
+                    <Dialog key={mission.title}>
+                      <DialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="w-full rounded-lg border border-border bg-background p-4 text-left transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="font-semibold">{mission.title}</h4>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {mission.concept}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="rounded-md">
+                              {mission.points} pts
+                            </Badge>
+                          </div>
+                          <div className="mt-4">
+                            <div className="mb-2 flex justify-between text-sm">
+                              <span>{mission.status}</span>
+                              <span>{mission.progress}%</span>
+                            </div>
+                            <Progress
+                              value={mission.progress}
+                              className="h-2 bg-[#e8f0ed]"
+                            />
+                          </div>
+                          <div className="mt-3 flex items-center gap-2 text-sm font-medium text-[#28666e]">
+                            Open quest
+                            <ChevronRight className="size-4" aria-hidden="true" />
+                          </div>
+                        </button>
+                      </DialogTrigger>
+                      <StudentQuestDialog mission={mission} />
+                    </Dialog>
                   ))}
                 </div>
               </div>
@@ -1181,6 +1272,129 @@ export default function Home() {
         </Tabs>
       </section>
     </main>
+  );
+}
+
+function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
+  return (
+    <DialogContent className="max-h-[min(88vh,760px)] overflow-y-auto sm:max-w-3xl">
+      <DialogHeader className="pr-8">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <Badge className="rounded-md bg-[#e8f0ed] text-[#24493f] hover:bg-[#e8f0ed]">
+            {mission.concept}
+          </Badge>
+          <Badge variant="outline" className="rounded-md">
+            {mission.points} pts
+          </Badge>
+          <Badge variant="outline" className="rounded-md">
+            {mission.status}
+          </Badge>
+        </div>
+        <DialogTitle className="text-2xl leading-tight">
+          {mission.title}
+        </DialogTitle>
+        <DialogDescription className="text-base leading-7">
+          {mission.objective}
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <section className="space-y-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles className="size-5 text-[#28666e]" />
+              <h3 className="font-semibold">Scenario</h3>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {mission.scenario}
+            </p>
+          </div>
+
+          {mission.marketSetup ? (
+            <div className="rounded-lg border border-border bg-[#f7f2e8] p-4">
+              <div className="mb-3 flex items-center gap-2 text-[#5b3f0b]">
+                <LineChart className="size-5" />
+                <h3 className="font-semibold">Market setup</h3>
+              </div>
+              <p className="text-sm leading-6 text-[#6c5524]">
+                {mission.marketSetup}
+              </p>
+            </div>
+          ) : null}
+
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <WalletCards className="size-5 text-[#28666e]" />
+              <h3 className="font-semibold">Portfolio task</h3>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {mission.portfolioTask}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <ClipboardList className="size-5 text-[#28666e]" />
+              <h3 className="font-semibold">Steps</h3>
+            </div>
+            <ol className="space-y-3">
+              {mission.steps.map((step, index) => (
+                <li key={step} className="flex gap-3 text-sm leading-6">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-md bg-[#e8f0ed] text-xs font-semibold text-[#24493f]">
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Progress</h3>
+              <span className="text-sm font-medium">{mission.progress}%</span>
+            </div>
+            <Progress value={mission.progress} className="h-2 bg-[#e8f0ed]" />
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Medal className="size-5 text-[#28666e]" />
+              <h3 className="font-semibold">How you earn points</h3>
+            </div>
+            <div className="space-y-3">
+              {mission.visibleScoring.map((rule) => (
+                <div
+                  key={rule.label}
+                  className="flex items-start justify-between gap-3 rounded-md bg-muted/55 p-3 text-sm"
+                >
+                  <span className="leading-5">{rule.label}</span>
+                  <span className="shrink-0 font-semibold">{rule.points}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <FilePenLine className="size-5 text-[#28666e]" />
+              <h3 className="font-semibold">Turn in</h3>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {mission.deliverable}
+            </p>
+          </div>
+        </aside>
+      </div>
+
+      <DialogFooter showCloseButton>
+        <Button className="bg-[#28666e] text-white hover:bg-[#22565d]">
+          {mission.progress > 0 ? "Continue quest" : "Start quest"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
 

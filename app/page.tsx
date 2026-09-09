@@ -289,6 +289,251 @@ const classRows = [
   },
 ];
 
+type TeacherClassAnalytics = {
+  id: string;
+  className: string;
+  activeStudents: number;
+  goalsOnTrack: number;
+  questsComplete: number;
+  questsNeedsReview: number;
+  portfolioReturn: number;
+  portfolioValue: string;
+  allocation: Array<{ name: string; value: number; color: string }>;
+  discussions: {
+    posts: number;
+    replies: number;
+    flagged: number;
+    participation: number;
+  };
+  students: Array<{
+    name: string;
+    alias: string;
+    readiness: number;
+    questProgress: number;
+    portfolioReturn: number;
+    portfolioValue: string;
+    discussionPosts: number;
+    flaggedPosts: number;
+  }>;
+};
+
+const teacherClassAnalytics: TeacherClassAnalytics[] = [
+  {
+    id: "finance-a",
+    className: "7th Grade Finance A",
+    activeStudents: 31,
+    goalsOnTrack: 82,
+    questsComplete: 74,
+    questsNeedsReview: 5,
+    portfolioReturn: 8.4,
+    portfolioValue: "$40,906",
+    allocation,
+    discussions: {
+      posts: 118,
+      replies: 76,
+      flagged: 2,
+      participation: 91,
+    },
+    students: [
+      {
+        name: "Avery Johnson",
+        alias: "ValueVoyager",
+        readiness: 86,
+        questProgress: 78,
+        portfolioReturn: 9.8,
+        portfolioValue: "$1,326",
+        discussionPosts: 14,
+        flaggedPosts: 0,
+      },
+      {
+        name: "Jordan Lee",
+        alias: "BudgetBuilder",
+        readiness: 74,
+        questProgress: 67,
+        portfolioReturn: 6.5,
+        portfolioValue: "$1,214",
+        discussionPosts: 9,
+        flaggedPosts: 1,
+      },
+      {
+        name: "Leo Carter",
+        alias: "RiskReady",
+        readiness: 63,
+        questProgress: 58,
+        portfolioReturn: -1.7,
+        portfolioValue: "$1,097",
+        discussionPosts: 6,
+        flaggedPosts: 0,
+      },
+    ],
+  },
+  {
+    id: "finance-b",
+    className: "7th Grade Finance B",
+    activeStudents: 29,
+    goalsOnTrack: 88,
+    questsComplete: 81,
+    questsNeedsReview: 3,
+    portfolioReturn: 10.2,
+    portfolioValue: "$39,482",
+    allocation: [
+      { name: "Index stocks", value: 49, color: "#28666e" },
+      { name: "Roth IRA", value: 18, color: "#f2a541" },
+      { name: "Retirement", value: 17, color: "#7c9885" },
+      { name: "IPO lab", value: 8, color: "#c44536" },
+      { name: "Cash buffer", value: 8, color: "#5c677d" },
+    ],
+    discussions: {
+      posts: 104,
+      replies: 69,
+      flagged: 1,
+      participation: 86,
+    },
+    students: [
+      {
+        name: "Maya Patel",
+        alias: "CompoundMaya",
+        readiness: 91,
+        questProgress: 84,
+        portfolioReturn: 12.3,
+        portfolioValue: "$1,441",
+        discussionPosts: 16,
+        flaggedPosts: 0,
+      },
+      {
+        name: "Nora Brooks",
+        alias: "IndexNora",
+        readiness: 79,
+        questProgress: 76,
+        portfolioReturn: 7.9,
+        portfolioValue: "$1,285",
+        discussionPosts: 11,
+        flaggedPosts: 0,
+      },
+      {
+        name: "Sam Kim",
+        alias: "CashCoach",
+        readiness: 68,
+        questProgress: 64,
+        portfolioReturn: 2.4,
+        portfolioValue: "$1,148",
+        discussionPosts: 8,
+        flaggedPosts: 1,
+      },
+    ],
+  },
+  {
+    id: "investing-lab",
+    className: "8th Grade Investing Lab",
+    activeStudents: 24,
+    goalsOnTrack: 77,
+    questsComplete: 69,
+    questsNeedsReview: 4,
+    portfolioReturn: 5.1,
+    portfolioValue: "$31,664",
+    allocation: [
+      { name: "Index stocks", value: 39, color: "#28666e" },
+      { name: "Roth IRA", value: 21, color: "#f2a541" },
+      { name: "Retirement", value: 19, color: "#7c9885" },
+      { name: "IPO lab", value: 11, color: "#c44536" },
+      { name: "Cash buffer", value: 10, color: "#5c677d" },
+    ],
+    discussions: {
+      posts: 87,
+      replies: 55,
+      flagged: 3,
+      participation: 78,
+    },
+    students: [
+      {
+        name: "Chris Morgan",
+        alias: "IPOScout",
+        readiness: 72,
+        questProgress: 70,
+        portfolioReturn: 4.2,
+        portfolioValue: "$1,202",
+        discussionPosts: 7,
+        flaggedPosts: 1,
+      },
+      {
+        name: "Talia Chen",
+        alias: "DiversifyT",
+        readiness: 84,
+        questProgress: 79,
+        portfolioReturn: 8.6,
+        portfolioValue: "$1,337",
+        discussionPosts: 12,
+        flaggedPosts: 0,
+      },
+      {
+        name: "Miles Reed",
+        alias: "LongGame",
+        readiness: 66,
+        questProgress: 61,
+        portfolioReturn: -0.8,
+        portfolioValue: "$1,118",
+        discussionPosts: 5,
+        flaggedPosts: 1,
+      },
+    ],
+  },
+  {
+    id: "personal-finance",
+    className: "High School Personal Finance",
+    activeStudents: 44,
+    goalsOnTrack: 73,
+    questsComplete: 66,
+    questsNeedsReview: 2,
+    portfolioReturn: 6.9,
+    portfolioValue: "$60,214",
+    allocation: [
+      { name: "Index stocks", value: 46, color: "#28666e" },
+      { name: "Roth IRA", value: 26, color: "#f2a541" },
+      { name: "Retirement", value: 14, color: "#7c9885" },
+      { name: "IPO lab", value: 5, color: "#c44536" },
+      { name: "Cash buffer", value: 9, color: "#5c677d" },
+    ],
+    discussions: {
+      posts: 136,
+      replies: 93,
+      flagged: 2,
+      participation: 81,
+    },
+    students: [
+      {
+        name: "Imani West",
+        alias: "RothRunner",
+        readiness: 80,
+        questProgress: 71,
+        portfolioReturn: 9.1,
+        portfolioValue: "$1,498",
+        discussionPosts: 13,
+        flaggedPosts: 0,
+      },
+      {
+        name: "Owen Price",
+        alias: "BondBalance",
+        readiness: 69,
+        questProgress: 63,
+        portfolioReturn: 3.8,
+        portfolioValue: "$1,267",
+        discussionPosts: 7,
+        flaggedPosts: 1,
+      },
+      {
+        name: "Selena Ortiz",
+        alias: "GoalSetter",
+        readiness: 76,
+        questProgress: 68,
+        portfolioReturn: 7.4,
+        portfolioValue: "$1,354",
+        discussionPosts: 10,
+        flaggedPosts: 0,
+      },
+    ],
+  },
+];
+
 const mastery = [
   { concept: "Budgeting", score: 82 },
   { concept: "Stocks", score: 76 },
@@ -936,6 +1181,9 @@ export default function Home() {
   const [activeStudentPage, setActiveStudentPage] = useState<
     "dashboard" | "portfolio" | "profile"
   >("dashboard");
+  const [activeTeacherPage, setActiveTeacherPage] = useState<
+    "dashboard" | "students"
+  >("dashboard");
   const [profileSearch, setProfileSearch] = useState("");
   const [selectedProfileUserId, setSelectedProfileUserId] =
     useState("user-avery");
@@ -1127,6 +1375,17 @@ export default function Home() {
         .includes(query);
     })
     .slice(0, 5);
+  const teacherStudentsTotal = teacherClassAnalytics.reduce(
+    (total, classroom) => total + classroom.activeStudents,
+    0
+  );
+  const teacherClassCount = teacherClassAnalytics.length;
+  const teacherAverageMastery = Math.round(
+    teacherClassAnalytics.reduce(
+      (total, classroom) => total + classroom.goalsOnTrack,
+      0
+    ) / teacherClassAnalytics.length
+  );
 
   function updateCriterion(
     criterionId: string,
@@ -2144,26 +2403,34 @@ export default function Home() {
           <TabsContent value="teacher" className="mt-6 space-y-6">
             {activeTab === "teacher" ? (
               <>
-            <section className="grid gap-4 md:grid-cols-3">
-              <SummaryCard
-                icon={<UsersRound className="size-5" />}
-                label="Active students"
-                value="128"
-                detail="6 classes synced"
-              />
-              <SummaryCard
-                icon={<BookOpenCheck className="size-5" />}
-                label="Assignments due"
-                value="14"
-                detail="2 need review"
-              />
-              <SummaryCard
-                icon={<LineChart className="size-5" />}
-                label="Class mastery"
-                value="74%"
-                detail="+9% this month"
-              />
-            </section>
+                {activeTeacherPage === "students" ? (
+                  <TeacherActiveStudentsPage
+                    classes={teacherClassAnalytics}
+                    onBack={() => setActiveTeacherPage("dashboard")}
+                  />
+                ) : (
+                  <>
+                    <section className="grid gap-4 md:grid-cols-3">
+                      <SummaryCard
+                        icon={<UsersRound className="size-5" />}
+                        label="Active students"
+                        value={`${teacherStudentsTotal}`}
+                        detail={`${teacherClassCount} classes synced`}
+                        onClick={() => setActiveTeacherPage("students")}
+                      />
+                      <SummaryCard
+                        icon={<BookOpenCheck className="size-5" />}
+                        label="Assignments due"
+                        value="14"
+                        detail="2 need review"
+                      />
+                      <SummaryCard
+                        icon={<LineChart className="size-5" />}
+                        label="Class mastery"
+                        value={`${teacherAverageMastery}%`}
+                        detail="+9% this month"
+                      />
+                    </section>
 
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
               <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -2529,6 +2796,8 @@ export default function Home() {
                 </div>
               </div>
             </section>
+                  </>
+                )}
               </>
             ) : null}
           </TabsContent>
@@ -2982,6 +3251,237 @@ function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
         </Button>
       </DialogFooter>
     </DialogContent>
+  );
+}
+
+function TeacherActiveStudentsPage({
+  classes,
+  onBack,
+}: {
+  classes: TeacherClassAnalytics[];
+  onBack: () => void;
+}) {
+  const totalStudents = classes.reduce(
+    (total, classroom) => total + classroom.activeStudents,
+    0
+  );
+  const averageGoals = Math.round(
+    classes.reduce((total, classroom) => total + classroom.goalsOnTrack, 0) /
+      classes.length
+  );
+  const averageQuestCompletion = Math.round(
+    classes.reduce((total, classroom) => total + classroom.questsComplete, 0) /
+      classes.length
+  );
+  const totalDiscussionFlags = classes.reduce(
+    (total, classroom) => total + classroom.discussions.flagged,
+    0
+  );
+
+  return (
+    <section className="space-y-6">
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <Button type="button" variant="ghost" onClick={onBack} className="mb-2 px-0">
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Teacher dashboard
+        </Button>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h3 className="text-2xl font-semibold tracking-normal">
+              Active Students
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Class-by-class view of quest progress, goal performance,
+              simulated portfolio results, and discussion health.
+            </p>
+          </div>
+          <Badge className="w-fit rounded-md bg-[#e8f0ed] text-[#24493f] hover:bg-[#e8f0ed]">
+            Teacher view
+          </Badge>
+        </div>
+      </div>
+
+      <section className="grid gap-4 md:grid-cols-4">
+        <SummaryCard
+          icon={<UsersRound className="size-5" />}
+          label="Active students"
+          value={`${totalStudents}`}
+          detail={`${classes.length} classes reporting`}
+        />
+        <SummaryCard
+          icon={<Target className="size-5" />}
+          label="Goals on track"
+          value={`${averageGoals}%`}
+          detail="Average across classes"
+        />
+        <SummaryCard
+          icon={<BookOpenCheck className="size-5" />}
+          label="Quest completion"
+          value={`${averageQuestCompletion}%`}
+          detail="Assigned quest progress"
+        />
+        <SummaryCard
+          icon={<MessageCircle className="size-5" />}
+          label="Discussion flags"
+          value={`${totalDiscussionFlags}`}
+          detail="Review queue items"
+        />
+      </section>
+
+      <section className="grid gap-5">
+        {classes.map((classroom) => (
+          <article
+            key={classroom.id}
+            className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5"
+          >
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="min-w-0">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h4 className="text-lg font-semibold">{classroom.className}</h4>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {classroom.activeStudents} active students,{" "}
+                      {classroom.questsNeedsReview} submissions need review.
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`w-fit rounded-md ${
+                      classroom.portfolioReturn >= 0
+                        ? "border-[#28666e]/30 bg-[#e8f0ed] text-[#24493f]"
+                        : "border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+                    }`}
+                  >
+                    {formatSignedPercent(classroom.portfolioReturn)} portfolio
+                  </Badge>
+                </div>
+
+                <div className="mb-4 grid gap-3 sm:grid-cols-4">
+                  <QuestMonitorMetric
+                    label="Goals"
+                    value={`${classroom.goalsOnTrack}%`}
+                  />
+                  <QuestMonitorMetric
+                    label="Quests"
+                    value={`${classroom.questsComplete}%`}
+                  />
+                  <QuestMonitorMetric
+                    label="Portfolio"
+                    value={classroom.portfolioValue}
+                  />
+                  <QuestMonitorMetric
+                    label="Participation"
+                    value={`${classroom.discussions.participation}%`}
+                  />
+                </div>
+
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[780px]">
+                    <TableHeader>
+                      <TableRow className="text-muted-foreground hover:bg-transparent">
+                        <TableHead>Student</TableHead>
+                        <TableHead>Readiness</TableHead>
+                        <TableHead>Quest progress</TableHead>
+                        <TableHead>Portfolio</TableHead>
+                        <TableHead>Discussions</TableHead>
+                        <TableHead>Flags</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {classroom.students.map((student) => (
+                        <TableRow key={`${classroom.id}-${student.alias}`}>
+                          <TableCell>
+                            <div className="grid gap-0.5">
+                              <span className="font-medium">{student.name}</span>
+                              <span className="text-sm text-muted-foreground">
+                                @{student.alias}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <ProgressWithLabel value={student.readiness} />
+                          </TableCell>
+                          <TableCell>
+                            <ProgressWithLabel value={student.questProgress} />
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">
+                              {student.portfolioValue}
+                            </span>
+                            <span
+                              className={`ml-2 text-sm ${
+                                student.portfolioReturn >= 0
+                                  ? "text-[#28666e]"
+                                  : "text-[#a13d2e]"
+                              }`}
+                            >
+                              {formatSignedPercent(student.portfolioReturn)}
+                            </span>
+                          </TableCell>
+                          <TableCell>{student.discussionPosts} posts</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="rounded-md bg-card">
+                              {student.flaggedPosts}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <aside className="space-y-4">
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <WalletCards className="size-5 text-[#28666e]" />
+                    <h5 className="font-semibold">Portfolio distribution</h5>
+                  </div>
+                  <div className="space-y-3">
+                    {classroom.allocation.map((bucket) => (
+                      <div key={`${classroom.id}-${bucket.name}`} className="grid gap-2">
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span>{bucket.name}</span>
+                          <span className="font-medium">{bucket.value}%</span>
+                        </div>
+                        <div className="h-3 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${bucket.value}%`,
+                              backgroundColor: bucket.color,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <MessageCircle className="size-5 text-[#28666e]" />
+                    <h5 className="font-semibold">Discussion stats</h5>
+                  </div>
+                  <div className="space-y-3">
+                    <Metric label="Original posts" value={`${classroom.discussions.posts}`} />
+                    <Metric label="Replies" value={`${classroom.discussions.replies}`} />
+                    <Metric
+                      label="Participation"
+                      value={`${classroom.discussions.participation}%`}
+                    />
+                    <Metric
+                      label="Flagged posts"
+                      value={`${classroom.discussions.flagged}`}
+                    />
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </article>
+        ))}
+      </section>
+    </section>
   );
 }
 
@@ -5495,6 +5995,15 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ProgressWithLabel({ value }: { value: number }) {
+  return (
+    <div className="flex min-w-[150px] items-center gap-3">
+      <Progress value={value} className="h-2" />
+      <span className="w-9 text-right text-sm">{value}%</span>
+    </div>
+  );
+}
+
 function QuestMonitorMetric({
   label,
   value,
@@ -5508,6 +6017,10 @@ function QuestMonitorMetric({
       <p className="mt-1 font-semibold">{value}</p>
     </div>
   );
+}
+
+function formatSignedPercent(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
 function AdminPolicy({

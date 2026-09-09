@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ChartNoAxesCombined,
   ClipboardList,
+  ArrowLeft,
   ChevronRight,
   Eye,
   EyeOff,
@@ -33,6 +34,7 @@ import {
   Target,
   TrendingUp,
   TriangleAlert,
+  Trash2,
   UserCog,
   UsersRound,
   WalletCards,
@@ -281,6 +283,97 @@ type Conversation = {
   unread: number;
   messages: ConversationMessage[];
 };
+
+type AdminPage = "overview" | "schools" | "integrations" | "privacy";
+
+type SchoolRecord = {
+  id: string;
+  name: string;
+  district: string;
+  state: string;
+  classes: number;
+  students: number;
+  status: "Active" | "Setup" | "Paused";
+};
+
+type MarketIntegration = {
+  id: string;
+  provider: string;
+  status: "Connected" | "Needs key" | "Testing";
+  symbols: string;
+  quoteDelay: string;
+  enabled: boolean;
+};
+
+const initialSchools: SchoolRecord[] = [
+  {
+    id: "lincoln-middle",
+    name: "Lincoln Middle School",
+    district: "Lincoln USD",
+    state: "CA",
+    classes: 6,
+    students: 128,
+    status: "Active",
+  },
+  {
+    id: "roosevelt-high",
+    name: "Roosevelt High School",
+    district: "Lincoln USD",
+    state: "CA",
+    classes: 4,
+    students: 94,
+    status: "Setup",
+  },
+  {
+    id: "central-academy",
+    name: "Central STEM Academy",
+    district: "Lincoln USD",
+    state: "CA",
+    classes: 3,
+    students: 71,
+    status: "Active",
+  },
+];
+
+const initialMarketIntegrations: MarketIntegration[] = [
+  {
+    id: "sandbox-market-feed",
+    provider: "FutureFund Sandbox Feed",
+    status: "Connected",
+    symbols: "SPY, QQQ, BND, VTI",
+    quoteDelay: "15 minutes",
+    enabled: true,
+  },
+  {
+    id: "district-provider",
+    provider: "District Market Provider",
+    status: "Needs key",
+    symbols: "Not configured",
+    quoteDelay: "Delayed",
+    enabled: false,
+  },
+];
+
+const privacyPostures = [
+  {
+    value: "standard",
+    label: "Standard school privacy",
+    description:
+      "FERPA/COPPA-aware defaults, simulated portfolios, text-only messaging, and district roster access.",
+  },
+  {
+    value: "state-restricted",
+    label: "State restricted",
+    description:
+      "Adds stricter message retention, limited profile fields, and admin approval for integrations.",
+  },
+  {
+    value: "district-custom",
+    label: "District custom",
+    description:
+      "Uses district-specific data retention, support routing, and privacy contact requirements.",
+  },
+];
 
 const initialTeacherQuests: TeacherQuest[] = [
   {
@@ -561,6 +654,20 @@ export default function Home() {
   const [discussionDraft, setDiscussionDraft] = useState("");
   const [inboxWarning, setInboxWarning] = useState("");
   const [discussionWarning, setDiscussionWarning] = useState("");
+  const [activeAdminPage, setActiveAdminPage] =
+    useState<AdminPage>("overview");
+  const [schools, setSchools] = useState<SchoolRecord[]>(initialSchools);
+  const [schoolName, setSchoolName] = useState("");
+  const [schoolState, setSchoolState] = useState("CA");
+  const [marketIntegrations, setMarketIntegrations] = useState<
+    MarketIntegration[]
+  >(initialMarketIntegrations);
+  const [integrationProvider, setIntegrationProvider] = useState("");
+  const [integrationSymbols, setIntegrationSymbols] = useState("SPY, QQQ, BND");
+  const [privacyPosture, setPrivacyPosture] = useState("standard");
+  const [privacyContact, setPrivacyContact] = useState(
+    "privacy@lincolnusd.edu"
+  );
 
   const portfolio = useMemo(
     () =>
@@ -605,6 +712,9 @@ export default function Home() {
     (total, room) => total + room.unread,
     0
   );
+  const selectedPrivacyPosture =
+    privacyPostures.find((posture) => posture.value === privacyPosture) ??
+    privacyPostures[0];
 
   function updateCriterion(
     criterionId: string,
@@ -754,6 +864,65 @@ export default function Home() {
     );
     setDiscussionDraft("");
     setDiscussionWarning("");
+  }
+
+  function addSchool() {
+    const trimmedName = schoolName.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    setSchools((currentSchools) => [
+      ...currentSchools,
+      {
+        id: `school-${Date.now()}`,
+        name: trimmedName,
+        district: "Lincoln USD",
+        state: schoolState.trim() || "CA",
+        classes: 0,
+        students: 0,
+        status: "Setup",
+      },
+    ]);
+    setSchoolName("");
+  }
+
+  function deleteSchool(schoolId: string) {
+    setSchools((currentSchools) =>
+      currentSchools.filter((school) => school.id !== schoolId)
+    );
+  }
+
+  function addMarketIntegration() {
+    const trimmedProvider = integrationProvider.trim();
+
+    if (!trimmedProvider) {
+      return;
+    }
+
+    setMarketIntegrations((currentIntegrations) => [
+      ...currentIntegrations,
+      {
+        id: `integration-${Date.now()}`,
+        provider: trimmedProvider,
+        status: "Testing",
+        symbols: integrationSymbols.trim() || "SPY",
+        quoteDelay: "15 minutes",
+        enabled: true,
+      },
+    ]);
+    setIntegrationProvider("");
+  }
+
+  function toggleMarketIntegration(integrationId: string, enabled: boolean) {
+    setMarketIntegrations((currentIntegrations) =>
+      currentIntegrations.map((integration) =>
+        integration.id === integrationId
+          ? { ...integration, enabled, status: enabled ? "Connected" : "Needs key" }
+          : integration
+      )
+    );
   }
 
   return (
@@ -1568,26 +1737,58 @@ export default function Home() {
           <TabsContent value="admin" className="mt-6 space-y-6">
             {activeTab === "admin" ? (
               <>
-            <section className="grid gap-4 md:grid-cols-3">
-              <SummaryCard
-                icon={<School className="size-5" />}
-                label="School rollout"
-                value="3 schools"
-                detail="Pilot-ready structure"
-              />
-              <SummaryCard
-                icon={<ShieldCheck className="size-5" />}
-                label="Privacy posture"
-                value="FERPA"
-                detail="COPPA-aware student flows"
-              />
-              <SummaryCard
-                icon={<Building2 className="size-5" />}
-                label="Integrations"
-                value="API layer"
-                detail="Market data and SSO ready"
-              />
-            </section>
+                {activeAdminPage !== "overview" ? (
+                  <AdminDrilldown
+                    activePage={activeAdminPage}
+                    integrationProvider={integrationProvider}
+                    integrationSymbols={integrationSymbols}
+                    marketIntegrations={marketIntegrations}
+                    onAddIntegration={addMarketIntegration}
+                    onAddSchool={addSchool}
+                    onBack={() => setActiveAdminPage("overview")}
+                    onDeleteSchool={deleteSchool}
+                    onIntegrationProviderChange={setIntegrationProvider}
+                    onIntegrationSymbolsChange={setIntegrationSymbols}
+                    onPrivacyContactChange={setPrivacyContact}
+                    onPrivacyPostureChange={setPrivacyPosture}
+                    onSchoolNameChange={setSchoolName}
+                    onSchoolStateChange={setSchoolState}
+                    onToggleIntegration={toggleMarketIntegration}
+                    privacyContact={privacyContact}
+                    privacyPosture={privacyPosture}
+                    schoolName={schoolName}
+                    schools={schools}
+                    schoolState={schoolState}
+                    selectedPrivacyPosture={selectedPrivacyPosture}
+                  />
+                ) : (
+                  <>
+                    <section className="grid gap-4 md:grid-cols-3">
+                      <SummaryCard
+                        icon={<School className="size-5" />}
+                        label="School rollout"
+                        value={`${schools.length} schools`}
+                        detail="Manage school setup"
+                        onClick={() => setActiveAdminPage("schools")}
+                      />
+                      <SummaryCard
+                        icon={<ShieldCheck className="size-5" />}
+                        label="Privacy posture"
+                        value={selectedPrivacyPosture.label}
+                        detail="Set district compliance mode"
+                        onClick={() => setActiveAdminPage("privacy")}
+                      />
+                      <SummaryCard
+                        icon={<Building2 className="size-5" />}
+                        label="Integrations"
+                        value={`${
+                          marketIntegrations.filter((item) => item.enabled)
+                            .length
+                        } active`}
+                        detail="Configure market feeds"
+                        onClick={() => setActiveAdminPage("integrations")}
+                      />
+                    </section>
 
             <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1751,6 +1952,8 @@ export default function Home() {
                 </div>
               </div>
             </section>
+                  </>
+                )}
               </>
             ) : null}
           </TabsContent>
@@ -1880,6 +2083,374 @@ function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
         </Button>
       </DialogFooter>
     </DialogContent>
+  );
+}
+
+function AdminDrilldown({
+  activePage,
+  schools,
+  schoolName,
+  schoolState,
+  marketIntegrations,
+  integrationProvider,
+  integrationSymbols,
+  privacyPosture,
+  selectedPrivacyPosture,
+  privacyContact,
+  onBack,
+  onAddSchool,
+  onDeleteSchool,
+  onSchoolNameChange,
+  onSchoolStateChange,
+  onAddIntegration,
+  onToggleIntegration,
+  onIntegrationProviderChange,
+  onIntegrationSymbolsChange,
+  onPrivacyPostureChange,
+  onPrivacyContactChange,
+}: {
+  activePage: AdminPage;
+  schools: SchoolRecord[];
+  schoolName: string;
+  schoolState: string;
+  marketIntegrations: MarketIntegration[];
+  integrationProvider: string;
+  integrationSymbols: string;
+  privacyPosture: string;
+  selectedPrivacyPosture: (typeof privacyPostures)[number];
+  privacyContact: string;
+  onBack: () => void;
+  onAddSchool: () => void;
+  onDeleteSchool: (schoolId: string) => void;
+  onSchoolNameChange: (name: string) => void;
+  onSchoolStateChange: (state: string) => void;
+  onAddIntegration: () => void;
+  onToggleIntegration: (integrationId: string, enabled: boolean) => void;
+  onIntegrationProviderChange: (provider: string) => void;
+  onIntegrationSymbolsChange: (symbols: string) => void;
+  onPrivacyPostureChange: (posture: string) => void;
+  onPrivacyContactChange: (contact: string) => void;
+}) {
+  const pageTitle =
+    activePage === "schools"
+      ? "Schools"
+      : activePage === "integrations"
+        ? "Integrations"
+        : "Privacy posture";
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <Button type="button" variant="ghost" onClick={onBack} className="mb-2 px-0">
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Admin portal
+          </Button>
+          <h3 className="text-2xl font-semibold tracking-normal">{pageTitle}</h3>
+        </div>
+      </div>
+
+      {activePage === "schools" ? (
+        <SchoolsAdminPage
+          onAddSchool={onAddSchool}
+          onDeleteSchool={onDeleteSchool}
+          onSchoolNameChange={onSchoolNameChange}
+          onSchoolStateChange={onSchoolStateChange}
+          schoolName={schoolName}
+          schools={schools}
+          schoolState={schoolState}
+        />
+      ) : null}
+
+      {activePage === "integrations" ? (
+        <IntegrationsAdminPage
+          integrationProvider={integrationProvider}
+          integrationSymbols={integrationSymbols}
+          integrations={marketIntegrations}
+          onAddIntegration={onAddIntegration}
+          onIntegrationProviderChange={onIntegrationProviderChange}
+          onIntegrationSymbolsChange={onIntegrationSymbolsChange}
+          onToggleIntegration={onToggleIntegration}
+        />
+      ) : null}
+
+      {activePage === "privacy" ? (
+        <PrivacyPostureAdminPage
+          onPrivacyContactChange={onPrivacyContactChange}
+          onPrivacyPostureChange={onPrivacyPostureChange}
+          privacyContact={privacyContact}
+          privacyPosture={privacyPosture}
+          selectedPrivacyPosture={selectedPrivacyPosture}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function SchoolsAdminPage({
+  schools,
+  schoolName,
+  schoolState,
+  onSchoolNameChange,
+  onSchoolStateChange,
+  onAddSchool,
+  onDeleteSchool,
+}: {
+  schools: SchoolRecord[];
+  schoolName: string;
+  schoolState: string;
+  onSchoolNameChange: (name: string) => void;
+  onSchoolStateChange: (state: string) => void;
+  onAddSchool: () => void;
+  onDeleteSchool: (schoolId: string) => void;
+}) {
+  return (
+    <div className="grid gap-6">
+      <div className="rounded-lg border border-border bg-background p-4">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_100px_auto]">
+          <div className="space-y-2">
+            <Label htmlFor="school-name">School name</Label>
+            <Input
+              id="school-name"
+              placeholder="Add a school"
+              value={schoolName}
+              onChange={(event) => onSchoolNameChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="school-state">State</Label>
+            <Input
+              id="school-state"
+              maxLength={2}
+              value={schoolState}
+              onChange={(event) =>
+                onSchoolStateChange(event.target.value.toUpperCase())
+              }
+            />
+          </div>
+          <div className="flex items-end">
+            <Button
+              type="button"
+              onClick={onAddSchool}
+              className="w-full bg-[#28666e] text-white hover:bg-[#22565d] md:w-auto"
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              Add school
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <Table className="min-w-[760px]">
+          <TableHeader>
+            <TableRow className="text-muted-foreground hover:bg-transparent">
+              <TableHead>School</TableHead>
+              <TableHead>District</TableHead>
+              <TableHead>State</TableHead>
+              <TableHead>Classes</TableHead>
+              <TableHead>Students</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {schools.map((school) => (
+              <TableRow key={school.id}>
+                <TableCell className="font-medium">{school.name}</TableCell>
+                <TableCell>{school.district}</TableCell>
+                <TableCell>{school.state}</TableCell>
+                <TableCell>{school.classes}</TableCell>
+                <TableCell>{school.students}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="rounded-md bg-card">
+                    {school.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onDeleteSchool(school.id)}
+                  >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function IntegrationsAdminPage({
+  integrations,
+  integrationProvider,
+  integrationSymbols,
+  onIntegrationProviderChange,
+  onIntegrationSymbolsChange,
+  onAddIntegration,
+  onToggleIntegration,
+}: {
+  integrations: MarketIntegration[];
+  integrationProvider: string;
+  integrationSymbols: string;
+  onIntegrationProviderChange: (provider: string) => void;
+  onIntegrationSymbolsChange: (symbols: string) => void;
+  onAddIntegration: () => void;
+  onToggleIntegration: (integrationId: string, enabled: boolean) => void;
+}) {
+  return (
+    <div className="grid gap-6">
+      <div className="rounded-lg border border-border bg-background p-4">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <div className="space-y-2">
+            <Label htmlFor="provider-name">Provider name</Label>
+            <Input
+              id="provider-name"
+              placeholder="Example: Polygon, IEX Cloud, Alpaca"
+              value={integrationProvider}
+              onChange={(event) => onIntegrationProviderChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="allowed-symbols">Allowed symbols</Label>
+            <Input
+              id="allowed-symbols"
+              value={integrationSymbols}
+              onChange={(event) => onIntegrationSymbolsChange(event.target.value)}
+            />
+          </div>
+          <div className="flex items-end">
+            <Button
+              type="button"
+              onClick={onAddIntegration}
+              className="w-full bg-[#28666e] text-white hover:bg-[#22565d] lg:w-auto"
+            >
+              <PlugZap className="size-4" aria-hidden="true" />
+              Add API
+            </Button>
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Store real credentials server-side later; this MVP tracks provider
+          setup and classroom-safe symbol rules.
+        </p>
+      </div>
+
+      <div className="grid gap-3">
+        {integrations.map((integration) => (
+          <article
+            key={integration.id}
+            className="rounded-lg border border-border bg-background p-4"
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="font-semibold">{integration.provider}</h4>
+                  <Badge variant="outline" className="rounded-md bg-card">
+                    {integration.status}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Symbols: {integration.symbols}. Quote delay:{" "}
+                  {integration.quoteDelay}.
+                </p>
+              </div>
+              <Label className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2">
+                Enabled
+                <Switch
+                  checked={integration.enabled}
+                  onCheckedChange={(checked) =>
+                    onToggleIntegration(integration.id, checked)
+                  }
+                />
+              </Label>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PrivacyPostureAdminPage({
+  privacyPosture,
+  selectedPrivacyPosture,
+  privacyContact,
+  onPrivacyPostureChange,
+  onPrivacyContactChange,
+}: {
+  privacyPosture: string;
+  selectedPrivacyPosture: (typeof privacyPostures)[number];
+  privacyContact: string;
+  onPrivacyPostureChange: (posture: string) => void;
+  onPrivacyContactChange: (contact: string) => void;
+}) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="rounded-lg border border-border bg-background p-4">
+        <div className="space-y-2">
+          <Label>Required privacy posture</Label>
+          <Select value={privacyPosture} onValueChange={onPrivacyPostureChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {privacyPostures.map((posture) => (
+                <SelectItem key={posture.value} value={posture.value}>
+                  {posture.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-border bg-card p-4">
+          <h4 className="font-semibold">{selectedPrivacyPosture.label}</h4>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {selectedPrivacyPosture.description}
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <Label htmlFor="privacy-contact">Privacy contact</Label>
+          <Input
+            id="privacy-contact"
+            value={privacyContact}
+            onChange={(event) => onPrivacyContactChange(event.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="size-5 text-[#28666e]" />
+          <h4 className="font-semibold">Controls applied</h4>
+        </div>
+        <div className="mt-4 space-y-3">
+          <AdminPolicy
+            detail="Student portfolios remain simulated and cannot connect to banking or brokerage accounts."
+            enabled
+            title="Simulated money"
+          />
+          <AdminPolicy
+            detail="Messages are text-only, profanity filtered, and stored with moderation status."
+            enabled
+            title="Messaging moderation"
+          />
+          <AdminPolicy
+            detail="Exports, corrections, and role changes require admin audit events."
+            enabled={privacyPosture !== "standard"}
+            title="Enhanced audit"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2198,14 +2769,16 @@ function SummaryCard({
   label,
   value,
   detail,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   detail: string;
+  onClick?: () => void;
 }) {
-  return (
-    <article className="rounded-lg border border-border bg-card p-4 shadow-sm">
+  const content = (
+    <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex size-10 items-center justify-center rounded-lg bg-[#e8f0ed] text-[#28666e]">
           {icon}
@@ -2217,6 +2790,24 @@ function SummaryCard({
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-1 text-2xl font-semibold tracking-normal">{value}</p>
       <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="rounded-lg border border-border bg-card p-4 text-left shadow-sm transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <article className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      {content}
     </article>
   );
 }

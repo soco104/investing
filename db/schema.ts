@@ -204,6 +204,27 @@ export const marketDataIntegrations = sqliteTable("market_data_integrations", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
+export const privacyPostureSettings = sqliteTable(
+  "privacy_posture_settings",
+  {
+    id: text("id").primaryKey(),
+    districtId: text("district_id")
+      .notNull()
+      .references(() => districts.id),
+    posture: text("posture").notNull().default("standard"),
+    privacyContactEmail: text("privacy_contact_email").notNull(),
+    stateCode: text("state_code").notNull(),
+    retentionPolicy: text("retention_policy").notNull().default("standard"),
+    requiresIntegrationApproval: integer("requires_integration_approval", {
+      mode: "boolean",
+    })
+      .notNull()
+      .default(false),
+    updatedByUserId: text("updated_by_user_id").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  }
+);
+
 export const passwordResetRequests = sqliteTable("password_reset_requests", {
   id: text("id").primaryKey(),
   userId: text("user_id")
@@ -301,6 +322,7 @@ export const districtsRelations = relations(districts, ({ many }) => ({
   users: many(appUsers),
   supportTickets: many(supportTickets),
   marketDataIntegrations: many(marketDataIntegrations),
+  privacyPostureSettings: many(privacyPostureSettings),
   auditEvents: many(adminAuditEvents),
 }));
 
@@ -458,6 +480,16 @@ export const marketDataIntegrationsRelations = relations(
   ({ one }) => ({
     district: one(districts, {
       fields: [marketDataIntegrations.districtId],
+      references: [districts.id],
+    }),
+  })
+);
+
+export const privacyPostureSettingsRelations = relations(
+  privacyPostureSettings,
+  ({ one }) => ({
+    district: one(districts, {
+      fields: [privacyPostureSettings.districtId],
       references: [districts.id],
     }),
   })

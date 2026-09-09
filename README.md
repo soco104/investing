@@ -16,13 +16,16 @@ views that focus on learning evidence instead of real-money trading outcomes.
 - Admin portal for user management, permissions, support routing, market API
   setup, password resets, portfolio corrections, template governance, and
   scoring policy controls
+- Admin drill-in pages for school setup, market data integrations, and district
+  privacy posture selection
 - Mock market data API for classroom-safe quote behavior
 - Initial database schema for districts, schools, classrooms, students,
   simulated portfolios, holdings, lessons, teacher-created quests, hidden
   scoring rules, market parameters, assignments, submissions, user-owned inbox
   threads, classroom discussion rooms, message moderation status, admin users,
   role assignments, support tickets, market data integrations, password reset
-  requests, portfolio correction audits, and lesson progress
+  requests, privacy posture settings, portfolio correction audits, and lesson
+  progress
 
 ## Development
 

@@ -13,15 +13,16 @@ import {
   FilePenLine,
   Gauge,
   GraduationCap,
+  KeyRound,
   Landmark,
   LineChart,
-  LockKeyhole,
   Mail,
   Medal,
   MessageCircle,
   PiggyBank,
   Play,
   Plus,
+  PlugZap,
   Save,
   School,
   Settings2,
@@ -32,8 +33,10 @@ import {
   Target,
   TrendingUp,
   TriangleAlert,
+  UserCog,
   UsersRound,
   WalletCards,
+  Wrench,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -49,6 +52,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -465,6 +476,63 @@ const implementation = [
   "Simulated portfolios with no real-money transactions",
 ];
 
+const roleOptions = [
+  {
+    value: "student",
+    label: "Student",
+    description: "Learner dashboard",
+  },
+  {
+    value: "teacher",
+    label: "Teacher",
+    description: "Classroom tools",
+  },
+  {
+    value: "admin",
+    label: "Admin",
+    description: "System portal",
+  },
+] as const;
+
+const adminModules = [
+  {
+    title: "Users",
+    detail: "Create users, assign schools, disable accounts, and import rosters.",
+    status: "128 active",
+    icon: UserCog,
+  },
+  {
+    title: "Permissions",
+    detail: "Control messaging, quest authoring, template approval, and portfolio edits.",
+    status: "3 roles",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Support",
+    detail: "Track login issues, blocked messages, sync errors, and support contact routing.",
+    status: "4 open",
+    icon: Wrench,
+  },
+  {
+    title: "Market APIs",
+    detail: "Connect data providers, test quote health, and set classroom-safe feeds.",
+    status: "Mock live",
+    icon: PlugZap,
+  },
+  {
+    title: "Password resets",
+    detail: "Reset credentials, review SSO status, and clear locked accounts.",
+    status: "2 pending",
+    icon: KeyRound,
+  },
+  {
+    title: "Portfolio corrections",
+    detail: "Adjust simulated balances or holdings with a required audit reason.",
+    status: "Audit required",
+    icon: WalletCards,
+  },
+];
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState("student");
   const [scenarioDay, setScenarioDay] = useState(0);
@@ -527,6 +595,16 @@ export default function Home() {
   const selectedDiscussionRoom =
     discussionRooms.find((room) => room.id === selectedDiscussionId) ??
     discussionRooms[0];
+  const activeRole =
+    roleOptions.find((role) => role.value === activeTab) ?? roleOptions[0];
+  const inboxUnread = inboxConversations.reduce(
+    (total, conversation) => total + conversation.unread,
+    0
+  );
+  const discussionUnread = discussionRooms.reduce(
+    (total, room) => total + room.unread,
+    0
+  );
 
   function updateCriterion(
     criterionId: string,
@@ -688,7 +766,7 @@ export default function Home() {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">
-                District MVP
+                School platform MVP
               </p>
               <h1 className="text-xl font-semibold tracking-normal">
                 FutureFund Classroom
@@ -728,13 +806,33 @@ export default function Home() {
 
           <div className="mt-6 rounded-lg border border-border bg-muted/45 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-medium">Profile sync</span>
-              <LockKeyhole className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Profile messages</span>
+              <Mail className="size-4 text-muted-foreground" />
             </div>
-            <p className="text-sm leading-6 text-muted-foreground">
-              One student record stores portfolio progress, lesson evidence,
-              classroom assignments, and device sessions.
-            </p>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("inbox")}
+                className="flex w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-left text-sm transition hover:bg-background"
+              >
+                <span className="flex items-center gap-2">
+                  <Mail className="size-4 text-[#28666e]" />
+                  Inbox
+                </span>
+                <span className="font-semibold">{inboxUnread}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("discussion")}
+                className="flex w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-left text-sm transition hover:bg-background"
+              >
+                <span className="flex items-center gap-2">
+                  <MessageCircle className="size-4 text-[#28666e]" />
+                  Discussion
+                </span>
+                <span className="font-semibold">{discussionUnread}</span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -753,23 +851,44 @@ export default function Home() {
                 measure.
               </h2>
             </div>
-            <TabsList className="h-auto flex-wrap justify-start rounded-lg bg-muted p-1">
-              <TabsTrigger value="student" className="min-h-9 px-3">
-                Student
-              </TabsTrigger>
-              <TabsTrigger value="inbox" className="min-h-9 px-3">
-                Inbox
-              </TabsTrigger>
-              <TabsTrigger value="discussion" className="min-h-9 px-3">
-                Discussion
-              </TabsTrigger>
-              <TabsTrigger value="teacher" className="min-h-9 px-3">
-                Teacher
-              </TabsTrigger>
-              <TabsTrigger value="district" className="min-h-9 px-3">
-                District
-              </TabsTrigger>
-            </TabsList>
+            <div className="flex flex-wrap items-center gap-2">
+              <TabsList className="h-auto flex-wrap justify-start rounded-lg bg-muted p-1">
+                <TabsTrigger value="student" className="min-h-9 px-3">
+                  Home
+                </TabsTrigger>
+                <TabsTrigger value="inbox" className="min-h-9 px-3">
+                  Inbox
+                </TabsTrigger>
+                <TabsTrigger value="discussion" className="min-h-9 px-3">
+                  Discussion
+                </TabsTrigger>
+              </TabsList>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline">
+                    Assume role: {activeRole.label}
+                    <ChevronRight className="size-4 rotate-90" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-52">
+                  <DropdownMenuLabel>Role view</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {roleOptions.map((role) => (
+                    <DropdownMenuItem
+                      key={role.value}
+                      onSelect={() => setActiveTab(role.value)}
+                    >
+                      <span className="grid gap-0.5">
+                        <span className="font-medium">{role.label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {role.description}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           <TabsContent value="student" className="mt-6 space-y-6">
@@ -1446,8 +1565,8 @@ export default function Home() {
             ) : null}
           </TabsContent>
 
-          <TabsContent value="district" className="mt-6 space-y-6">
-            {activeTab === "district" ? (
+          <TabsContent value="admin" className="mt-6 space-y-6">
+            {activeTab === "admin" ? (
               <>
             <section className="grid gap-4 md:grid-cols-3">
               <SummaryCard
@@ -1470,6 +1589,47 @@ export default function Home() {
               />
             </section>
 
+            <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="size-5 text-[#28666e]" />
+                    <h3 className="text-lg font-semibold">Admin portal</h3>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Configure users, data feeds, support workflows, account
+                    recovery, and simulated portfolio corrections.
+                  </p>
+                </div>
+                <Button type="button" className="bg-[#28666e] text-white hover:bg-[#22565d]">
+                  <Wrench className="size-4" aria-hidden="true" />
+                  Open support case
+                </Button>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {adminModules.map((module) => (
+                  <article
+                    key={module.title}
+                    className="rounded-lg border border-border bg-background p-4"
+                  >
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-lg bg-[#e8f0ed] text-[#28666e]">
+                        <module.icon className="size-5" aria-hidden="true" />
+                      </div>
+                      <Badge variant="outline" className="rounded-md bg-card">
+                        {module.status}
+                      </Badge>
+                    </div>
+                    <h4 className="font-semibold">{module.title}</h4>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {module.detail}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
               <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1481,8 +1641,8 @@ export default function Home() {
                       </h3>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Admins manage district templates and review how teachers
-                      use hidden scoring.
+                      Admins manage users, permissions, templates, integrations,
+                      and support operations.
                     </p>
                   </div>
                   <Button type="button" variant="outline">

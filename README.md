@@ -13,14 +13,16 @@ views that focus on learning evidence instead of real-money trading outcomes.
 - User-level text-only inbox for direct teacher-student and approved peer
   messages with a first-pass profanity filter
 - Classroom discussion board for shared quest conversations
-- District/system administrator view for rollout, privacy posture, integration
-  planning, template governance, and scoring policy controls
+- Admin portal for user management, permissions, support routing, market API
+  setup, password resets, portfolio corrections, template governance, and
+  scoring policy controls
 - Mock market data API for classroom-safe quote behavior
 - Initial database schema for districts, schools, classrooms, students,
   simulated portfolios, holdings, lessons, teacher-created quests, hidden
   scoring rules, market parameters, assignments, submissions, user-owned inbox
-  threads, classroom discussion rooms, message moderation status, and lesson
-  progress
+  threads, classroom discussion rooms, message moderation status, admin users,
+  role assignments, support tickets, market data integrations, password reset
+  requests, portfolio correction audits, and lesson progress
 
 ## Development
 
@@ -58,6 +60,8 @@ npm run lint
   or system administrator has explicitly made visible
 - Messaging starts as text-only communication with profanity blocking and
   moderation fields in the data model
+- Admin changes that affect access or simulated portfolio data should carry an
+  audit reason
 
 ## License
 

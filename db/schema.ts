@@ -23,6 +23,30 @@ export const schools = sqliteTable("schools", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+export const appUsers = sqliteTable("app_users", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id")
+    .notNull()
+    .references(() => districts.id),
+  schoolId: text("school_id").references(() => schools.id),
+  displayName: text("display_name").notNull(),
+  email: text("email").notNull(),
+  status: text("status").notNull().default("active"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const roleAssignments = sqliteTable("role_assignments", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => appUsers.id),
+  role: text("role").notNull(),
+  scope: text("scope").notNull(),
+  assignedByUserId: text("assigned_by_user_id").notNull(),
+  assignedAt: integer("assigned_at", { mode: "timestamp" }).notNull(),
+});
+
 export const classrooms = sqliteTable("classrooms", {
   id: text("id").primaryKey(),
   schoolId: text("school_id")
@@ -150,6 +174,73 @@ export const questSubmissions = sqliteTable("quest_submissions", {
   reviewedAt: integer("reviewed_at", { mode: "timestamp" }),
 });
 
+export const supportTickets = sqliteTable("support_tickets", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id")
+    .notNull()
+    .references(() => districts.id),
+  reportedByUserId: text("reported_by_user_id").notNull(),
+  category: text("category").notNull(),
+  summary: text("summary").notNull(),
+  status: text("status").notNull().default("open"),
+  supportContactEmail: text("support_contact_email").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+});
+
+export const marketDataIntegrations = sqliteTable("market_data_integrations", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id")
+    .notNull()
+    .references(() => districts.id),
+  providerName: text("provider_name").notNull(),
+  status: text("status").notNull().default("not_configured"),
+  allowedSymbolsCsv: text("allowed_symbols_csv").notNull().default(""),
+  delayedQuotes: integer("delayed_quotes", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  configuredByUserId: text("configured_by_user_id"),
+  lastHealthCheckAt: integer("last_health_check_at", { mode: "timestamp" }),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const passwordResetRequests = sqliteTable("password_reset_requests", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => appUsers.id),
+  requestedByUserId: text("requested_by_user_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  requestedAt: integer("requested_at", { mode: "timestamp" }).notNull(),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+});
+
+export const portfolioCorrections = sqliteTable("portfolio_corrections", {
+  id: text("id").primaryKey(),
+  portfolioId: text("portfolio_id")
+    .notNull()
+    .references(() => simulatedPortfolios.id),
+  correctedByUserId: text("corrected_by_user_id").notNull(),
+  correctionType: text("correction_type").notNull(),
+  beforeSnapshotJson: text("before_snapshot_json").notNull(),
+  afterSnapshotJson: text("after_snapshot_json").notNull(),
+  auditReason: text("audit_reason").notNull(),
+  correctedAt: integer("corrected_at", { mode: "timestamp" }).notNull(),
+});
+
+export const adminAuditEvents = sqliteTable("admin_audit_events", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id")
+    .notNull()
+    .references(() => districts.id),
+  actorUserId: text("actor_user_id").notNull(),
+  action: text("action").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  reason: text("reason"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 export const conversations = sqliteTable("conversations", {
   id: text("id").primaryKey(),
   ownerUserId: text("owner_user_id"),
@@ -207,6 +298,10 @@ export const lessonProgress = sqliteTable("lesson_progress", {
 export const districtsRelations = relations(districts, ({ many }) => ({
   schools: many(schools),
   learningQuests: many(learningQuests),
+  users: many(appUsers),
+  supportTickets: many(supportTickets),
+  marketDataIntegrations: many(marketDataIntegrations),
+  auditEvents: many(adminAuditEvents),
 }));
 
 export const schoolsRelations = relations(schools, ({ one, many }) => ({
@@ -215,7 +310,31 @@ export const schoolsRelations = relations(schools, ({ one, many }) => ({
     references: [districts.id],
   }),
   classrooms: many(classrooms),
+  users: many(appUsers),
 }));
+
+export const appUsersRelations = relations(appUsers, ({ one, many }) => ({
+  district: one(districts, {
+    fields: [appUsers.districtId],
+    references: [districts.id],
+  }),
+  school: one(schools, {
+    fields: [appUsers.schoolId],
+    references: [schools.id],
+  }),
+  roles: many(roleAssignments),
+  passwordResetRequests: many(passwordResetRequests),
+}));
+
+export const roleAssignmentsRelations = relations(
+  roleAssignments,
+  ({ one }) => ({
+    user: one(appUsers, {
+      fields: [roleAssignments.userId],
+      references: [appUsers.id],
+    }),
+  })
+);
 
 export const classroomsRelations = relations(classrooms, ({ one, many }) => ({
   school: one(schools, {
@@ -246,6 +365,7 @@ export const portfolioRelations = relations(
       references: [students.id],
     }),
     positions: many(positions),
+    corrections: many(portfolioCorrections),
   })
 );
 
@@ -322,6 +442,53 @@ export const questSubmissionsRelations = relations(
     student: one(students, {
       fields: [questSubmissions.studentId],
       references: [students.id],
+    }),
+  })
+);
+
+export const supportTicketsRelations = relations(supportTickets, ({ one }) => ({
+  district: one(districts, {
+    fields: [supportTickets.districtId],
+    references: [districts.id],
+  }),
+}));
+
+export const marketDataIntegrationsRelations = relations(
+  marketDataIntegrations,
+  ({ one }) => ({
+    district: one(districts, {
+      fields: [marketDataIntegrations.districtId],
+      references: [districts.id],
+    }),
+  })
+);
+
+export const passwordResetRequestsRelations = relations(
+  passwordResetRequests,
+  ({ one }) => ({
+    user: one(appUsers, {
+      fields: [passwordResetRequests.userId],
+      references: [appUsers.id],
+    }),
+  })
+);
+
+export const portfolioCorrectionsRelations = relations(
+  portfolioCorrections,
+  ({ one }) => ({
+    portfolio: one(simulatedPortfolios, {
+      fields: [portfolioCorrections.portfolioId],
+      references: [simulatedPortfolios.id],
+    }),
+  })
+);
+
+export const adminAuditEventsRelations = relations(
+  adminAuditEvents,
+  ({ one }) => ({
+    district: one(districts, {
+      fields: [adminAuditEvents.districtId],
+      references: [districts.id],
     }),
   })
 );

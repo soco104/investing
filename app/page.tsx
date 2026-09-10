@@ -1614,6 +1614,28 @@ export default function Home() {
     ) / teacherClassAnalytics.length
   );
 
+  async function postAdminMutation<T>(
+    path: string,
+    body: Record<string, unknown>
+  ) {
+    const response = await fetch(path, {
+      body: JSON.stringify(body),
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const result = (await response.json()) as T & {
+      message?: string;
+      ok?: boolean;
+    };
+
+    if (!response.ok || result.ok === false) {
+      throw new Error(result.message ?? "Admin action could not be saved.");
+    }
+
+    return result;
+  }
+
   function updateCriterion(
     criterionId: string,
     updates: Partial<ScoringRule>
@@ -1745,12 +1767,21 @@ export default function Home() {
     setActiveStudentPage("dashboard");
   }
 
-  function exportLearningQuests() {
-    setQuestTransferText(JSON.stringify(teacherQuests, null, 2));
-    setQuestTransferNotice("Learning quests exported as JSON.");
+  async function exportLearningQuests() {
+    try {
+      await postAdminMutation("/api/admin/quests/transfer", {
+        action: "export",
+        count: teacherQuests.length,
+        reason: "Learning quest template export",
+      });
+      setQuestTransferText(JSON.stringify(teacherQuests, null, 2));
+      setQuestTransferNotice("Learning quests exported as JSON and audited.");
+    } catch (error) {
+      setQuestTransferNotice((error as Error).message);
+    }
   }
 
-  function importLearningQuests() {
+  async function importLearningQuests() {
     try {
       const parsed = JSON.parse(questTransferText) as TeacherQuest | TeacherQuest[];
       const importedQuests = Array.isArray(parsed) ? parsed : [parsed];
@@ -1760,24 +1791,55 @@ export default function Home() {
         status: "Draft" as const,
       }));
 
+      await postAdminMutation("/api/admin/quests/transfer", {
+        action: "import",
+        count: normalizedQuests.length,
+        payload: normalizedQuests,
+        reason: "Learning quest template import",
+      });
       setTeacherQuests((quests) => [...normalizedQuests, ...quests]);
-      setQuestTransferNotice(`${normalizedQuests.length} learning quest imported.`);
+      setQuestTransferNotice(
+        `${normalizedQuests.length} learning quest imported and audited.`
+      );
     } catch {
       setQuestTransferNotice("Import failed. Paste valid learning quest JSON.");
     }
   }
 
-  function toggleUserEnabled(userId: string, enabled: boolean) {
+  async function toggleUserEnabled(userId: string, enabled: boolean) {
+    try {
+      await postAdminMutation("/api/admin/users", {
+        action: enabled ? "enable" : "disable",
+        reason: enabled ? "Admin enabled user" : "Admin disabled user",
+        targetUserId: userId,
+      });
+    } catch (error) {
+      setUserImportNotice((error as Error).message);
+      return;
+    }
+
     setAdminUsers((users) =>
       users.map((user) => (user.id === userId ? { ...user, enabled } : user))
     );
   }
 
-  function updateUserPermission(
+  async function updateUserPermission(
     userId: string,
     permission: keyof AdminUser["permissions"],
     enabled: boolean
   ) {
+    try {
+      await postAdminMutation("/api/admin/permissions", {
+        enabled,
+        permission,
+        reason: "Admin permission update",
+        targetUserId: userId,
+      });
+    } catch (error) {
+      setUserImportNotice((error as Error).message);
+      return;
+    }
+
     setAdminUsers((users) =>
       users.map((user) =>
         user.id === userId
@@ -1793,13 +1855,30 @@ export default function Home() {
     );
   }
 
-  function importUsersFromCsv(csvText: string) {
+  async function importUsersFromCsv(csvText: string) {
     const importedUsers = parseUsersCsv(csvText);
 
     if (!importedUsers.length) {
       setUserImportNotice(
         "No users imported. Check that the CSV includes at least an email column."
       );
+      return;
+    }
+
+    try {
+      await postAdminMutation("/api/admin/users", {
+        action: "import",
+        reason: "CSV roster import",
+        users: importedUsers.map(({ email, role, className, firstName, lastName }) => ({
+          className,
+          email,
+          firstName,
+          lastName,
+          role,
+        })),
+      });
+    } catch (error) {
+      setUserImportNotice((error as Error).message);
       return;
     }
 
@@ -1819,7 +1898,7 @@ export default function Home() {
     });
   }
 
-  function createIndividualUser() {
+  async function createIndividualUser() {
     const firstName = newUserFirstName.trim();
     const lastName = newUserLastName.trim();
     const email = newUserEmail.trim().toLowerCase();
@@ -1852,6 +1931,26 @@ export default function Home() {
       permissions: permissionsForRole(newUserRole),
     };
 
+    try {
+      await postAdminMutation("/api/admin/users", {
+        action: "create",
+        reason: "Individual admin user creation",
+        targetUserId: createdUser.id,
+        users: [
+          {
+            className: createdUser.className,
+            email: createdUser.email,
+            firstName: createdUser.firstName,
+            lastName: createdUser.lastName,
+            role: createdUser.role,
+          },
+        ],
+      });
+    } catch (error) {
+      setUserImportNotice((error as Error).message);
+      return;
+    }
+
     setAdminUsers((users) => [createdUser, ...users]);
     setUserImportNotice(
       `${firstName} ${lastName} created. ${
@@ -1869,10 +1968,20 @@ export default function Home() {
     setNewUserTemporaryPassword("");
   }
 
-  function createSupportCase() {
+  async function createSupportCase() {
     const trimmedSummary = supportSummary.trim();
 
     if (!trimmedSummary) {
+      return;
+    }
+
+    try {
+      await postAdminMutation("/api/admin/support", {
+        category: supportCategory,
+        summary: trimmedSummary,
+      });
+    } catch (error) {
+      setUserImportNotice((error as Error).message);
       return;
     }
 
@@ -1890,7 +1999,7 @@ export default function Home() {
     setSupportSummary("");
   }
 
-  function triggerPasswordReset() {
+  async function triggerPasswordReset() {
     const trimmedEmail = resetEmail.trim();
 
     if (!trimmedEmail) {
@@ -1898,8 +2007,16 @@ export default function Home() {
       return;
     }
 
-    setResetNotice(`Password reset sent to ${trimmedEmail}. SSO comes later.`);
-    setResetEmail("");
+    try {
+      await postAdminMutation("/api/admin/password-resets", {
+        email: trimmedEmail,
+        reason: "Admin password reset",
+      });
+      setResetNotice(`Password reset requested for ${trimmedEmail}.`);
+      setResetEmail("");
+    } catch (error) {
+      setResetNotice((error as Error).message);
+    }
   }
 
   function sendInboxMessage() {
@@ -1976,7 +2093,7 @@ export default function Home() {
     setDiscussionWarning("");
   }
 
-  function addSchool() {
+  async function addSchool() {
     const trimmedName = schoolName.trim();
     const trimmedDistrict = schoolDistrict.trim();
     const parsedClasses = Number.parseInt(schoolClassCount, 10);
@@ -1986,30 +2103,54 @@ export default function Home() {
       return;
     }
 
-    setSchools((currentSchools) => [
-      ...currentSchools,
-      {
-        id: `school-${Date.now()}`,
+    const createdSchool = {
+      id: `school-${Date.now()}`,
         name: trimmedName,
         district: trimmedDistrict,
         state: schoolState.trim() || "CA",
         classes: Number.isNaN(parsedClasses) ? 0 : Math.max(0, parsedClasses),
         students: Number.isNaN(parsedStudents) ? 0 : Math.max(0, parsedStudents),
         status: "Setup",
-      },
-    ]);
+    };
+
+    try {
+      await postAdminMutation("/api/admin/schools", {
+        action: "create",
+        classCount: createdSchool.classes,
+        district: createdSchool.district,
+        name: createdSchool.name,
+        reason: "Admin school setup",
+        schoolId: createdSchool.id,
+        state: createdSchool.state,
+        studentCount: createdSchool.students,
+      });
+    } catch {
+      return;
+    }
+
+    setSchools((currentSchools) => [...currentSchools, createdSchool]);
     setSchoolName("");
     setSchoolClassCount("0");
     setSchoolStudentCount("0");
   }
 
-  function deleteSchool(schoolId: string) {
+  async function deleteSchool(schoolId: string) {
+    try {
+      await postAdminMutation("/api/admin/schools", {
+        action: "delete",
+        reason: "Admin school removal",
+        schoolId,
+      });
+    } catch {
+      return;
+    }
+
     setSchools((currentSchools) =>
       currentSchools.filter((school) => school.id !== schoolId)
     );
   }
 
-  function addMarketIntegration() {
+  async function addMarketIntegration() {
     const trimmedProvider = integrationProvider.trim();
     const trimmedEndpoint = integrationEndpoint.trim();
     const trimmedSymbols = integrationSymbols.trim();
@@ -2018,10 +2159,8 @@ export default function Home() {
       return;
     }
 
-    setMarketIntegrations((currentIntegrations) => [
-      ...currentIntegrations,
-      {
-        id: `integration-${Date.now()}`,
+    const createdIntegration = {
+      id: `integration-${Date.now()}`,
         provider: trimmedProvider,
         endpoint: trimmedEndpoint,
         tokenRequired: integrationTokenRequired,
@@ -2036,7 +2175,27 @@ export default function Home() {
           : 200,
         lastFetchStatus: "Ready for GET test",
         enabled: true,
-      },
+    };
+
+    try {
+      await postAdminMutation("/api/admin/integrations", {
+        action: "create",
+        allowedSymbols: trimmedSymbols,
+        endpoint: createdIntegration.endpoint,
+        integrationId: createdIntegration.id,
+        maxSymbols: createdIntegration.importedSymbols,
+        provider: createdIntegration.provider,
+        reason: "Admin market integration creation",
+        targetClass: createdIntegration.targetClass,
+        token: integrationTokenRequired ? createdIntegration.token : "",
+      });
+    } catch {
+      return;
+    }
+
+    setMarketIntegrations((currentIntegrations) => [
+      ...currentIntegrations,
+      createdIntegration,
     ]);
     setIntegrationProvider("");
     setIntegrationEndpoint("/api/market");
@@ -2047,7 +2206,26 @@ export default function Home() {
     setIntegrationSymbols("");
   }
 
-  function toggleMarketIntegration(integrationId: string, enabled: boolean) {
+  async function toggleMarketIntegration(integrationId: string, enabled: boolean) {
+    const integration = marketIntegrations.find((item) => item.id === integrationId);
+
+    if (!integration) {
+      return;
+    }
+
+    try {
+      await postAdminMutation("/api/admin/integrations", {
+        action: "update",
+        endpoint: integration.endpoint,
+        integrationId,
+        provider: integration.provider,
+        reason: enabled ? "Admin enabled integration" : "Admin disabled integration",
+        targetClass: integration.targetClass,
+      });
+    } catch {
+      return;
+    }
+
     setMarketIntegrations((currentIntegrations) =>
       currentIntegrations.map((integration) =>
         integration.id === integrationId
@@ -2057,7 +2235,26 @@ export default function Home() {
     );
   }
 
-  function deleteMarketIntegration(integrationId: string) {
+  async function deleteMarketIntegration(integrationId: string) {
+    const integration = marketIntegrations.find((item) => item.id === integrationId);
+
+    if (!integration) {
+      return;
+    }
+
+    try {
+      await postAdminMutation("/api/admin/integrations", {
+        action: "delete",
+        endpoint: integration.endpoint,
+        integrationId,
+        provider: integration.provider,
+        reason: "Admin deleted integration",
+        targetClass: integration.targetClass,
+      });
+    } catch {
+      return;
+    }
+
     setMarketIntegrations((currentIntegrations) =>
       currentIntegrations.filter((integration) => integration.id !== integrationId)
     );
@@ -2149,11 +2346,24 @@ export default function Home() {
     ]);
   }
 
-  function applyPortfolioCorrection() {
+  async function applyPortfolioCorrection() {
     const adjustment = Number.parseFloat(portfolioAdjustment);
 
     if (Number.isNaN(adjustment) || !portfolioCorrectionReason.trim()) {
       setPortfolioCorrectionNotice("Enter an adjustment and audit reason.");
+      return;
+    }
+
+    try {
+      await postAdminMutation("/api/admin/portfolio-corrections", {
+        adjustmentCents: Math.round(adjustment * 100),
+        afterSnapshot: { simulatedGoalBoost: goalBoost + Math.round(adjustment / 5) },
+        beforeSnapshot: { simulatedGoalBoost: goalBoost },
+        portfolioId: "portfolio-avery",
+        reason: portfolioCorrectionReason.trim(),
+      });
+    } catch (error) {
+      setPortfolioCorrectionNotice((error as Error).message);
       return;
     }
 
@@ -2169,7 +2379,7 @@ export default function Home() {
       },
       ...currentActivity,
     ]);
-    setPortfolioCorrectionNotice("Portfolio correction applied and logged.");
+    setPortfolioCorrectionNotice("Portfolio correction applied and audited.");
   }
 
   function openAdminModule(title: string) {

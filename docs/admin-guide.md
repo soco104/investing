@@ -107,6 +107,14 @@ Recommended operating process:
 For production, deleting a school should either be disabled while active
 classes/users exist or converted into a deactivate/archive workflow.
 
+Production endpoint:
+
+- `POST /api/admin/schools`
+
+The endpoint requires `Admin portal` permission and audits school creation or
+deletion with school, district, state, class count, student count, actor,
+timestamp, and reason.
+
 ## 6. User Management
 
 The Users page lists teachers, students, and admins. The table is filterable by
@@ -390,6 +398,13 @@ portfolio correction requests.
 
 Production support should add case ownership, comments, attachments policy,
 resolution notes, and notification routing.
+
+Production endpoint:
+
+- `POST /api/admin/support`
+
+The endpoint requires `Admin portal` permission and audits new support case
+creation with category, summary, requester, status, actor, and timestamp.
 
 ## 13. Password Resets
 

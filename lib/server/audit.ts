@@ -18,7 +18,12 @@ export type AuditAction =
   | "moderation.reviewed"
   | "backup.requested"
   | "incident.opened"
-  | "sso.updated";
+  | "sso.updated"
+  | "school.created"
+  | "school.deleted"
+  | "support_case.created"
+  | "quest_templates.exported"
+  | "quest_templates.imported";
 
 export type AuditEvent = {
   id: string;

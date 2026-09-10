@@ -85,6 +85,13 @@ Google Cloud Run packaging and provisioning instructions live in
 package includes a `Dockerfile`, `cloudbuild.yaml`, and Terraform under
 `infra/cloudrun/` for the small school pilot infrastructure baseline.
 
+## Admin Guide
+
+Admin operation and configuration guidance lives in
+[`docs/admin-guide.md`](docs/admin-guide.md). It covers schools, users,
+permissions, support, monitoring, market integrations, privacy posture,
+password resets, portfolio corrections, and learning quest import/export.
+
 ## Product Guardrails
 
 - Simulated money only in the MVP

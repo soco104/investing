@@ -1,0 +1,523 @@
+# FutureFund Classroom Admin Guide
+
+This guide explains how district or system administrators operate and configure
+the FutureFund Classroom MVP. It is written for the current web MVP and should be
+updated as the prototype moves from in-memory demo flows to production-backed
+services.
+
+## 1. Admin Responsibilities
+
+Admins manage the district-level setup that lets teachers and students use the
+platform safely:
+
+- Configure schools, classrooms, users, and user roles.
+- Grant or remove permissions for students, teachers, and admins.
+- Configure market data integrations used by learning quests and portfolio
+  simulations.
+- Select the district privacy posture and maintain the privacy contact.
+- Review support cases, monitoring signals, and integration health.
+- Trigger password resets.
+- Apply audited portfolio corrections when simulated portfolio data needs to be
+  repaired.
+- Import or export learning quest templates for district reuse.
+
+The MVP is an educational simulation. Admins should not configure workflows that
+imply real brokerage activity, real trades, financial advice, banking transfers,
+or live custodial accounts.
+
+## 2. Access and Login
+
+The current login screen accepts role-based demo accounts and routes users to
+the allowed role surface. The app includes three role families:
+
+- `Student`: student dashboard, portfolio, learning quests, profile, inbox, and
+  classroom discussions.
+- `Teacher`: teacher dashboard, class progress, quest studio, student analytics,
+  teacher profile, inbox, and learning quest import/export when permitted.
+- `Admin`: admin portal, system configuration, monitoring, support, user
+  management, integrations, privacy, password resets, and portfolio corrections.
+
+The current password login API is implemented at `/api/auth/login`. SSO provider
+records exist in the schema for future district identity provider configuration,
+but live SSO is not connected yet. Production deployments should replace the
+seeded demo login model with persisted user credentials, hardened session
+storage, and district SSO.
+
+## 3. Role and Permission Model
+
+Admins can use the role selector in the app header to view permitted role
+surfaces. Admin users do not need the left-side student or teacher profile card;
+student and teacher users see role-appropriate profile content.
+
+The admin permission model currently tracks these permission categories:
+
+- `Student profile`: access to student-facing profile and portfolio surfaces.
+- `Teacher portal`: access to teacher dashboards, rosters, analytics, and quest
+  authoring.
+- `Admin portal`: access to district/system administration.
+- `Quest import/export`: permission to move quest templates as JSON.
+- `Portfolio corrections`: permission to adjust simulated portfolio values.
+
+Admin users keep all system rights by default. Teachers can be granted teacher
+portal and quest import/export rights. Students should normally retain only
+student profile access.
+
+## 4. Admin Portal Overview
+
+The Admin portal contains the following operational modules:
+
+- Schools
+- Users
+- Permissions
+- Support
+- Monitoring
+- Market APIs
+- Privacy posture
+- Password resets
+- Portfolio corrections
+- Learning quest import/export
+
+Each widget opens either a page, drilldown panel, or popup for the related task.
+When an admin action affects access, integrations, support, privacy, or
+portfolio balances, the production implementation should write an audit event.
+
+## 5. Schools Configuration
+
+Use the Schools section to maintain the schools configured for the application.
+The current page shows a table of configured schools and lets an admin add or
+delete schools.
+
+School records include:
+
+- School name
+- School district
+- State
+- Class count
+- Student count
+
+Recommended operating process:
+
+1. Create or confirm the district record before onboarding schools.
+2. Add each school with accurate district and state values.
+3. Enter class and student counts as planning metadata for rollout and support.
+4. Review counts during semester changes.
+5. Delete only schools that are no longer active and have no required reporting
+   or retention needs.
+
+For production, deleting a school should either be disabled while active
+classes/users exist or converted into a deactivate/archive workflow.
+
+## 6. User Management
+
+The Users page lists teachers, students, and admins. The table is filterable by
+class and role, and shows:
+
+- First name
+- Last name
+- Email
+- Role
+- Class
+- Profile link
+- Enabled/disabled status
+- Permission summary
+
+Admins can create users one at a time or import users from a CSV.
+
+### Individual User Creation
+
+Use individual creation when adding a small number of users or correcting a
+manual onboarding gap.
+
+Required fields:
+
+- First name
+- Last name
+- Email
+- Role
+- Class, except for admins where the class defaults to `District`
+- Alias
+- Temporary password
+
+Operational notes:
+
+- Use district-managed email addresses where possible.
+- Keep aliases classroom appropriate and recognizable enough for teachers to
+  moderate.
+- For production, temporary passwords should force reset on first login.
+- Avoid assigning admin roles for ordinary teaching or classroom operations.
+
+### CSV User Import
+
+Use CSV import for roster onboarding. The upload accepts a `.csv` file with
+these headers:
+
+```csv
+firstName,lastName,email,role,class,alias
+```
+
+Import behavior:
+
+- `role` is normalized to `Student`, `Teacher`, or `Admin`.
+- Duplicate emails are skipped by the current frontend flow.
+- Imported users receive default permissions based on role.
+- Admin users are assigned to `District` instead of a class.
+
+Recommended CSV hygiene:
+
+- Confirm the file contains only the target school or class cohort.
+- Use consistent role names.
+- Remove inactive students before upload.
+- Validate special characters in names and aliases before importing.
+
+## 7. User Profiles and Messaging
+
+The Profile button in the Users table opens the selected user's role-aware
+profile page.
+
+Student profiles show:
+
+- Alias and profile identity
+- Portfolio overview
+- Portfolio value and allocation
+- Recent portfolio activity
+- Learning activity context
+- Message link
+
+Teacher profiles show:
+
+- Classes managed
+- Learning quests authored
+- Teacher inbox
+- Message link
+
+Admin profiles show system-level identity and permissions rather than a student
+or teacher profile card.
+
+The app supports text-only direct inbox conversations and classroom discussion
+rooms. A first-pass profanity filter blocks messages containing disallowed
+language. Production moderation should expand this into configurable policy,
+audit logs, review queues, and district-specific retention rules.
+
+## 8. Permissions
+
+Use the Permissions page to manage what users can access.
+
+Standard permission posture:
+
+- Students: `Student profile`
+- Teachers: `Teacher portal`, optionally `Quest import/export`
+- Admins: all permissions enabled
+
+When changing permissions:
+
+1. Select the user.
+2. Review role and current permissions.
+3. Toggle only the needed rights.
+4. Record the reason in the production audit log.
+5. Ask the user to sign out and back in if their session does not update.
+
+Admin permissions are intentionally locked on in the MVP. In production, admin
+rights should be scoped by district and protected with strong authentication.
+
+## 9. Learning Quest Administration
+
+Teachers create and modify learning quests from the Teacher portal. Admins can
+review templates and import/export learning quests for district reuse.
+
+Quest configuration includes:
+
+- Quest title
+- Objective
+- Market parameters, when needed
+- Portfolio task
+- Reflection requirement
+- Scoring criteria
+- Student visibility setting for scoring rules
+
+Scoring rules can remain hidden from students unless a teacher or admin elects
+to show them. Use hidden scoring for assessment rubrics, and visible scoring
+when students should know how to optimize the activity.
+
+### Quest Import and Export
+
+Teachers and admins with `Quest import/export` rights can export quest templates
+as JSON and import valid quest JSON into the current template list.
+
+Recommended process:
+
+1. Export known-good quest templates before district-wide reuse.
+2. Store reviewed templates in a district-controlled repository or document
+   library.
+3. Import templates into the target environment.
+4. Review market parameters and scoring visibility before assigning to classes.
+
+Production imports should validate schema version, author, district ownership,
+and unsafe content before saving.
+
+## 10. Market API Integrations
+
+The Market APIs widget opens the Integrations page. Admins use it to configure
+one or more API connections that feed market data functionality in the app.
+
+Integration fields include:
+
+- API provider
+- API endpoint
+- Token required toggle
+- Token value, when required
+- Polling frequency
+- Target class
+- Allowed symbols
+- Enabled/disabled status
+
+Allowed symbols is optional. If left blank, the MVP allows up to 200 symbols to
+be imported.
+
+### GET Test Behavior
+
+The test API is implemented at `/api/integration-test`. It performs a backend
+GET request against the configured endpoint.
+
+If a token value is supplied, the request sends it as:
+
+```http
+Authorization: Bearer <token>
+```
+
+The classroom-safe mock market endpoint is available at `/api/market`. It
+returns simulated, delayed educational market data and should be used for demos
+or classroom-safe testing.
+
+If a provider requires the token somewhere other than the `Authorization` bearer
+header, such as a query string, custom header, or vendor-specific signature,
+production work should add a provider adapter rather than hard-coding that
+behavior in the admin form.
+
+### Polling and Class Assignment
+
+Admins can configure polling frequency and assign integrations to the correct
+class. The Cloud Run package includes a Cloud Scheduler job intended to call the
+market polling endpoint during the school day. Production polling should:
+
+- Respect the configured polling frequency per integration.
+- Enforce the 200-symbol MVP maximum when allowed symbols is blank.
+- Store fetched market data with class and integration assignment context.
+- Disable or delete class assignments when a class is no longer in session.
+- Retain health and error history for troubleshooting.
+
+## 11. Privacy Posture
+
+Use the Privacy posture page to select the required district posture for student
+privacy compliance. This is a configuration aid and does not replace legal
+review.
+
+The page tracks:
+
+- Selected privacy posture
+- Privacy contact
+- State/federal privacy alignment notes
+- Integration approval expectations
+- Audit expectations for exports, corrections, and role changes
+
+Recommended admin process:
+
+1. Select the district posture during onboarding.
+2. Enter the district privacy or technology contact.
+3. Confirm state-specific student privacy requirements with district counsel or
+   policy owners.
+4. Revisit posture before enabling external integrations or data exports.
+5. Use stricter settings when the district requires vendor approval before data
+   leaves the platform.
+
+## 12. Support Cases
+
+The Support page shows open support cases and allows admins to create new cases.
+
+Case fields include:
+
+- Summary
+- Category
+- Status
+- Support contact
+- Created date
+
+Current statuses include:
+
+- Pending support
+- Pending user
+
+Use support cases for issues such as login problems, roster correction needs,
+market data failures, profile issues, messaging moderation questions, or
+portfolio correction requests.
+
+Production support should add case ownership, comments, attachments policy,
+resolution notes, and notification routing.
+
+## 13. Password Resets
+
+The Password resets widget opens a popup where an admin enters a user's email
+and triggers a reset.
+
+Current behavior is a frontend simulation that confirms the reset request.
+Production behavior should:
+
+- Verify the email belongs to an active district user.
+- Create a password reset request record.
+- Send a time-limited reset link through an approved email provider.
+- Force reset on next login when appropriate.
+- Log the requesting admin, target user, timestamp, and result.
+- Hand off to district SSO once SSO is implemented.
+
+## 14. Portfolio Corrections
+
+Use Portfolio corrections when a student's simulated portfolio needs an
+administrative adjustment, such as increasing or decreasing portfolio value
+after a classroom error or test scenario reset.
+
+Correction fields include:
+
+- Adjustment amount
+- Audit reason
+- Target simulated portfolio
+
+Operating rules:
+
+- Use portfolio corrections only for simulated educational balances.
+- Require a plain-language reason for every correction.
+- Preserve before and after snapshots in production.
+- Notify the teacher when a correction affects class scoring or quest outcomes.
+- Do not use corrections to reward or penalize students outside the defined
+  learning quest rules unless the district explicitly approves that policy.
+
+## 15. Monitoring and Logs
+
+The Monitoring page gives admins visibility into:
+
+- Open errors
+- Slow calls
+- Integration health
+
+The app currently includes frontend error reporting, performance reporting, and
+OTEL-ready span hooks. Monitoring data includes date and time stamps so admins
+can match issues to classroom activity.
+
+### Open Errors
+
+Open Errors launches a page where admins can examine an error. Error details
+include:
+
+- Error message
+- Severity
+- Source
+- Route
+- User role
+- Trace ID
+- Timestamp
+- Related logs
+- User information context
+
+### Slow Calls
+
+Slow Calls shows a table and line graph for performance events. Admins can
+filter by call type and review:
+
+- Route
+- Operation
+- Duration in milliseconds
+- Status
+- Trace ID
+- Timestamp
+
+Use this page to detect pages or APIs that are slow during peak classroom use.
+
+### Integration Health
+
+Integration Health shows average round trip time for configured integrations and
+a table with:
+
+- Connection name
+- Round trip time in milliseconds
+- Error count or status
+- Last checked timestamp
+- Download logs link
+
+The logs download is modeled as a ZIP export for support and troubleshooting.
+Production log exports should redact secrets, tokens, student-sensitive data,
+and unnecessary request payloads.
+
+## 16. Deployment and Infrastructure
+
+The Cloud Run infrastructure guide is available at
+`docs/cloud-run-infrastructure.md`.
+
+The current deployment package includes:
+
+- `Dockerfile`
+- `cloudbuild.yaml`
+- Terraform in `infra/cloudrun/`
+- Cloud Run service baseline
+- Artifact Registry
+- Cloud SQL PostgreSQL
+- Secret Manager
+- Cloud Scheduler for school-day market polling
+
+Important production note: the current app schema and demo flows are still
+SQLite/D1-shaped in code. The Cloud Run package provisions Cloud SQL
+PostgreSQL as the production target, but the app data access and migrations
+should be ported and validated before using Cloud SQL as the source of truth.
+
+## 17. Daily Admin Checklist
+
+At the start of the day:
+
+- Confirm the app is available.
+- Review Monitoring for open critical errors.
+- Check Integration Health for failed market data calls.
+- Confirm active class integrations are enabled.
+- Review support cases pending admin or district action.
+
+During the school day:
+
+- Watch for login, roster, or permission issues.
+- Use password resets for account access issues.
+- Review messaging or discussion moderation concerns escalated by teachers.
+- Avoid changing market integrations during active quests unless necessary.
+
+End of day:
+
+- Review slow calls and integration health.
+- Close or update support cases.
+- Document any portfolio corrections.
+- Confirm imports, exports, role changes, and corrections have audit context.
+
+## 18. Semester or Class Rollover Checklist
+
+Before a new class period or semester:
+
+- Update school class and student counts.
+- Import or create new users.
+- Disable users who should no longer access the app.
+- Confirm teacher assignments.
+- Review teacher permissions.
+- Delete or disable integrations for classes no longer in session.
+- Export reusable learning quest templates.
+- Review privacy posture before new integrations or vendors are added.
+
+## 19. Production Readiness Gaps
+
+The MVP admin guide reflects the current prototype and near-term infrastructure
+package. Before production use with real districts, complete these items:
+
+- Persist admin actions to the production database.
+- Replace seeded demo auth with production credentials and SSO.
+- Add complete server-side authorization checks for every admin operation.
+- Implement audit logging for role changes, imports, exports, corrections,
+  integration changes, privacy changes, and password resets.
+- Add provider-specific market data adapters and token storage through Secret
+  Manager.
+- Add data retention, export, and deletion workflows aligned to district
+  contracts.
+- Add robust moderation review workflows for messages and discussions.
+- Add backup, restore, and incident response procedures.
+- Validate Cloud SQL migrations and application data access.
+

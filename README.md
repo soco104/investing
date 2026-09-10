@@ -78,6 +78,13 @@ Lint the app:
 npm run lint
 ```
 
+## Cloud Run Infrastructure
+
+Google Cloud Run packaging and provisioning instructions live in
+[`docs/cloud-run-infrastructure.md`](docs/cloud-run-infrastructure.md). The
+package includes a `Dockerfile`, `cloudbuild.yaml`, and Terraform under
+`infra/cloudrun/` for the small school pilot infrastructure baseline.
+
 ## Product Guardrails
 
 - Simulated money only in the MVP

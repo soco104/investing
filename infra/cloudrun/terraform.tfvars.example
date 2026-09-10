@@ -1,0 +1,22 @@
+project_id = "your-gcp-project-id"
+region     = "us-east1"
+
+service_name        = "futurefund-classroom"
+artifact_repository = "futurefund"
+
+# Optional for the first apply. Terraform defaults to a public hello image so
+# the Artifact Registry repo and Cloud Run service can be created before the
+# first FutureFund image exists. Replace after Cloud Build pushes the app image.
+# image = "us-east1-docker.pkg.dev/your-gcp-project-id/futurefund/futurefund-classroom:initial"
+
+allow_unauthenticated = true
+min_instances         = 1
+max_instances         = 5
+
+db_instance_name = "futurefund-db"
+db_name          = "futurefund"
+db_user          = "futurefund_app"
+db_tier          = "db-f1-micro"
+
+market_poll_schedule = "*/15 8-15 * * 1-5"
+market_poll_timezone = "America/New_York"

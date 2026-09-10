@@ -1268,6 +1268,14 @@ export default function Home() {
   const [userClassFilter, setUserClassFilter] = useState("all");
   const [userRoleFilter, setUserRoleFilter] = useState("all");
   const [userImportNotice, setUserImportNotice] = useState("");
+  const [newUserFirstName, setNewUserFirstName] = useState("");
+  const [newUserLastName, setNewUserLastName] = useState("");
+  const [newUserAlias, setNewUserAlias] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] =
+    useState<AdminUser["role"]>("Student");
+  const [newUserClassName, setNewUserClassName] = useState(classOptions[0]);
+  const [newUserTemporaryPassword, setNewUserTemporaryPassword] = useState("");
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState(
     initialAdminUsers[0].id
   );
@@ -1635,6 +1643,56 @@ export default function Home() {
 
       return [...newUsers, ...users];
     });
+  }
+
+  function createIndividualUser() {
+    const firstName = newUserFirstName.trim();
+    const lastName = newUserLastName.trim();
+    const email = newUserEmail.trim().toLowerCase();
+    const temporaryPassword = newUserTemporaryPassword.trim();
+
+    if (!firstName || !lastName || !email) {
+      setUserImportNotice("First name, last name, and email are required.");
+      return;
+    }
+
+    if (adminUsers.some((user) => user.email.toLowerCase() === email)) {
+      setUserImportNotice("A user with that email already exists.");
+      return;
+    }
+
+    const className = newUserRole === "Admin" ? "District" : newUserClassName;
+    const createdUser: AdminUser = {
+      id: `user-${Date.now()}`,
+      firstName,
+      lastName,
+      alias:
+        newUserAlias.trim() ||
+        `${firstName}${lastName}`.replace(/\s/g, ""),
+      email,
+      role: newUserRole,
+      className,
+      classes: [className],
+      profileNote: "Created by district admin.",
+      enabled: true,
+      permissions: permissionsForRole(newUserRole),
+    };
+
+    setAdminUsers((users) => [createdUser, ...users]);
+    setUserImportNotice(
+      `${firstName} ${lastName} created. ${
+        temporaryPassword
+          ? "Temporary credential captured for first login workflow."
+          : "Credential setup can be completed with password reset or SSO."
+      }`
+    );
+    setNewUserFirstName("");
+    setNewUserLastName("");
+    setNewUserAlias("");
+    setNewUserEmail("");
+    setNewUserRole("Student");
+    setNewUserClassName(classOptions[0]);
+    setNewUserTemporaryPassword("");
   }
 
   function createSupportCase() {
@@ -2963,10 +3021,18 @@ export default function Home() {
                     integrationToken={integrationToken}
                     integrationTokenRequired={integrationTokenRequired}
                     marketIntegrations={marketIntegrations}
+                    newUserAlias={newUserAlias}
+                    newUserClassName={newUserClassName}
+                    newUserEmail={newUserEmail}
+                    newUserFirstName={newUserFirstName}
+                    newUserLastName={newUserLastName}
+                    newUserRole={newUserRole}
+                    newUserTemporaryPassword={newUserTemporaryPassword}
                     onApplyPortfolioCorrection={applyPortfolioCorrection}
                     onAddIntegration={addMarketIntegration}
                     onAddSchool={addSchool}
                     onBack={() => setActiveAdminPage("overview")}
+                    onCreateIndividualUser={createIndividualUser}
                     onCreateSupportCase={createSupportCase}
                     onDeleteIntegration={deleteMarketIntegration}
                     onDeleteSchool={deleteSchool}
@@ -2982,6 +3048,15 @@ export default function Home() {
                       setIntegrationTokenRequired
                     }
                     onImportUsers={importUsersFromCsv}
+                    onNewUserAliasChange={setNewUserAlias}
+                    onNewUserClassNameChange={setNewUserClassName}
+                    onNewUserEmailChange={setNewUserEmail}
+                    onNewUserFirstNameChange={setNewUserFirstName}
+                    onNewUserLastNameChange={setNewUserLastName}
+                    onNewUserRoleChange={setNewUserRole}
+                    onNewUserTemporaryPasswordChange={
+                      setNewUserTemporaryPassword
+                    }
                     onPrivacyContactChange={setPrivacyContact}
                     onPrivacyPostureChange={setPrivacyPosture}
                     onPortfolioAdjustmentChange={setPortfolioAdjustment}
@@ -4270,6 +4345,10 @@ function UserProfilePage({
     );
   }
 
+  if (user.role === "Admin") {
+    return <AccountProfilePage onBack={onBack} onMessage={onMessage} user={user} />;
+  }
+
   return (
     <section className="space-y-6">
       <ProfileHeader onBack={onBack} onMessage={onMessage} user={user} />
@@ -4490,6 +4569,86 @@ function TeacherProfilePage({
   );
 }
 
+function AccountProfilePage({
+  user,
+  onBack,
+  onMessage,
+}: {
+  user: AdminUser;
+  onBack: () => void;
+  onMessage: (userId: string) => void;
+}) {
+  const enabledPermissions = Object.entries(user.permissions).filter(
+    ([, enabled]) => enabled
+  );
+
+  return (
+    <section className="space-y-6">
+      <ProfileHeader onBack={onBack} onMessage={onMessage} user={user} />
+      <section className="grid gap-4 md:grid-cols-3">
+        <SummaryCard
+          icon={<ShieldCheck className="size-5" />}
+          label="Role"
+          value={user.role}
+          detail="Account permission scope"
+        />
+        <SummaryCard
+          icon={<School className="size-5" />}
+          label="Assignment"
+          value={user.className}
+          detail="District or class placement"
+        />
+        <SummaryCard
+          icon={<KeyRound className="size-5" />}
+          label="Account status"
+          value={user.enabled ? "Enabled" : "Disabled"}
+          detail="Managed by system admin"
+        />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <UserCog className="size-5 text-[#28666e]" />
+            <h3 className="text-lg font-semibold">Account profile</h3>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Metric label="Name" value={`${user.firstName} ${user.lastName}`} />
+            <Metric label="Alias" value={`@${user.alias}`} />
+            <Metric label="Email" value={user.email} />
+            <Metric label="Primary scope" value={user.className} />
+          </div>
+          <p className="mt-4 rounded-lg border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
+            {user.profileNote}
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <ShieldCheck className="size-5 text-[#28666e]" />
+            <h3 className="text-lg font-semibold">Permissions</h3>
+          </div>
+          <div className="space-y-3">
+            {enabledPermissions.map(([permission]) => (
+              <div
+                key={permission}
+                className="rounded-md border border-border bg-background p-3"
+              >
+                <p className="text-sm font-medium">
+                  {permissionLabel(permission as keyof AdminUser["permissions"])}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {permissionDetail(permission as keyof AdminUser["permissions"])}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </section>
+  );
+}
+
 function ProfileHeader({
   user,
   onBack,
@@ -4553,6 +4712,13 @@ function AdminDrilldown({
   integrationPollingFrequency,
   integrationTargetClass,
   integrationSymbols,
+  newUserFirstName,
+  newUserLastName,
+  newUserAlias,
+  newUserEmail,
+  newUserRole,
+  newUserClassName,
+  newUserTemporaryPassword,
   privacyPosture,
   selectedPrivacyPosture,
   privacyContact,
@@ -4588,6 +4754,14 @@ function AdminDrilldown({
   onIntegrationTargetClassChange,
   onIntegrationSymbolsChange,
   onImportUsers,
+  onCreateIndividualUser,
+  onNewUserFirstNameChange,
+  onNewUserLastNameChange,
+  onNewUserAliasChange,
+  onNewUserEmailChange,
+  onNewUserRoleChange,
+  onNewUserClassNameChange,
+  onNewUserTemporaryPasswordChange,
   onPrivacyPostureChange,
   onPrivacyContactChange,
   onSelectedPermissionUserChange,
@@ -4623,6 +4797,13 @@ function AdminDrilldown({
   integrationPollingFrequency: string;
   integrationTargetClass: string;
   integrationSymbols: string;
+  newUserFirstName: string;
+  newUserLastName: string;
+  newUserAlias: string;
+  newUserEmail: string;
+  newUserRole: AdminUser["role"];
+  newUserClassName: string;
+  newUserTemporaryPassword: string;
   privacyPosture: string;
   selectedPrivacyPosture: (typeof privacyPostures)[number];
   privacyContact: string;
@@ -4658,6 +4839,14 @@ function AdminDrilldown({
   onIntegrationTargetClassChange: (className: string) => void;
   onIntegrationSymbolsChange: (symbols: string) => void;
   onImportUsers: (csvText: string) => void;
+  onCreateIndividualUser: () => void;
+  onNewUserFirstNameChange: (firstName: string) => void;
+  onNewUserLastNameChange: (lastName: string) => void;
+  onNewUserAliasChange: (alias: string) => void;
+  onNewUserEmailChange: (email: string) => void;
+  onNewUserRoleChange: (role: AdminUser["role"]) => void;
+  onNewUserClassNameChange: (className: string) => void;
+  onNewUserTemporaryPasswordChange: (password: string) => void;
   onPrivacyPostureChange: (posture: string) => void;
   onPrivacyContactChange: (contact: string) => void;
   onSelectedPermissionUserChange: (userId: string) => void;
@@ -4765,8 +4954,23 @@ function AdminDrilldown({
         <UsersAdminPage
           filteredUsers={filteredAdminUsers}
           importNotice={userImportNotice}
+          newUserAlias={newUserAlias}
+          newUserClassName={newUserClassName}
+          newUserEmail={newUserEmail}
+          newUserFirstName={newUserFirstName}
+          newUserLastName={newUserLastName}
+          newUserRole={newUserRole}
+          newUserTemporaryPassword={newUserTemporaryPassword}
           onClassFilterChange={onUserClassFilterChange}
+          onCreateIndividualUser={onCreateIndividualUser}
           onImportUsers={onImportUsers}
+          onNewUserAliasChange={onNewUserAliasChange}
+          onNewUserClassNameChange={onNewUserClassNameChange}
+          onNewUserEmailChange={onNewUserEmailChange}
+          onNewUserFirstNameChange={onNewUserFirstNameChange}
+          onNewUserLastNameChange={onNewUserLastNameChange}
+          onNewUserRoleChange={onNewUserRoleChange}
+          onNewUserTemporaryPasswordChange={onNewUserTemporaryPasswordChange}
           onOpenProfile={onOpenUserProfile}
           onRoleFilterChange={onUserRoleFilterChange}
           onToggleUserEnabled={onToggleUserEnabled}
@@ -5441,8 +5645,23 @@ function UsersAdminPage({
   selectedClass,
   selectedRole,
   importNotice,
+  newUserFirstName,
+  newUserLastName,
+  newUserAlias,
+  newUserEmail,
+  newUserRole,
+  newUserClassName,
+  newUserTemporaryPassword,
   onClassFilterChange,
+  onCreateIndividualUser,
   onImportUsers,
+  onNewUserFirstNameChange,
+  onNewUserLastNameChange,
+  onNewUserAliasChange,
+  onNewUserEmailChange,
+  onNewUserRoleChange,
+  onNewUserClassNameChange,
+  onNewUserTemporaryPasswordChange,
   onOpenProfile,
   onRoleFilterChange,
   onToggleUserEnabled,
@@ -5451,8 +5670,23 @@ function UsersAdminPage({
   selectedClass: string;
   selectedRole: string;
   importNotice: string;
+  newUserFirstName: string;
+  newUserLastName: string;
+  newUserAlias: string;
+  newUserEmail: string;
+  newUserRole: AdminUser["role"];
+  newUserClassName: string;
+  newUserTemporaryPassword: string;
   onClassFilterChange: (className: string) => void;
+  onCreateIndividualUser: () => void;
   onImportUsers: (csvText: string) => void;
+  onNewUserFirstNameChange: (firstName: string) => void;
+  onNewUserLastNameChange: (lastName: string) => void;
+  onNewUserAliasChange: (alias: string) => void;
+  onNewUserEmailChange: (email: string) => void;
+  onNewUserRoleChange: (role: AdminUser["role"]) => void;
+  onNewUserClassNameChange: (className: string) => void;
+  onNewUserTemporaryPasswordChange: (password: string) => void;
   onOpenProfile: (userId: string) => void;
   onRoleFilterChange: (role: string) => void;
   onToggleUserEnabled: (userId: string, enabled: boolean) => void;
@@ -5472,61 +5706,168 @@ function UsersAdminPage({
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-4 rounded-lg border border-border bg-background p-4 xl:grid-cols-[minmax(0,1fr)_220px_220px]">
-        <div>
-          <h4 className="font-semibold">Import users</h4>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Upload a CSV with firstName, lastName, email, role, class, and alias.
-          </p>
-          <Label
-            htmlFor="user-csv-upload"
-            className="mt-3 flex w-fit cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium transition hover:bg-background"
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="rounded-lg border border-border bg-background p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <UserCog className="size-5 text-[#28666e]" aria-hidden="true" />
+            <h4 className="font-semibold">Create user</h4>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="new-user-first-name">First name</Label>
+              <Input
+                id="new-user-first-name"
+                value={newUserFirstName}
+                onChange={(event) => onNewUserFirstNameChange(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-user-last-name">Last name</Label>
+              <Input
+                id="new-user-last-name"
+                value={newUserLastName}
+                onChange={(event) => onNewUserLastNameChange(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-user-email">Email</Label>
+              <Input
+                id="new-user-email"
+                type="email"
+                value={newUserEmail}
+                onChange={(event) => onNewUserEmailChange(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-user-alias">Alias</Label>
+              <Input
+                id="new-user-alias"
+                placeholder="Generated if blank"
+                value={newUserAlias}
+                onChange={(event) => onNewUserAliasChange(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select
+                value={newUserRole}
+                onValueChange={(value) =>
+                  onNewUserRoleChange(value as AdminUser["role"])
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Student">Student</SelectItem>
+                  <SelectItem value="Teacher">Teacher</SelectItem>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Class</Label>
+              <Select
+                disabled={newUserRole === "Admin"}
+                value={newUserRole === "Admin" ? "District" : newUserClassName}
+                onValueChange={onNewUserClassNameChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {classOptions.map((className) => (
+                    <SelectItem key={className} value={className}>
+                      {className}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="District">District</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="new-user-temp-password">Temporary password</Label>
+              <Input
+                id="new-user-temp-password"
+                placeholder="Optional for SSO or reset email"
+                type="password"
+                value={newUserTemporaryPassword}
+                onChange={(event) =>
+                  onNewUserTemporaryPasswordChange(event.target.value)
+                }
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            onClick={onCreateIndividualUser}
+            className="mt-4 bg-[#28666e] text-white hover:bg-[#22565d]"
           >
-            <Upload className="size-4 text-[#28666e]" aria-hidden="true" />
-            Upload CSV
-          </Label>
-          <Input
-            id="user-csv-upload"
-            accept=".csv,text/csv"
-            className="sr-only"
-            type="file"
-            onChange={(event) => handleCsvUpload(event.target.files?.[0])}
-          />
-          {importNotice ? (
-            <p className="mt-2 text-sm text-muted-foreground">{importNotice}</p>
-          ) : null}
-        </div>
-        <div className="space-y-2">
-          <Label>Class</Label>
-          <Select value={selectedClass} onValueChange={onClassFilterChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All classes</SelectItem>
-              {classOptions.map((className) => (
-                <SelectItem key={className} value={className}>
-                  {className}
-                </SelectItem>
-              ))}
-              <SelectItem value="District">District</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Role</Label>
-          <Select value={selectedRole} onValueChange={onRoleFilterChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All roles</SelectItem>
-              <SelectItem value="Student">Student</SelectItem>
-              <SelectItem value="Teacher">Teacher</SelectItem>
-              <SelectItem value="Admin">Admin</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <Plus className="size-4" aria-hidden="true" />
+            Create user
+          </Button>
+        </section>
+
+        <section className="rounded-lg border border-border bg-background p-4">
+          <h4 className="font-semibold">Import and filter</h4>
+          <div className="mt-4 space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Upload a CSV with firstName, lastName, email, role, class, and alias.
+              </p>
+              <Label
+                htmlFor="user-csv-upload"
+                className="mt-3 flex w-fit cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium transition hover:bg-background"
+              >
+                <Upload className="size-4 text-[#28666e]" aria-hidden="true" />
+                Upload CSV
+              </Label>
+              <Input
+                id="user-csv-upload"
+                accept=".csv,text/csv"
+                className="sr-only"
+                type="file"
+                onChange={(event) => handleCsvUpload(event.target.files?.[0])}
+              />
+            </div>
+            {importNotice ? (
+              <p className="rounded-md bg-[#e8f0ed] p-3 text-sm text-[#24493f]">
+                {importNotice}
+              </p>
+            ) : null}
+            <div className="space-y-2">
+              <Label>Class</Label>
+              <Select value={selectedClass} onValueChange={onClassFilterChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All classes</SelectItem>
+                  {classOptions.map((className) => (
+                    <SelectItem key={className} value={className}>
+                      {className}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="District">District</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={selectedRole} onValueChange={onRoleFilterChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All roles</SelectItem>
+                  <SelectItem value="Student">Student</SelectItem>
+                  <SelectItem value="Teacher">Teacher</SelectItem>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">
@@ -5904,6 +6245,18 @@ function permissionDetail(permission: keyof AdminUser["permissions"]) {
   };
 
   return details[permission];
+}
+
+function permissionLabel(permission: keyof AdminUser["permissions"]) {
+  const labels: Record<keyof AdminUser["permissions"], string> = {
+    studentProfile: "Student profile",
+    teacherPortal: "Teacher portal",
+    adminPortal: "Admin portal",
+    questImportExport: "Quest import/export",
+    portfolioCorrections: "Portfolio corrections",
+  };
+
+  return labels[permission];
 }
 
 function parseUsersCsv(csvText: string): AdminUser[] {

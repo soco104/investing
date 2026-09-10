@@ -1,9 +1,11 @@
 import { relations } from "drizzle-orm";
 import {
+  index,
   integer,
   real,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 export const districts = sqliteTable("districts", {
@@ -55,6 +57,96 @@ export const roleAssignments = sqliteTable("role_assignments", {
   assignedByUserId: text("assigned_by_user_id").notNull(),
   assignedAt: integer("assigned_at", { mode: "timestamp" }).notNull(),
 });
+
+export const userCredentials = sqliteTable(
+  "user_credentials",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => appUsers.id),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    passwordAlgorithm: text("password_algorithm").notNull().default("sha256"),
+    passwordSaltRef: text("password_salt_ref"),
+    forceReset: integer("force_reset", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_user_credentials_email").on(table.email),
+    index("idx_user_credentials_user_id").on(table.userId),
+  ]
+);
+
+export const ssoIdentityProviders = sqliteTable(
+  "sso_identity_providers",
+  {
+    id: text("id").primaryKey(),
+    districtId: text("district_id")
+      .notNull()
+      .references(() => districts.id),
+    providerName: text("provider_name").notNull(),
+    providerType: text("provider_type").notNull().default("saml"),
+    issuerUrl: text("issuer_url"),
+    clientId: text("client_id"),
+    metadataUrl: text("metadata_url"),
+    status: text("status").notNull().default("draft"),
+    configuredByUserId: text("configured_by_user_id"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("idx_sso_identity_providers_district_id").on(table.districtId),
+  ]
+);
+
+export const userAuthIdentities = sqliteTable(
+  "user_auth_identities",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => appUsers.id),
+    providerId: text("provider_id").references(() => ssoIdentityProviders.id),
+    providerType: text("provider_type").notNull().default("password"),
+    providerSubject: text("provider_subject").notNull(),
+    email: text("email").notNull(),
+    lastSeenAt: integer("last_seen_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_user_auth_identities_provider_subject").on(
+      table.providerType,
+      table.providerSubject
+    ),
+    index("idx_user_auth_identities_user_id").on(table.userId),
+  ]
+);
+
+export const authSessions = sqliteTable(
+  "auth_sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => appUsers.id),
+    sessionTokenHash: text("session_token_hash").notNull(),
+    authMethod: text("auth_method").notNull().default("password"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    revokedAt: integer("revoked_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_auth_sessions_token_hash").on(table.sessionTokenHash),
+    index("idx_auth_sessions_user_id").on(table.userId),
+  ]
+);
 
 export const userPermissionGrants = sqliteTable("user_permission_grants", {
   id: text("id").primaryKey(),
@@ -443,6 +535,9 @@ export const appUsersRelations = relations(appUsers, ({ one, many }) => ({
   }),
   roles: many(roleAssignments),
   permissionGrants: many(userPermissionGrants),
+  credentials: many(userCredentials),
+  authIdentities: many(userAuthIdentities),
+  authSessions: many(authSessions),
   passwordResetRequests: many(passwordResetRequests),
 }));
 
@@ -465,6 +560,45 @@ export const userPermissionGrantsRelations = relations(
     }),
   })
 );
+
+export const userCredentialsRelations = relations(userCredentials, ({ one }) => ({
+  user: one(appUsers, {
+    fields: [userCredentials.userId],
+    references: [appUsers.id],
+  }),
+}));
+
+export const ssoIdentityProvidersRelations = relations(
+  ssoIdentityProviders,
+  ({ one, many }) => ({
+    district: one(districts, {
+      fields: [ssoIdentityProviders.districtId],
+      references: [districts.id],
+    }),
+    identities: many(userAuthIdentities),
+  })
+);
+
+export const userAuthIdentitiesRelations = relations(
+  userAuthIdentities,
+  ({ one }) => ({
+    user: one(appUsers, {
+      fields: [userAuthIdentities.userId],
+      references: [appUsers.id],
+    }),
+    provider: one(ssoIdentityProviders, {
+      fields: [userAuthIdentities.providerId],
+      references: [ssoIdentityProviders.id],
+    }),
+  })
+);
+
+export const authSessionsRelations = relations(authSessions, ({ one }) => ({
+  user: one(appUsers, {
+    fields: [authSessions.userId],
+    references: [appUsers.id],
+  }),
+}));
 
 export const classroomsRelations = relations(classrooms, ({ one, many }) => ({
   school: one(schools, {

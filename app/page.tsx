@@ -18,6 +18,7 @@ import {
   KeyRound,
   Landmark,
   LineChart,
+  LogOut,
   Mail,
   Medal,
   MessageCircle,
@@ -617,6 +618,17 @@ type AdminUser = {
   };
 };
 
+type AuthenticatedUser = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  alias: string;
+  role: AdminUser["role"];
+  className: string;
+  permissions: AdminUser["permissions"];
+};
+
 type SupportCase = {
   id: string;
   summary: string;
@@ -1133,6 +1145,24 @@ const roleOptions = [
   },
 ] as const;
 
+const demoLoginAccounts = [
+  {
+    label: "Student",
+    email: "avery.johnson@student.lincolnusd.edu",
+    password: "student-demo",
+  },
+  {
+    label: "Teacher",
+    email: "erivera@lincolnusd.edu",
+    password: "teacher-demo",
+  },
+  {
+    label: "Admin",
+    email: "sgordon@lincolnusd.edu",
+    password: "admin-demo",
+  },
+];
+
 const adminModules = [
   {
     title: "Users",
@@ -1179,6 +1209,14 @@ const adminModules = [
 ];
 
 export default function Home() {
+  const [authenticatedUser, setAuthenticatedUser] =
+    useState<AuthenticatedUser | null>(null);
+  const [loginEmail, setLoginEmail] = useState(demoLoginAccounts[0].email);
+  const [loginPassword, setLoginPassword] = useState(
+    demoLoginAccounts[0].password
+  );
+  const [loginNotice, setLoginNotice] = useState("");
+  const [loginPending, setLoginPending] = useState(false);
   const [activeTab, setActiveTab] = useState("student");
   const [activeStudentPage, setActiveStudentPage] = useState<
     "dashboard" | "portfolio" | "profile"
@@ -1309,8 +1347,13 @@ export default function Home() {
   const selectedDiscussionRoom =
     discussionRooms.find((room) => room.id === selectedDiscussionId) ??
     discussionRooms[0];
+  const availableRoleOptions = authenticatedUser
+    ? roleOptions.filter((role) => canUseRole(role.value, authenticatedUser))
+    : roleOptions;
   const activeRole =
-    roleOptions.find((role) => role.value === activeTab) ?? roleOptions[0];
+    availableRoleOptions.find((role) => role.value === activeTab) ??
+    availableRoleOptions[0] ??
+    roleOptions[0];
   const inboxUnread = inboxConversations.reduce(
     (total, conversation) => total + conversation.unread,
     0
@@ -1914,6 +1957,97 @@ export default function Home() {
     }
   }
 
+  async function submitLogin() {
+    setLoginPending(true);
+    setLoginNotice("");
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginEmail,
+          password: loginPassword,
+          provider: "password",
+        }),
+      });
+      const result = (await response.json()) as {
+        ok: boolean;
+        message?: string;
+        user?: AuthenticatedUser;
+      };
+
+      if (!result.ok || !result.user) {
+        setLoginNotice(result.message ?? "Login failed.");
+        return;
+      }
+
+      setAuthenticatedUser(result.user);
+      setActiveTab(roleToTab(result.user.role));
+      setActiveStudentPage("dashboard");
+      setActiveTeacherPage("dashboard");
+      setActiveAdminPage("overview");
+      setLoginPassword("");
+    } catch {
+      setLoginNotice("Login service is unavailable. Try again in a moment.");
+    } finally {
+      setLoginPending(false);
+    }
+  }
+
+  async function startSsoLogin() {
+    setLoginPending(true);
+    setLoginNotice("");
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "district-sso" }),
+      });
+      const result = (await response.json()) as { message?: string };
+
+      setLoginNotice(
+        result.message ??
+          "District SSO is ready for configuration, but no provider is connected yet."
+      );
+    } catch {
+      setLoginNotice("District SSO could not be reached.");
+    } finally {
+      setLoginPending(false);
+    }
+  }
+
+  function signOut() {
+    setAuthenticatedUser(null);
+    setLoginEmail(demoLoginAccounts[0].email);
+    setLoginPassword(demoLoginAccounts[0].password);
+    setActiveTab("student");
+    setActiveStudentPage("dashboard");
+    setActiveTeacherPage("dashboard");
+    setActiveAdminPage("overview");
+  }
+
+  if (!authenticatedUser) {
+    return (
+      <LoginPage
+        email={loginEmail}
+        notice={loginNotice}
+        password={loginPassword}
+        pending={loginPending}
+        onEmailChange={setLoginEmail}
+        onPasswordChange={setLoginPassword}
+        onSelectDemo={(account) => {
+          setLoginEmail(account.email);
+          setLoginPassword(account.password);
+          setLoginNotice("");
+        }}
+        onSsoLogin={startSsoLogin}
+        onSubmit={submitLogin}
+      />
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
@@ -1932,12 +2066,19 @@ export default function Home() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="rounded-md bg-card px-3 py-1">
+              {authenticatedUser.firstName} {authenticatedUser.lastName}
+            </Badge>
             <Badge className="rounded-md bg-[#e8f0ed] px-3 py-1 text-[#24493f] hover:bg-[#e8f0ed]">
               Grade 7 pilot
             </Badge>
             <Badge className="rounded-md bg-[#fff3da] px-3 py-1 text-[#7a4b00] hover:bg-[#fff3da]">
               Simulated money
             </Badge>
+            <Button type="button" variant="outline" size="sm" onClick={signOut}>
+              <LogOut className="size-4" aria-hidden="true" />
+              Sign out
+            </Button>
           </div>
         </div>
       </header>
@@ -2034,9 +2175,11 @@ export default function Home() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <TabsList className="h-auto flex-wrap justify-start rounded-lg bg-muted p-1">
-                <TabsTrigger value="student" className="min-h-9 px-3">
-                  Home
-                </TabsTrigger>
+                {authenticatedUser.permissions.studentProfile ? (
+                  <TabsTrigger value="student" className="min-h-9 px-3">
+                    Home
+                  </TabsTrigger>
+                ) : null}
                 <TabsTrigger value="inbox" className="min-h-9 px-3">
                   Inbox
                 </TabsTrigger>
@@ -2054,7 +2197,7 @@ export default function Home() {
                 <DropdownMenuContent align="end" className="min-w-52">
                   <DropdownMenuLabel>Role view</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {roleOptions.map((role) => (
+                  {availableRoleOptions.map((role) => (
                     <DropdownMenuItem
                       key={role.value}
                       onSelect={() => setActiveTab(role.value)}
@@ -3128,6 +3271,162 @@ export default function Home() {
             ) : null}
           </TabsContent>
         </Tabs>
+      </section>
+    </main>
+  );
+}
+
+function LoginPage({
+  email,
+  notice,
+  password,
+  pending,
+  onEmailChange,
+  onPasswordChange,
+  onSelectDemo,
+  onSsoLogin,
+  onSubmit,
+}: {
+  email: string;
+  notice: string;
+  password: string;
+  pending: boolean;
+  onEmailChange: (email: string) => void;
+  onPasswordChange: (password: string) => void;
+  onSelectDemo: (account: (typeof demoLoginAccounts)[number]) => void;
+  onSsoLogin: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <main className="min-h-screen bg-background text-foreground">
+      <section className="mx-auto grid min-h-screen max-w-6xl items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Landmark className="size-6" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                School platform MVP
+              </p>
+              <h1 className="text-2xl font-semibold tracking-normal">
+                FutureFund Classroom
+              </h1>
+            </div>
+          </div>
+
+          <div>
+            <Badge className="mb-4 rounded-md bg-[#e8f0ed] text-[#24493f] hover:bg-[#e8f0ed]">
+              SSO-ready login
+            </Badge>
+            <h2 className="max-w-2xl text-4xl font-semibold tracking-normal sm:text-5xl">
+              Secure access for students, teachers, and district admins.
+            </h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground">
+              Users start with an account tied to their school role. District
+              SSO can connect later through the same identity model.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StackItem title="Credentials" detail="Hashed password records" />
+            <StackItem title="SSO" detail="Provider identity links" />
+            <StackItem title="Sessions" detail="Auditable login metadata" />
+          </div>
+        </div>
+
+        <section className="rounded-lg border border-border bg-card p-5 shadow-sm">
+          <div className="mb-5">
+            <div className="flex items-center gap-2">
+              <KeyRound className="size-5 text-[#28666e]" />
+              <h3 className="text-lg font-semibold">Sign in</h3>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Use a demo account or start the district SSO path.
+            </p>
+          </div>
+
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSubmit();
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="login-email">Email</Label>
+              <Input
+                id="login-email"
+                autoComplete="email"
+                type="email"
+                value={email}
+                onChange={(event) => onEmailChange(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="login-password">Password</Label>
+              <Input
+                id="login-password"
+                autoComplete="current-password"
+                type="password"
+                value={password}
+                onChange={(event) => onPasswordChange(event.target.value)}
+              />
+            </div>
+
+            {notice ? (
+              <p className="rounded-md bg-[#fff3da] p-3 text-sm text-[#6d4a08]">
+                {notice}
+              </p>
+            ) : null}
+
+            <Button
+              type="submit"
+              disabled={pending}
+              className="w-full bg-[#28666e] text-white hover:bg-[#22565d]"
+            >
+              <KeyRound className="size-4" aria-hidden="true" />
+              {pending ? "Signing in" : "Sign in"}
+            </Button>
+          </form>
+
+          <div className="my-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs text-muted-foreground">
+            <div className="h-px bg-border" />
+            <span>or</span>
+            <div className="h-px bg-border" />
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={onSsoLogin}
+            className="w-full"
+          >
+            <ShieldCheck className="size-4" aria-hidden="true" />
+            Continue with district SSO
+          </Button>
+
+          <div className="mt-5 rounded-lg border border-border bg-background p-4">
+            <p className="mb-3 text-sm font-medium">Demo accounts</p>
+            <div className="grid gap-2">
+              {demoLoginAccounts.map((account) => (
+                <Button
+                  key={account.email}
+                  type="button"
+                  variant="outline"
+                  className="justify-start"
+                  onClick={() => onSelectDemo(account)}
+                >
+                  {account.label}
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {account.email}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </div>
+        </section>
       </section>
     </main>
   );
@@ -6144,6 +6443,30 @@ function QuestMonitorMetric({
 
 function formatSignedPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function roleToTab(role: AdminUser["role"]) {
+  if (role === "Teacher") {
+    return "teacher";
+  }
+
+  if (role === "Admin") {
+    return "admin";
+  }
+
+  return "student";
+}
+
+function canUseRole(role: (typeof roleOptions)[number]["value"], user: AuthenticatedUser) {
+  if (role === "teacher") {
+    return user.permissions.teacherPortal;
+  }
+
+  if (role === "admin") {
+    return user.permissions.adminPortal;
+  }
+
+  return user.permissions.studentProfile;
 }
 
 function buildStudentDiscussionItems(

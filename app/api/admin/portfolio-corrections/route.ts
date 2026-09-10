@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { createPortfolioCorrection } from "@/lib/server/repository";
 
 type PortfolioCorrectionRequest = {
   adjustmentCents: number;
@@ -30,6 +31,15 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  await createPortfolioCorrection({
+    adjustmentCents: body.adjustmentCents,
+    afterSnapshot: body.afterSnapshot,
+    beforeSnapshot: body.beforeSnapshot,
+    correctedByUserId: user.id,
+    portfolioId: body.portfolioId,
+    reason: body.reason,
+  });
 
   const audit = await recordAuditEvent({
     action: "portfolio.corrected",

@@ -1,6 +1,7 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
 import { createRetentionPlan, type RetentionRequest } from "@/lib/server/retention";
+import { createRetentionRequest, defaultDistrictId } from "@/lib/server/repository";
 
 export async function POST(request: Request) {
   const { response, user } = await requirePermission(request, "adminPortal");
@@ -23,8 +24,16 @@ export async function POST(request: Request) {
 
   const plan = createRetentionPlan({
     ...body,
-    districtId: "district-lincoln-usd",
+    districtId: defaultDistrictId,
     requestedByUserId: user.id,
+  });
+  await createRetentionRequest({
+    districtId: defaultDistrictId,
+    reason: body.reason,
+    requestedByUserId: user.id,
+    targetId: body.targetId,
+    targetType: body.targetType,
+    type: body.type,
   });
   const audit = await recordAuditEvent({
     action:

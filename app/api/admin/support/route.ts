@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { createSupportTicket } from "@/lib/server/repository";
 
 type SupportCaseRequest = {
   category: string;
@@ -23,6 +24,12 @@ export async function POST(request: Request) {
   }
 
   const caseId = `SUP-${Date.now()}`;
+  await createSupportTicket({
+    actor: user,
+    category: body.category,
+    summary: body.summary,
+    ticketId: caseId,
+  });
   const audit = await recordAuditEvent({
     action: "support_case.created",
     actor: user,

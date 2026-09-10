@@ -1,5 +1,7 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { hashToken } from "@/lib/server/crypto";
+import { createPasswordReset } from "@/lib/server/repository";
 
 type PasswordResetRequest = {
   email: string;
@@ -23,14 +25,35 @@ export async function POST(request: Request) {
     );
   }
 
+  const resetToken = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+  await createPasswordReset({
+    expiresAt,
+    requestedByUserId: user.id,
+    tokenHash: await hashToken(resetToken),
+    userEmail: email,
+  });
+
   const audit = await recordAuditEvent({
     action: "password_reset.requested",
     actor: user,
-    context: { email, delivery: "pending_email_provider" },
+    context: {
+      email,
+      delivery: "pending_email_provider",
+      expiresAt: expiresAt.toISOString(),
+    },
     reason: body.reason,
     targetId: email,
     targetType: "password_reset",
   });
 
-  return Response.json({ audit, ok: true, resetStatus: "pending_delivery" });
+  return Response.json({
+    audit,
+    ok: true,
+    resetStatus: "pending_delivery",
+    resetUrl:
+      process.env.NODE_ENV === "production"
+        ? undefined
+        : `/reset-password?token=${resetToken}`,
+  });
 }

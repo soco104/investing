@@ -38,13 +38,18 @@ external providers on every page load.
 ## Important App Note
 
 The current app schema is SQLite/D1-shaped because it began as a Cloudflare
-Sites/Vinext MVP. The Cloud Run package below provisions Cloud SQL PostgreSQL
-because that is the natural managed relational database on Google Cloud.
+Sites/Vinext MVP. The Cloud Run package provisions Cloud SQL PostgreSQL because
+that is the natural managed relational database on Google Cloud.
 
-Before using Cloud SQL as the production source of truth, port the data access
-layer from D1/SQLite to the selected Google database driver and generate
-PostgreSQL migrations. The infrastructure is ready for that target state, but
-the current MVP still uses seeded/in-memory UI data for many workflows.
+Cloud Run startup now runs `scripts/cloudrun-migrate.mjs`, which creates the
+PostgreSQL tables needed by authentication, admin mutations, observability,
+market integrations, retention requests, backups, incidents, and audit logs.
+The local/Sites D1 schema remains in the repo for prototype and hosted Sites
+workflows.
+
+The remaining production data work is to continue moving student, teacher,
+quest, portfolio, and messaging reads from frontend seed data to server-backed
+queries.
 
 ## Files Added
 
@@ -139,6 +144,9 @@ Cloud Run receives:
 - `DATABASE_URL`, from Secret Manager
 - `SESSION_SECRET`, from Secret Manager
 - `CRON_SECRET`, from Secret Manager
+- `GOOGLE_CLOUD_PROJECT`, from Terraform
+- `BOOTSTRAP_ADMIN_EMAIL`, optional first admin email
+- `BOOTSTRAP_ADMIN_PASSWORD_HASH`, optional SHA-256 hash for first admin
 
 The container starts with:
 
@@ -149,7 +157,7 @@ npm run start:cloudrun
 That runs:
 
 ```bash
-vinext start --hostname 0.0.0.0
+node scripts/cloudrun-migrate.mjs && vinext start --hostname 0.0.0.0
 ```
 
 Cloud Run requires the container to listen on all interfaces and the configured
@@ -175,15 +183,14 @@ Target endpoint:
 POST /api/market/poll
 ```
 
-That endpoint is not implemented yet. Add it before enabling real external
-market polling. It should:
+The endpoint is implemented at `/api/market/poll`. It:
 
-- authenticate the scheduler using the OIDC identity and/or `CRON_SECRET`;
-- read active market integrations;
-- call providers with the configured token placement;
-- cap imported symbols at the configured limit;
-- cache normalized market data;
-- write integration health, RTT, and timestamped logs.
+- validates `X-FutureFund-Cron` against `CRON_SECRET`;
+- reads active market integrations from the production database;
+- resolves provider tokens server-side from Secret Manager;
+- calls providers through the backend adapter;
+- caps imported symbols at the configured limit;
+- writes integration health and failure events.
 
 ## Logging And Monitoring
 

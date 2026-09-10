@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { createIncident } from "@/lib/server/repository";
 
 type IncidentRequest = {
   severity: "info" | "warn" | "error" | "critical";
@@ -23,6 +24,11 @@ export async function POST(request: Request) {
   }
 
   const incidentId = `incident-${Date.now()}`;
+  await createIncident({
+    ownerUserId: user.id,
+    severity: body.severity,
+    summary: body.summary,
+  });
   const audit = await recordAuditEvent({
     action: "incident.opened",
     actor: user,

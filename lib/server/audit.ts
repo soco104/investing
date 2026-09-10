@@ -1,5 +1,6 @@
 import { createTraceId, nowIso } from "@/lib/observability";
 import type { AuthenticatedUser } from "@/lib/server/auth";
+import { hasProductionDatabase, listAudit, recordAudit } from "./repository";
 
 export type AuditAction =
   | "role.changed"
@@ -70,27 +71,20 @@ export async function recordAuditEvent(input: {
   return event;
 }
 
-export function listAuditEvents() {
+export async function listAuditEvents() {
+  if (hasProductionDatabase()) {
+    return listAudit();
+  }
+
   return fallbackAuditEvents.slice(0, 100);
 }
 
 async function persistAuditEventToDatabase(event: AuditEvent) {
   try {
-    const [{ getDb }, schema] = await Promise.all([import("@/db"), import("@/db/schema")]);
-    const db = getDb();
-
-    await db.insert(schema.adminAuditEvents).values({
-      action: event.action,
-      actorUserId: event.actorUserId,
-      createdAt: new Date(event.createdAt),
-      districtId: event.districtId,
-      id: event.id,
-      reason: event.reason,
-      targetId: event.targetId,
-      targetType: event.targetType,
-    });
-  } catch {
-    // Local development and Cloud Run builds may not have the D1 binding yet.
-    // The in-memory event still lets the API respond and keeps audit shape stable.
+    await recordAudit(event);
+  } catch (error) {
+    if (hasProductionDatabase()) {
+      throw error;
+    }
   }
 }

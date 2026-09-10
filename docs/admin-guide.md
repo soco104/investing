@@ -424,10 +424,13 @@ Production behavior should:
 Production endpoint:
 
 - `POST /api/admin/password-resets`
+- `POST /api/auth/reset-password`
 
-The endpoint requires `Admin portal` permission and creates an audited reset
-request. The current implementation marks email delivery as pending until a
-district-approved email provider is attached.
+The admin endpoint requires `Admin portal` permission and creates an audited
+reset request with a hashed token and expiration. The reset completion endpoint
+accepts the token and a new password, updates the credential, clears
+`forceReset`, and marks the reset request complete. Email delivery remains the
+piece that needs a district-approved email provider.
 
 ## 14. Portfolio Corrections
 
@@ -673,8 +676,9 @@ package. Before production use with real districts, confirm these items are
 fully wired to the selected production database, identity provider, and district
 operating procedures:
 
-- Replace seeded demo auth with fully persisted credentials and district SSO.
-- Wire every admin mutation endpoint to the selected production data adapter.
+- Replace local demo auth with district SSO for live school users.
+- Continue wiring student, teacher, quest, portfolio, and messaging reads to
+  production server queries.
 - Enforce server-side authorization from the signed session on every protected
   route.
 - Store market provider tokens only in Secret Manager or the approved secret

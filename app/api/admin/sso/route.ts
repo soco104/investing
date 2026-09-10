@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { createSsoProvider } from "@/lib/server/repository";
 
 type SsoProviderRequest = {
   clientId?: string;
@@ -27,6 +28,15 @@ export async function POST(request: Request) {
   }
 
   const providerId = `sso-${Date.now()}`;
+  await createSsoProvider({
+    actor: user,
+    clientId: body.clientId,
+    issuerUrl: body.issuerUrl,
+    metadataUrl: body.metadataUrl,
+    providerId,
+    providerName: body.providerName,
+    providerType: body.providerType,
+  });
   const audit = await recordAuditEvent({
     action: "sso.updated",
     actor: user,

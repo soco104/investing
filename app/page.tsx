@@ -43,7 +43,7 @@ import {
   WalletCards,
   Wrench,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1614,6 +1614,143 @@ export default function Home() {
     ) / teacherClassAnalytics.length
   );
 
+  useEffect(() => {
+    if (authenticatedUser?.role !== "Admin") {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function hydrateAdminState() {
+      try {
+        const response = await fetch("/api/admin/state", {
+          credentials: "same-origin",
+        });
+        const result = (await response.json()) as {
+          ok?: boolean;
+          state?: {
+            adminUsers?: Array<{
+              alias: string;
+              class_name: string | null;
+              email: string;
+              first_name: string;
+              id: string;
+              last_name: string;
+              role: string | null;
+              status: string;
+            }>;
+            marketIntegrations?: Array<{
+              allowed_symbols_csv: string;
+              endpoint_url: string;
+              id: string;
+              max_symbols: number;
+              polling_frequency_minutes: number;
+              provider_name: string;
+              status: string;
+              token_required: boolean;
+            }>;
+            schools?: Array<{
+              class_count: number;
+              id: string;
+              name: string;
+              student_count: number;
+            }>;
+            supportCases?: Array<{
+              category: string;
+              created_at: string;
+              id: string;
+              status: string;
+              summary: string;
+            }>;
+          };
+        };
+
+        if (cancelled || !result.ok || !result.state) {
+          return;
+        }
+
+        if (result.state.adminUsers?.length) {
+          setAdminUsers(
+            result.state.adminUsers.map((user) => ({
+              alias: user.alias,
+              className: user.role === "Admin" ? "District" : user.class_name ?? "",
+              classes: [user.role === "Admin" ? "District" : user.class_name ?? ""],
+              email: user.email,
+              enabled: user.status === "active",
+              firstName: user.first_name,
+              id: user.id,
+              lastName: user.last_name,
+              permissions: permissionsForRole(normalizeRole(user.role ?? "")),
+              profileNote: "Loaded from production database.",
+              role: normalizeRole(user.role ?? ""),
+            }))
+          );
+        }
+
+        if (result.state.schools?.length) {
+          setSchools(
+            result.state.schools.map((school) => ({
+              classes: school.class_count,
+              district: "Lincoln USD",
+              id: school.id,
+              name: school.name,
+              state: "CA",
+              status: "Active" as const,
+              students: school.student_count,
+            }))
+          );
+        }
+
+        if (result.state.supportCases?.length) {
+          setSupportCases(
+            result.state.supportCases.map((item) => ({
+              category: item.category,
+              createdAt: new Date(item.created_at).toLocaleDateString(),
+              id: item.id,
+              requester: "District admin",
+              status:
+                item.status === "Pending user" ? "Pending user" : "Pending support",
+              summary: item.summary,
+            }))
+          );
+        }
+
+        if (result.state.marketIntegrations?.length) {
+          setMarketIntegrations(
+            result.state.marketIntegrations.map((integration) => ({
+              enabled: integration.status !== "deleted",
+              endpoint: integration.endpoint_url,
+              id: integration.id,
+              importedSymbols: integration.allowed_symbols_csv
+                ? integration.allowed_symbols_csv.split(",").filter(Boolean).length
+                : integration.max_symbols,
+              lastFetchStatus: integration.status,
+              pollingFrequency: `${integration.polling_frequency_minutes} minutes`,
+              provider: integration.provider_name,
+              quoteDelay: `${integration.polling_frequency_minutes} minutes`,
+              status:
+                integration.status === "Needs key"
+                  ? ("Needs key" as const)
+                  : ("Connected" as const),
+              symbols: integration.allowed_symbols_csv || "Up to 200 symbols",
+              targetClass: classOptions[0],
+              token: "",
+              tokenRequired: integration.token_required,
+            }))
+          );
+        }
+      } catch {
+        // The prototype seed data remains available when production state is unavailable.
+      }
+    }
+
+    void hydrateAdminState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticatedUser]);
+
   async function postAdminMutation<T>(
     path: string,
     body: Record<string, unknown>
@@ -1943,6 +2080,7 @@ export default function Home() {
             firstName: createdUser.firstName,
             lastName: createdUser.lastName,
             role: createdUser.role,
+            temporaryPassword,
           },
         ],
       });

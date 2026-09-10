@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { eq } from "drizzle-orm";
+import {
+  createSession,
+  findActiveSession,
+  findUserById,
+  findUserByPassword,
+  hasProductionDatabase,
+} from "./repository";
+import { hashPassword, hashToken } from "./crypto";
 
 export type AuthRole = "Student" | "Teacher" | "Admin";
 
@@ -100,13 +107,17 @@ export function publicUser(user: SeedAuthUser): AuthenticatedUser {
 }
 
 export async function authenticatePassword(email: string, password: string) {
-  const passwordHash = await hashPassword(password);
-  const productionUser = await authenticateProductionCredential(email, passwordHash);
+  const productionUser = await findUserByPassword(email, password);
 
   if (productionUser) {
     return productionUser;
   }
 
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_AUTH !== "true") {
+    return null;
+  }
+
+  const passwordHash = await hashPassword(password);
   const demoUser = seedAuthUsers.find(
     (user) => user.email.toLowerCase() === email.toLowerCase()
   );
@@ -114,69 +125,7 @@ export async function authenticatePassword(email: string, password: string) {
   return demoUser && demoUser.passwordHash === passwordHash ? publicUser(demoUser) : null;
 }
 
-export async function hashPassword(password: string) {
-  const data = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function authenticateProductionCredential(
-  email: string,
-  passwordHash: string
-): Promise<AuthenticatedUser | null> {
-  try {
-    const [{ getDb }, schema] = await Promise.all([import("@/db"), import("@/db/schema")]);
-    const db = getDb();
-    const credential = await db
-      .select()
-      .from(schema.userCredentials)
-      .where(eq(schema.userCredentials.email, email))
-      .get();
-
-    if (!credential || credential.passwordHash !== passwordHash) {
-      return null;
-    }
-
-    const appUser = await db
-      .select()
-      .from(schema.appUsers)
-      .where(eq(schema.appUsers.id, credential.userId))
-      .get();
-
-    if (!appUser || appUser.status !== "active") {
-      return null;
-    }
-
-    const [roleAssignment] = await db
-      .select()
-      .from(schema.roleAssignments)
-      .where(eq(schema.roleAssignments.userId, appUser.id))
-      .limit(1);
-    const grants = await db
-      .select()
-      .from(schema.userPermissionGrants)
-      .where(eq(schema.userPermissionGrants.userId, appUser.id));
-    const role = normalizeRole(roleAssignment?.role);
-
-    return {
-      alias: appUser.alias,
-      className: role === "Admin" ? "District" : roleAssignment?.scope ?? "",
-      email: appUser.email,
-      firstName: appUser.firstName,
-      id: appUser.id,
-      lastName: appUser.lastName,
-      permissions: permissionsFromGrants(role, grants),
-      role,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export async function createSessionToken(user: AuthenticatedUser) {
+export async function createSessionToken(user: AuthenticatedUser, request?: Request) {
   const expiresAt = Date.now() + 1000 * 60 * 60 * 8;
   const payload = base64UrlEncode(
     JSON.stringify({
@@ -189,8 +138,18 @@ export async function createSessionToken(user: AuthenticatedUser) {
     })
   );
   const signature = await sign(payload);
+  const token = `${payload}.${signature}`;
 
-  return `${payload}.${signature}`;
+  await createSession({
+    authMethod: "password",
+    expiresAt: new Date(expiresAt),
+    ipAddress: request?.headers.get("x-forwarded-for")?.split(",")[0] ?? null,
+    sessionTokenHash: await hashToken(token),
+    userAgent: request?.headers.get("user-agent") ?? null,
+    userId: user.id,
+  });
+
+  return token;
 }
 
 export async function userFromRequest(request: Request) {
@@ -242,58 +201,6 @@ export function attachSessionCookie(response: NextResponse, token: string) {
   });
 }
 
-function normalizeRole(role?: string): AuthRole {
-  const normalized = role?.toLowerCase();
-
-  if (normalized === "teacher") {
-    return "Teacher";
-  }
-
-  if (normalized === "admin") {
-    return "Admin";
-  }
-
-  return "Student";
-}
-
-function permissionsFromGrants(
-  role: AuthRole,
-  grants: { enabled: boolean; permission: string }[]
-): Record<PermissionKey, boolean> {
-  const base: Record<PermissionKey, boolean> =
-    role === "Admin"
-      ? {
-          adminPortal: true,
-          portfolioCorrections: true,
-          questImportExport: true,
-          studentProfile: true,
-          teacherPortal: true,
-        }
-      : role === "Teacher"
-        ? {
-            adminPortal: false,
-            portfolioCorrections: false,
-            questImportExport: true,
-            studentProfile: false,
-            teacherPortal: true,
-          }
-        : {
-            adminPortal: false,
-            portfolioCorrections: false,
-            questImportExport: false,
-            studentProfile: true,
-            teacherPortal: false,
-          };
-
-  for (const grant of grants) {
-    if (grant.permission in base) {
-      base[grant.permission as PermissionKey] = Boolean(grant.enabled);
-    }
-  }
-
-  return base;
-}
-
 function bearerToken(request: Request) {
   const auth = request.headers.get("authorization");
 
@@ -333,6 +240,20 @@ async function verifySessionToken(token: string): Promise<AuthenticatedUser | nu
       return null;
     }
 
+    if (hasProductionDatabase()) {
+      const session = await findActiveSession(await hashToken(token));
+
+      if (!session) {
+        return null;
+      }
+
+      return findUserById(session.user_id);
+    }
+
+    if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_AUTH !== "true") {
+      return null;
+    }
+
     const seedUser = seedAuthUsers.find((user) => user.id === parsed.id);
 
     return {
@@ -351,6 +272,10 @@ async function verifySessionToken(token: string): Promise<AuthenticatedUser | nu
 }
 
 async function sign(payload: string) {
+  if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET is required in production.");
+  }
+
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(process.env.SESSION_SECRET ?? defaultSessionSecret),

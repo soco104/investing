@@ -1,5 +1,10 @@
 import type { AppErrorEvent } from "@/lib/observability";
 import { createTraceId, nowIso } from "@/lib/observability";
+import {
+  hasProductionDatabase,
+  listErrorEvents,
+  recordErrorEvent,
+} from "@/lib/server/repository";
 
 const errorEvents: AppErrorEvent[] = [
   {
@@ -25,6 +30,10 @@ const errorEvents: AppErrorEvent[] = [
 ];
 
 export async function GET() {
+  if (hasProductionDatabase()) {
+    return Response.json({ events: await listErrorEvents() });
+  }
+
   return Response.json({ events: errorEvents.slice(0, 25) });
 }
 
@@ -41,7 +50,11 @@ export async function POST(request: Request) {
     traceId: body.traceId ?? createTraceId(),
   };
 
-  errorEvents.unshift(event);
+  await recordErrorEvent(event);
+
+  if (!hasProductionDatabase()) {
+    errorEvents.unshift(event);
+  }
 
   return Response.json({ event, ok: true }, { status: 201 });
 }

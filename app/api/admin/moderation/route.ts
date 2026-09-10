@@ -1,6 +1,7 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
 import { reviewModerationItem } from "@/lib/server/moderation";
+import { createModerationReview, defaultDistrictId } from "@/lib/server/repository";
 
 type ModerationRequest = {
   action: "allow" | "block" | "escalate";
@@ -25,6 +26,14 @@ export async function POST(request: Request) {
   }
 
   const moderation = reviewModerationItem(body);
+  await createModerationReview({
+    action: body.action,
+    districtId: defaultDistrictId,
+    messageId: body.messageId,
+    note: body.note,
+    reviewedByUserId: user.id,
+    statusAfterReview: moderation.status,
+  });
   const audit = await recordAuditEvent({
     action: "moderation.reviewed",
     actor: user,

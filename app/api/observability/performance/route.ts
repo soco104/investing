@@ -1,5 +1,10 @@
 import type { PerformanceEvent } from "@/lib/observability";
 import { createTraceId, nowIso, statusFromDuration } from "@/lib/observability";
+import {
+  hasProductionDatabase,
+  listPerformanceEvents,
+  recordPerformanceEvent,
+} from "@/lib/server/repository";
 
 const performanceEvents: PerformanceEvent[] = [
   {
@@ -23,6 +28,10 @@ const performanceEvents: PerformanceEvent[] = [
 ];
 
 export async function GET() {
+  if (hasProductionDatabase()) {
+    return Response.json({ events: await listPerformanceEvents() });
+  }
+
   return Response.json({ events: performanceEvents.slice(0, 25) });
 }
 
@@ -39,7 +48,11 @@ export async function POST(request: Request) {
     traceId: body.traceId ?? createTraceId(),
   };
 
-  performanceEvents.unshift(event);
+  await recordPerformanceEvent(event);
+
+  if (!hasProductionDatabase()) {
+    performanceEvents.unshift(event);
+  }
 
   return Response.json({ event, ok: true }, { status: 201 });
 }

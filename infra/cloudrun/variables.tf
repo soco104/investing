@@ -57,6 +57,19 @@ variable "db_name" {
   default     = "futurefund"
 }
 
+variable "bootstrap_admin_email" {
+  description = "Optional initial admin email created during Cloud Run startup."
+  type        = string
+  default     = ""
+}
+
+variable "bootstrap_admin_password_hash" {
+  description = "Optional SHA-256 hash for the initial admin password."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "db_user" {
   description = "Application database user."
   type        = string

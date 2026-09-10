@@ -1,6 +1,11 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
 import { testMarketProvider } from "@/lib/server/market-providers";
+import {
+  deleteIntegration,
+  upsertIntegration,
+} from "@/lib/server/repository";
+import { storeMarketIntegrationToken } from "@/lib/server/secrets";
 
 type IntegrationMutationRequest = {
   action: "create" | "update" | "delete" | "test";
@@ -31,6 +36,11 @@ export async function POST(request: Request) {
     );
   }
 
+  const integrationId = body.integrationId ?? `integration-${Date.now()}`;
+  const tokenSecretRef =
+    body.token && body.action !== "delete"
+      ? await storeMarketIntegrationToken(integrationId, body.token)
+      : null;
   const health =
     body.action === "test"
       ? await testMarketProvider({
@@ -42,6 +52,21 @@ export async function POST(request: Request) {
           tokenPlacement: body.tokenPlacement,
         })
       : null;
+  if (body.action === "delete") {
+    await deleteIntegration(integrationId);
+  } else {
+    await upsertIntegration({
+      actor: user,
+      allowedSymbols: body.allowedSymbols,
+      endpoint: body.endpoint,
+      integrationId,
+      maxSymbols: body.maxSymbols ?? 200,
+      provider: body.provider,
+      status: health?.ok === false ? "Needs key" : "Connected",
+      tokenRequired: Boolean(body.token),
+      tokenSecretRef,
+    });
+  }
   const audit = await recordAuditEvent({
     action:
       body.action === "delete"
@@ -56,10 +81,10 @@ export async function POST(request: Request) {
       health,
       provider: body.provider,
       targetClass: body.targetClass,
-      tokenSecretRef: body.token ? "secret-manager-pending" : null,
+      tokenSecretRef,
     },
     reason: body.reason,
-    targetId: body.integrationId ?? `integration-${Date.now()}`,
+    targetId: integrationId,
     targetType: "market_integration",
   });
 

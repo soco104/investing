@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { createSchool, deleteSchool } from "@/lib/server/repository";
 
 type SchoolMutationRequest = {
   action: "create" | "delete";
@@ -33,6 +34,19 @@ export async function POST(request: Request) {
       { message: "schoolId is required.", ok: false },
       { status: 400 }
     );
+  }
+
+  if (body.action === "create") {
+    await createSchool({
+      classCount: body.classCount ?? 0,
+      district: body.district ?? "",
+      name: body.name ?? "",
+      schoolId: body.schoolId ?? `school-${Date.now()}`,
+      state: body.state ?? "NA",
+      studentCount: body.studentCount ?? 0,
+    });
+  } else {
+    await deleteSchool(body.schoolId ?? "");
   }
 
   const audit = await recordAuditEvent({

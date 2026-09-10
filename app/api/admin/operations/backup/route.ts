@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { createBackupJob } from "@/lib/server/repository";
 
 type BackupOperationRequest = {
   backupLocation?: string;
@@ -22,6 +23,11 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  await createBackupJob({
+    backupLocation: body.backupLocation ?? "cloud-sql-managed-backups",
+    jobType: body.jobType,
+  });
 
   const audit = await recordAuditEvent({
     action: "backup.requested",

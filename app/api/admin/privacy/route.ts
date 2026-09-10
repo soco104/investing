@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { createPrivacyPosture } from "@/lib/server/repository";
 
 type PrivacyPostureRequest = {
   posture: "standard" | "strict" | "state_specific";
@@ -23,6 +24,13 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  await createPrivacyPosture({
+    actor: user,
+    posture: body.posture,
+    privacyContactEmail: body.privacyContactEmail,
+    stateCode: body.stateCode,
+  });
 
   const audit = await recordAuditEvent({
     action: "privacy.updated",

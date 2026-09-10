@@ -8,5 +8,5 @@ export async function GET(request: Request) {
     return response;
   }
 
-  return Response.json({ events: listAuditEvents(), ok: true });
+  return Response.json({ events: await listAuditEvents(), ok: true });
 }

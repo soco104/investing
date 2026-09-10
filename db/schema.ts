@@ -384,6 +384,8 @@ export const passwordResetRequests = sqliteTable("password_reset_requests", {
     .references(() => appUsers.id),
   requestedByUserId: text("requested_by_user_id").notNull(),
   status: text("status").notNull().default("pending"),
+  resetTokenHash: text("reset_token_hash"),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
   requestedAt: integer("requested_at", { mode: "timestamp" }).notNull(),
   completedAt: integer("completed_at", { mode: "timestamp" }),
 });

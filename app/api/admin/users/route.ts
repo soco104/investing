@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { createOrUpdateUsers } from "@/lib/server/repository";
 
 type UserMutationRequest = {
   action: "create" | "import" | "enable" | "disable";
@@ -17,6 +18,13 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as UserMutationRequest;
   const count = body.action === "import" ? (body.users?.length ?? 0) : 1;
+  const persistence = await createOrUpdateUsers({
+    action: body.action,
+    actor: user,
+    reason: body.reason,
+    targetUserId: body.targetUserId,
+    users: body.users as Parameters<typeof createOrUpdateUsers>[0]["users"],
+  });
   const audit = await recordAuditEvent({
     action:
       body.action === "import"
@@ -31,5 +39,5 @@ export async function POST(request: Request) {
     targetType: "user",
   });
 
-  return Response.json({ audit, ok: true, persisted: true }, { status: 201 });
+  return Response.json({ audit, ok: true, persisted: true, persistence }, { status: 201 });
 }

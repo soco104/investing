@@ -1,5 +1,6 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission, type PermissionKey } from "@/lib/server/auth";
+import { updatePermission } from "@/lib/server/repository";
 
 type PermissionRequest = {
   enabled: boolean;
@@ -23,6 +24,13 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  await updatePermission({
+    actor: user,
+    enabled: body.enabled,
+    permission: body.permission,
+    targetUserId: body.targetUserId,
+  });
 
   const audit = await recordAuditEvent({
     action: "permission.changed",

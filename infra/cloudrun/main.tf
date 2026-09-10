@@ -135,6 +135,25 @@ resource "google_secret_manager_secret_version" "cron_secret" {
   secret_data = random_password.cron_secret.result
 }
 
+resource "google_secret_manager_secret" "bootstrap_admin_password_hash" {
+  count = var.bootstrap_admin_password_hash == "" ? 0 : 1
+
+  secret_id = "${var.service_name}-bootstrap-admin-password-hash"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_secret_manager_secret_version" "bootstrap_admin_password_hash" {
+  count = var.bootstrap_admin_password_hash == "" ? 0 : 1
+
+  secret      = google_secret_manager_secret.bootstrap_admin_password_hash[0].id
+  secret_data = var.bootstrap_admin_password_hash
+}
+
 resource "google_project_iam_member" "app_cloudsql_client" {
   project = var.project_id
   role    = "roles/cloudsql.client"
@@ -157,6 +176,12 @@ resource "google_secret_manager_secret_iam_member" "app_cron_secret" {
   secret_id = google_secret_manager_secret.cron_secret.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.app.email}"
+}
+
+resource "google_project_iam_member" "app_secret_manager_admin" {
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+  member  = "serviceAccount:${google_service_account.app.email}"
 }
 
 resource "google_cloud_run_v2_service" "app" {
@@ -228,6 +253,30 @@ resource "google_cloud_run_v2_service" "app" {
         }
       }
 
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+
+      env {
+        name  = "BOOTSTRAP_ADMIN_EMAIL"
+        value = var.bootstrap_admin_email
+      }
+
+      dynamic "env" {
+        for_each = var.bootstrap_admin_password_hash == "" ? [] : [1]
+
+        content {
+          name = "BOOTSTRAP_ADMIN_PASSWORD_HASH"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.bootstrap_admin_password_hash[0].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
@@ -249,6 +298,7 @@ resource "google_cloud_run_v2_service" "app" {
     google_secret_manager_secret_iam_member.app_database_url,
     google_secret_manager_secret_iam_member.app_session_secret,
     google_secret_manager_secret_iam_member.app_cron_secret,
+    google_project_iam_member.app_secret_manager_admin,
   ]
 }
 

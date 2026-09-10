@@ -645,15 +645,35 @@ type MonitoringEvent = {
   message: string;
   route: string;
   age: string;
+  logs: string[];
+  user: {
+    name: string;
+    email: string;
+    role: AdminUser["role"];
+    className: string;
+  };
 };
 
 type PerformanceMetric = {
   id: string;
   route: string;
   operation: string;
+  callType: "API" | "Page" | "Integration" | "Messaging";
+  durationMs: number;
   duration: string;
   status: "OK" | "Slow" | "Failed";
   traceId: string;
+  samples: number[];
+};
+
+type IntegrationHealthMetric = {
+  id: string;
+  connectionName: string;
+  rttMs: number;
+  errors: string;
+  status: "Healthy" | "Degraded" | "Failed";
+  samples: number[];
+  logs: string[];
 };
 
 type SchoolRecord = {
@@ -803,6 +823,17 @@ const monitoringEvents: MonitoringEvent[] = [
     message: "District Market Provider is missing an API token.",
     route: "/api/integration-test",
     age: "4 min ago",
+    logs: [
+      "POST /api/integration-test provider=District Market Provider",
+      "tokenRequired=true tokenPresent=false",
+      "status=Needs key importedSymbols=0",
+    ],
+    user: {
+      name: "Sam Gordon",
+      email: "sgordon@lincolnusd.edu",
+      role: "Admin",
+      className: "District",
+    },
   },
   {
     id: "err-1038",
@@ -811,6 +842,17 @@ const monitoringEvents: MonitoringEvent[] = [
     message: "Blocked a message with disallowed classroom language.",
     route: "/inbox",
     age: "18 min ago",
+    logs: [
+      "POST /inbox conversation=teacher-risk-feedback",
+      "moderationStatus=blocked profanityDetected=true",
+      "message persisted=false",
+    ],
+    user: {
+      name: "Avery Johnson",
+      email: "avery.johnson@student.lincolnusd.edu",
+      role: "Student",
+      className: "7th Grade Finance A",
+    },
   },
   {
     id: "err-1032",
@@ -819,6 +861,17 @@ const monitoringEvents: MonitoringEvent[] = [
     message: "Example UI crash logs through app/error.tsx.",
     route: "/",
     age: "1 day ago",
+    logs: [
+      "ErrorBoundary captured render failure",
+      "component=StudentPortfolioPage route=/",
+      "traceId=client-web-vitals",
+    ],
+    user: {
+      name: "Elena Rivera",
+      email: "erivera@lincolnusd.edu",
+      role: "Teacher",
+      className: "7th Grade Finance A",
+    },
   },
 ];
 
@@ -827,25 +880,87 @@ const performanceMetrics: PerformanceMetric[] = [
     id: "perf-market",
     route: "/api/market",
     operation: "marketSnapshot",
+    callType: "API",
+    durationMs: 42,
     duration: "42 ms",
     status: "OK",
     traceId: "otel-ready",
+    samples: [34, 41, 38, 45, 42, 39, 44],
   },
   {
     id: "perf-integration",
     route: "/api/integration-test",
     operation: "providerGet",
+    callType: "Integration",
+    durationMs: 812,
     duration: "812 ms",
     status: "Slow",
     traceId: "otel-ready",
+    samples: [402, 520, 668, 812, 774, 690, 735],
   },
   {
     id: "perf-home",
     route: "/",
     operation: "navigation",
+    callType: "Page",
+    durationMs: 286,
     duration: "286 ms",
     status: "OK",
     traceId: "client-web-vitals",
+    samples: [244, 260, 286, 270, 252, 248, 266],
+  },
+  {
+    id: "perf-message",
+    route: "/inbox",
+    operation: "sendMessage",
+    callType: "Messaging",
+    durationMs: 178,
+    duration: "178 ms",
+    status: "OK",
+    traceId: "client-message-flow",
+    samples: [155, 166, 178, 171, 160, 164, 169],
+  },
+];
+
+const integrationHealthMetrics: IntegrationHealthMetric[] = [
+  {
+    id: "health-sandbox",
+    connectionName: "FutureFund Sandbox Feed",
+    rttMs: 126,
+    errors: "0",
+    status: "Healthy",
+    samples: [118, 122, 126, 124, 119, 121, 125],
+    logs: [
+      "GET /api/market status=200",
+      "importedSymbols=4",
+      "assignedClass=7th Grade Finance A",
+    ],
+  },
+  {
+    id: "health-district",
+    connectionName: "District Market Provider",
+    rttMs: 812,
+    errors: "Missing token",
+    status: "Degraded",
+    samples: [650, 702, 812, 790, 735, 760, 778],
+    logs: [
+      "GET https://district-provider.example/quotes status=401",
+      "tokenRequired=true tokenSecretRef=null",
+      "assignedClass=8th Grade Investing Lab",
+    ],
+  },
+  {
+    id: "health-ipo",
+    connectionName: "IPO Scenario Feed",
+    rttMs: 344,
+    errors: "1 timeout today",
+    status: "Healthy",
+    samples: [310, 328, 350, 344, 330, 338, 342],
+    logs: [
+      "GET https://sandbox.example/ipo status=200",
+      "timeoutCount24h=1",
+      "assignedClass=High School Personal Finance",
+    ],
   },
 ];
 
@@ -5494,26 +5609,82 @@ function PrivacyPostureAdminPage({
 }
 
 function MonitoringAdminPage() {
+  const [activeMonitoringPage, setActiveMonitoringPage] = useState<
+    "overview" | "errors" | "slow-calls" | "integration-health"
+  >("overview");
+  const [selectedErrorId, setSelectedErrorId] = useState(monitoringEvents[0].id);
+  const [callTypeFilter, setCallTypeFilter] = useState("all");
+  const selectedError =
+    monitoringEvents.find((event) => event.id === selectedErrorId) ??
+    monitoringEvents[0];
+  const openErrorCount = monitoringEvents.filter(
+    (event) => event.severity === "Error"
+  ).length;
+  const slowCallCount = performanceMetrics.filter(
+    (metric) => metric.status === "Slow" || metric.durationMs > 750
+  ).length;
+  const healthyIntegrations = integrationHealthMetrics.filter(
+    (metric) => metric.status === "Healthy"
+  ).length;
+  const filteredPerformanceMetrics =
+    callTypeFilter === "all"
+      ? performanceMetrics
+      : performanceMetrics.filter((metric) => metric.callType === callTypeFilter);
+
+  if (activeMonitoringPage === "errors") {
+    return (
+      <MonitoringErrorsPage
+        events={monitoringEvents}
+        onBack={() => setActiveMonitoringPage("overview")}
+        onSelectError={setSelectedErrorId}
+        selectedError={selectedError}
+      />
+    );
+  }
+
+  if (activeMonitoringPage === "slow-calls") {
+    return (
+      <SlowCallsMonitoringPage
+        callTypeFilter={callTypeFilter}
+        metrics={filteredPerformanceMetrics}
+        onBack={() => setActiveMonitoringPage("overview")}
+        onCallTypeFilterChange={setCallTypeFilter}
+      />
+    );
+  }
+
+  if (activeMonitoringPage === "integration-health") {
+    return (
+      <IntegrationHealthMonitoringPage
+        integrations={integrationHealthMetrics}
+        onBack={() => setActiveMonitoringPage("overview")}
+      />
+    );
+  }
+
   return (
     <div className="grid gap-6">
       <section className="grid gap-4 md:grid-cols-4">
         <SummaryCard
           icon={<TriangleAlert className="size-5" />}
           label="Open errors"
-          value="1"
+          value={`${openErrorCount}`}
           detail="Critical or failed events"
+          onClick={() => setActiveMonitoringPage("errors")}
         />
         <SummaryCard
           icon={<Gauge className="size-5" />}
           label="Slow calls"
-          value="1"
+          value={`${slowCallCount}`}
           detail="Over 750 ms"
+          onClick={() => setActiveMonitoringPage("slow-calls")}
         />
         <SummaryCard
           icon={<PlugZap className="size-5" />}
           label="Integration health"
-          value="2 / 3"
+          value={`${healthyIntegrations} / ${integrationHealthMetrics.length}`}
           detail="Providers passing"
+          onClick={() => setActiveMonitoringPage("integration-health")}
         />
         <SummaryCard
           icon={<LineChart className="size-5" />}
@@ -5636,6 +5807,297 @@ function MonitoringAdminPage() {
           </Table>
         </div>
       </section>
+    </div>
+  );
+}
+
+function MonitoringErrorsPage({
+  events,
+  selectedError,
+  onBack,
+  onSelectError,
+}: {
+  events: MonitoringEvent[];
+  selectedError: MonitoringEvent;
+  onBack: () => void;
+  onSelectError: (errorId: string) => void;
+}) {
+  return (
+    <section className="space-y-6">
+      <MonitoringBackHeader
+        description="Examine captured error messages, logs, affected route, and user context."
+        onBack={onBack}
+        title="Open Errors"
+      />
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <h4 className="mb-4 font-semibold">Error queue</h4>
+          <div className="space-y-3">
+            {events.map((event) => (
+              <button
+                key={event.id}
+                type="button"
+                onClick={() => onSelectError(event.id)}
+                className={`w-full rounded-lg border p-4 text-left transition ${
+                  selectedError.id === event.id
+                    ? "border-[#28666e] bg-[#e8f0ed]"
+                    : "border-border bg-background hover:bg-muted/50"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{event.message}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {event.source} on {event.route}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0 rounded-md bg-card">
+                    {event.severity}
+                  </Badge>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 className="text-lg font-semibold">{selectedError.id}</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {selectedError.age} from {selectedError.source}
+              </p>
+            </div>
+            <Badge
+              variant="outline"
+              className={
+                selectedError.severity === "Error"
+                  ? "rounded-md border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+                  : "rounded-md bg-background"
+              }
+            >
+              {selectedError.severity}
+            </Badge>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Metric label="Route" value={selectedError.route} />
+            <Metric label="User" value={selectedError.user.name} />
+            <Metric label="Email" value={selectedError.user.email} />
+            <Metric label="Role" value={selectedError.user.role} />
+            <Metric label="Class" value={selectedError.user.className} />
+            <Metric label="Source" value={selectedError.source} />
+          </div>
+
+          <div className="mt-5 rounded-lg border border-border bg-background p-4">
+            <h5 className="font-semibold">Message</h5>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {selectedError.message}
+            </p>
+          </div>
+
+          <div className="mt-5 rounded-lg border border-border bg-[#1f363d] p-4 text-white">
+            <h5 className="font-semibold">Logs</h5>
+            <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-black/20 p-3 text-sm leading-6 text-white/85">
+              {selectedError.logs.join("\n")}
+            </pre>
+          </div>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function SlowCallsMonitoringPage({
+  metrics,
+  callTypeFilter,
+  onBack,
+  onCallTypeFilterChange,
+}: {
+  metrics: PerformanceMetric[];
+  callTypeFilter: string;
+  onBack: () => void;
+  onCallTypeFilterChange: (callType: string) => void;
+}) {
+  const chartSeries = metrics.length
+    ? metrics
+    : [{ samples: [0, 0, 0, 0, 0, 0, 0] } as PerformanceMetric];
+
+  return (
+    <section className="space-y-6">
+      <MonitoringBackHeader
+        description="Review slow and normal request timings by call type."
+        onBack={onBack}
+        title="Slow Calls"
+      />
+
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h4 className="text-lg font-semibold">Call latency</h4>
+            <p className="text-sm text-muted-foreground">
+              Recent timing samples for the selected call type.
+            </p>
+          </div>
+          <div className="w-full space-y-2 sm:w-56">
+            <Label>Call type</Label>
+            <Select value={callTypeFilter} onValueChange={onCallTypeFilterChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All call types</SelectItem>
+                <SelectItem value="API">API</SelectItem>
+                <SelectItem value="Page">Page</SelectItem>
+                <SelectItem value="Integration">Integration</SelectItem>
+                <SelectItem value="Messaging">Messaging</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <LineGraph
+          ariaLabel="Slow call latency line graph"
+          series={chartSeries.map((metric) => ({
+            label: metric.operation,
+            points: metric.samples,
+          }))}
+        />
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="min-w-[860px]">
+          <TableHeader>
+            <TableRow className="text-muted-foreground hover:bg-transparent">
+              <TableHead>Call type</TableHead>
+              <TableHead>Route</TableHead>
+              <TableHead>Operation</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Trace</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {metrics.map((metric) => (
+              <TableRow key={metric.id}>
+                <TableCell>{metric.callType}</TableCell>
+                <TableCell className="font-medium">{metric.route}</TableCell>
+                <TableCell>{metric.operation}</TableCell>
+                <TableCell>{metric.duration}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={
+                      metric.status === "Slow"
+                        ? "rounded-md border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+                        : "rounded-md bg-card"
+                    }
+                  >
+                    {metric.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>{metric.traceId}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+}
+
+function IntegrationHealthMonitoringPage({
+  integrations,
+  onBack,
+}: {
+  integrations: IntegrationHealthMetric[];
+  onBack: () => void;
+}) {
+  return (
+    <section className="space-y-6">
+      <MonitoringBackHeader
+        description="Track integration round trip time, current errors, and downloadable logs."
+        onBack={onBack}
+        title="Integration Health"
+      />
+
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-4">
+          <h4 className="text-lg font-semibold">Average RTT</h4>
+          <p className="text-sm text-muted-foreground">
+            Round trip time in milliseconds across configured market feeds.
+          </p>
+        </div>
+        <LineGraph
+          ariaLabel="Integration average round trip time line graph"
+          series={integrations.map((integration) => ({
+            label: integration.connectionName,
+            points: integration.samples,
+          }))}
+        />
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="min-w-[900px]">
+          <TableHeader>
+            <TableRow className="text-muted-foreground hover:bg-transparent">
+              <TableHead>Connection</TableHead>
+              <TableHead>RTT ms</TableHead>
+              <TableHead>Errors</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Logs</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {integrations.map((integration) => (
+              <TableRow key={integration.id}>
+                <TableCell className="font-medium">
+                  {integration.connectionName}
+                </TableCell>
+                <TableCell>{integration.rttMs}</TableCell>
+                <TableCell>{integration.errors}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="rounded-md bg-card">
+                    {integration.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadIntegrationLogsZip(integration)}
+                  >
+                    <Download className="size-4" aria-hidden="true" />
+                    Download ZIP
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+}
+
+function MonitoringBackHeader({
+  description,
+  onBack,
+  title,
+}: {
+  description: string;
+  onBack: () => void;
+  title: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+      <Button type="button" variant="ghost" onClick={onBack} className="mb-2 px-0">
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Monitoring
+      </Button>
+      <h3 className="text-2xl font-semibold tracking-normal">{title}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -6779,6 +7241,92 @@ function ProgressWithLabel({ value }: { value: number }) {
   );
 }
 
+function LineGraph({
+  ariaLabel,
+  series,
+}: {
+  ariaLabel: string;
+  series: Array<{ label: string; points: number[] }>;
+}) {
+  const width = 760;
+  const height = 220;
+  const padding = 28;
+  const colors = ["#28666e", "#f2a541", "#c44536", "#5c677d"];
+  const allPoints = series.flatMap((item) => item.points);
+  const max = Math.max(...allPoints, 1);
+  const min = Math.min(...allPoints, 0);
+  const range = Math.max(max - min, 1);
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border bg-background p-4">
+      <svg
+        aria-label={ariaLabel}
+        className="min-w-[620px]"
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+      >
+        <line
+          stroke="#d8d5ce"
+          strokeWidth="1"
+          x1={padding}
+          x2={width - padding}
+          y1={height - padding}
+          y2={height - padding}
+        />
+        <line
+          stroke="#d8d5ce"
+          strokeWidth="1"
+          x1={padding}
+          x2={padding}
+          y1={padding}
+          y2={height - padding}
+        />
+        {series.map((item, seriesIndex) => {
+          const points = item.points.map((point, pointIndex) => {
+            const x =
+              padding +
+              (pointIndex / Math.max(item.points.length - 1, 1)) *
+                (width - padding * 2);
+            const y =
+              height -
+              padding -
+              ((point - min) / range) * (height - padding * 2);
+
+            return `${x},${y}`;
+          });
+
+          return (
+            <g key={item.label}>
+              <polyline
+                fill="none"
+                points={points.join(" ")}
+                stroke={colors[seriesIndex % colors.length]}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="3"
+              />
+              <text
+                fill={colors[seriesIndex % colors.length]}
+                fontSize="12"
+                x={padding}
+                y={18 + seriesIndex * 18}
+              >
+                {item.label}
+              </text>
+            </g>
+          );
+        })}
+        <text fill="#6b7280" fontSize="12" x={padding} y={height - 6}>
+          Recent samples
+        </text>
+        <text fill="#6b7280" fontSize="12" x={width - 74} y={height - 6}>
+          Latest
+        </text>
+      </svg>
+    </div>
+  );
+}
+
 function QuestMonitorMetric({
   label,
   value,
@@ -6796,6 +7344,127 @@ function QuestMonitorMetric({
 
 function formatSignedPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function downloadIntegrationLogsZip(integration: IntegrationHealthMetric) {
+  const logText = JSON.stringify(
+    {
+      connectionName: integration.connectionName,
+      rttMs: integration.rttMs,
+      errors: integration.errors,
+      status: integration.status,
+      logs: integration.logs,
+    },
+    null,
+    2
+  );
+  const filename = `${slugify(integration.connectionName)}-logs.json`;
+  const zipBytes = createSingleFileZip(filename, logText);
+  const blob = new Blob([zipBytes], { type: "application/zip" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `${slugify(integration.connectionName)}-logs.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function createSingleFileZip(filename: string, content: string) {
+  const encoder = new TextEncoder();
+  const filenameBytes = encoder.encode(filename);
+  const contentBytes = encoder.encode(content);
+  const crc = crc32(contentBytes);
+  const localHeaderLength = 30 + filenameBytes.length;
+  const centralHeaderLength = 46 + filenameBytes.length;
+  const endHeaderLength = 22;
+  const totalLength =
+    localHeaderLength + contentBytes.length + centralHeaderLength + endHeaderLength;
+  const zip = new Uint8Array(totalLength);
+  const view = new DataView(zip.buffer);
+  let offset = 0;
+
+  offset = writeZipHeader(view, zip, offset, filenameBytes, contentBytes, crc);
+  zip.set(contentBytes, offset);
+  offset += contentBytes.length;
+  const centralDirectoryOffset = offset;
+  offset = writeCentralDirectoryHeader(
+    view,
+    zip,
+    offset,
+    filenameBytes,
+    contentBytes,
+    crc
+  );
+  const centralDirectorySize = offset - centralDirectoryOffset;
+
+  view.setUint32(offset, 0x06054b50, true);
+  view.setUint16(offset + 8, 1, true);
+  view.setUint16(offset + 10, 1, true);
+  view.setUint32(offset + 12, centralDirectorySize, true);
+  view.setUint32(offset + 16, centralDirectoryOffset, true);
+
+  return zip;
+}
+
+function writeZipHeader(
+  view: DataView,
+  zip: Uint8Array,
+  offset: number,
+  filenameBytes: Uint8Array,
+  contentBytes: Uint8Array,
+  crc: number
+) {
+  view.setUint32(offset, 0x04034b50, true);
+  view.setUint16(offset + 4, 20, true);
+  view.setUint16(offset + 8, 0, true);
+  view.setUint32(offset + 14, crc, true);
+  view.setUint32(offset + 18, contentBytes.length, true);
+  view.setUint32(offset + 22, contentBytes.length, true);
+  view.setUint16(offset + 26, filenameBytes.length, true);
+  zip.set(filenameBytes, offset + 30);
+
+  return offset + 30 + filenameBytes.length;
+}
+
+function writeCentralDirectoryHeader(
+  view: DataView,
+  zip: Uint8Array,
+  offset: number,
+  filenameBytes: Uint8Array,
+  contentBytes: Uint8Array,
+  crc: number
+) {
+  view.setUint32(offset, 0x02014b50, true);
+  view.setUint16(offset + 4, 20, true);
+  view.setUint16(offset + 6, 20, true);
+  view.setUint32(offset + 16, crc, true);
+  view.setUint32(offset + 20, contentBytes.length, true);
+  view.setUint32(offset + 24, contentBytes.length, true);
+  view.setUint16(offset + 28, filenameBytes.length, true);
+  zip.set(filenameBytes, offset + 46);
+
+  return offset + 46 + filenameBytes.length;
+}
+
+function crc32(bytes: Uint8Array) {
+  let crc = 0xffffffff;
+
+  for (const byte of bytes) {
+    crc ^= byte;
+
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    }
+  }
+
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function roleToTab(role: AdminUser["role"]) {

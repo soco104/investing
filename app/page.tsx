@@ -645,7 +645,7 @@ type MonitoringEvent = {
   message: string;
   route: string;
   age: string;
-  logs: string[];
+  logs: LogEntry[];
   user: {
     name: string;
     email: string;
@@ -673,7 +673,12 @@ type IntegrationHealthMetric = {
   errors: string;
   status: "Healthy" | "Degraded" | "Failed";
   samples: number[];
-  logs: string[];
+  logs: LogEntry[];
+};
+
+type LogEntry = {
+  timestamp: string;
+  message: string;
 };
 
 type SchoolRecord = {
@@ -824,9 +829,18 @@ const monitoringEvents: MonitoringEvent[] = [
     route: "/api/integration-test",
     age: "4 min ago",
     logs: [
-      "POST /api/integration-test provider=District Market Provider",
-      "tokenRequired=true tokenPresent=false",
-      "status=Needs key importedSymbols=0",
+      {
+        timestamp: "2026-09-10 02:41:08 UTC",
+        message: "POST /api/integration-test provider=District Market Provider",
+      },
+      {
+        timestamp: "2026-09-10 02:41:08 UTC",
+        message: "tokenRequired=true tokenPresent=false",
+      },
+      {
+        timestamp: "2026-09-10 02:41:09 UTC",
+        message: "status=Needs key importedSymbols=0",
+      },
     ],
     user: {
       name: "Sam Gordon",
@@ -843,9 +857,18 @@ const monitoringEvents: MonitoringEvent[] = [
     route: "/inbox",
     age: "18 min ago",
     logs: [
-      "POST /inbox conversation=teacher-risk-feedback",
-      "moderationStatus=blocked profanityDetected=true",
-      "message persisted=false",
+      {
+        timestamp: "2026-09-10 02:27:14 UTC",
+        message: "POST /inbox conversation=teacher-risk-feedback",
+      },
+      {
+        timestamp: "2026-09-10 02:27:14 UTC",
+        message: "moderationStatus=blocked profanityDetected=true",
+      },
+      {
+        timestamp: "2026-09-10 02:27:15 UTC",
+        message: "message persisted=false",
+      },
     ],
     user: {
       name: "Avery Johnson",
@@ -862,9 +885,18 @@ const monitoringEvents: MonitoringEvent[] = [
     route: "/",
     age: "1 day ago",
     logs: [
-      "ErrorBoundary captured render failure",
-      "component=StudentPortfolioPage route=/",
-      "traceId=client-web-vitals",
+      {
+        timestamp: "2026-09-09 14:12:30 UTC",
+        message: "ErrorBoundary captured render failure",
+      },
+      {
+        timestamp: "2026-09-09 14:12:30 UTC",
+        message: "component=StudentPortfolioPage route=/",
+      },
+      {
+        timestamp: "2026-09-09 14:12:31 UTC",
+        message: "traceId=client-web-vitals",
+      },
     ],
     user: {
       name: "Elena Rivera",
@@ -931,9 +963,18 @@ const integrationHealthMetrics: IntegrationHealthMetric[] = [
     status: "Healthy",
     samples: [118, 122, 126, 124, 119, 121, 125],
     logs: [
-      "GET /api/market status=200",
-      "importedSymbols=4",
-      "assignedClass=7th Grade Finance A",
+      {
+        timestamp: "2026-09-10 02:40:00 UTC",
+        message: "GET /api/market status=200",
+      },
+      {
+        timestamp: "2026-09-10 02:40:00 UTC",
+        message: "importedSymbols=4",
+      },
+      {
+        timestamp: "2026-09-10 02:40:01 UTC",
+        message: "assignedClass=7th Grade Finance A",
+      },
     ],
   },
   {
@@ -944,9 +985,18 @@ const integrationHealthMetrics: IntegrationHealthMetric[] = [
     status: "Degraded",
     samples: [650, 702, 812, 790, 735, 760, 778],
     logs: [
-      "GET https://district-provider.example/quotes status=401",
-      "tokenRequired=true tokenSecretRef=null",
-      "assignedClass=8th Grade Investing Lab",
+      {
+        timestamp: "2026-09-10 02:41:08 UTC",
+        message: "GET https://district-provider.example/quotes status=401",
+      },
+      {
+        timestamp: "2026-09-10 02:41:08 UTC",
+        message: "tokenRequired=true tokenSecretRef=null",
+      },
+      {
+        timestamp: "2026-09-10 02:41:09 UTC",
+        message: "assignedClass=8th Grade Investing Lab",
+      },
     ],
   },
   {
@@ -957,9 +1007,18 @@ const integrationHealthMetrics: IntegrationHealthMetric[] = [
     status: "Healthy",
     samples: [310, 328, 350, 344, 330, 338, 342],
     logs: [
-      "GET https://sandbox.example/ipo status=200",
-      "timeoutCount24h=1",
-      "assignedClass=High School Personal Finance",
+      {
+        timestamp: "2026-09-10 02:35:00 UTC",
+        message: "GET https://sandbox.example/ipo status=200",
+      },
+      {
+        timestamp: "2026-09-10 02:35:00 UTC",
+        message: "timeoutCount24h=1",
+      },
+      {
+        timestamp: "2026-09-10 02:35:01 UTC",
+        message: "assignedClass=High School Personal Finance",
+      },
     ],
   },
 ];
@@ -5900,7 +5959,7 @@ function MonitoringErrorsPage({
           <div className="mt-5 rounded-lg border border-border bg-[#1f363d] p-4 text-white">
             <h5 className="font-semibold">Logs</h5>
             <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-black/20 p-3 text-sm leading-6 text-white/85">
-              {selectedError.logs.join("\n")}
+              {formatLogEntries(selectedError.logs)}
             </pre>
           </div>
         </div>
@@ -7353,6 +7412,7 @@ function downloadIntegrationLogsZip(integration: IntegrationHealthMetric) {
       rttMs: integration.rttMs,
       errors: integration.errors,
       status: integration.status,
+      exportedAt: new Date().toISOString(),
       logs: integration.logs,
     },
     null,
@@ -7370,6 +7430,10 @@ function downloadIntegrationLogsZip(integration: IntegrationHealthMetric) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function formatLogEntries(logs: LogEntry[]) {
+  return logs.map((log) => `[${log.timestamp}] ${log.message}`).join("\n");
 }
 
 function createSingleFileZip(filename: string, content: string) {

@@ -24,11 +24,7 @@ export async function POST(request: Request) {
     );
   }
 
-  await createBackupJob({
-    backupLocation: body.backupLocation ?? "cloud-sql-managed-backups",
-    jobType: body.jobType,
-  });
-
+  const backupId = `backup-${Date.now()}`;
   const audit = await recordAuditEvent({
     action: "backup.requested",
     actor: user,
@@ -41,8 +37,12 @@ export async function POST(request: Request) {
           : "Verify Cloud SQL automated backup, PITR window, and latest backup timestamp.",
     },
     reason: body.reason,
-    targetId: `backup-${Date.now()}`,
+    targetId: backupId,
     targetType: "backup_job",
+  });
+  await createBackupJob({
+    backupLocation: body.backupLocation ?? "cloud-sql-managed-backups",
+    jobType: body.jobType,
   });
 
   return Response.json(

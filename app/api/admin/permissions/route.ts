@@ -25,13 +25,6 @@ export async function POST(request: Request) {
     );
   }
 
-  await updatePermission({
-    actor: user,
-    enabled: body.enabled,
-    permission: body.permission,
-    targetUserId: body.targetUserId,
-  });
-
   const audit = await recordAuditEvent({
     action: "permission.changed",
     actor: user,
@@ -39,6 +32,12 @@ export async function POST(request: Request) {
     reason: body.reason,
     targetId: body.targetUserId,
     targetType: "user_permission",
+  });
+  await updatePermission({
+    actor: user,
+    enabled: body.enabled,
+    permission: body.permission,
+    targetUserId: body.targetUserId,
   });
 
   return Response.json({ audit, ok: true, persisted: true }, { status: 201 });

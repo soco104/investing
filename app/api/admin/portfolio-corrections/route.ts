@@ -32,15 +32,6 @@ export async function POST(request: Request) {
     );
   }
 
-  await createPortfolioCorrection({
-    adjustmentCents: body.adjustmentCents,
-    afterSnapshot: body.afterSnapshot,
-    beforeSnapshot: body.beforeSnapshot,
-    correctedByUserId: user.id,
-    portfolioId: body.portfolioId,
-    reason: body.reason,
-  });
-
   const audit = await recordAuditEvent({
     action: "portfolio.corrected",
     actor: user,
@@ -52,6 +43,14 @@ export async function POST(request: Request) {
     reason: body.reason,
     targetId: body.portfolioId,
     targetType: "portfolio",
+  });
+  await createPortfolioCorrection({
+    adjustmentCents: body.adjustmentCents,
+    afterSnapshot: body.afterSnapshot,
+    beforeSnapshot: body.beforeSnapshot,
+    correctedByUserId: user.id,
+    portfolioId: body.portfolioId,
+    reason: body.reason,
   });
 
   return Response.json({ audit, ok: true, persisted: true }, { status: 201 });

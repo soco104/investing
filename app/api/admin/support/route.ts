@@ -24,12 +24,6 @@ export async function POST(request: Request) {
   }
 
   const caseId = `SUP-${Date.now()}`;
-  await createSupportTicket({
-    actor: user,
-    category: body.category,
-    summary: body.summary,
-    ticketId: caseId,
-  });
   const audit = await recordAuditEvent({
     action: "support_case.created",
     actor: user,
@@ -41,6 +35,12 @@ export async function POST(request: Request) {
     reason: body.summary,
     targetId: caseId,
     targetType: "support_ticket",
+  });
+  await createSupportTicket({
+    actor: user,
+    category: body.category,
+    summary: body.summary,
+    ticketId: caseId,
   });
 
   return Response.json(

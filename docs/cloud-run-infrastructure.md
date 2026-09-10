@@ -9,8 +9,8 @@ users during a U.S. Eastern 8:30 AM to 3:30 PM school day.
 - Cloud Run service for the web app and API routes.
 - Artifact Registry Docker repository for app images.
 - Cloud SQL for PostgreSQL for durable application data.
-- Secret Manager secrets for `DATABASE_URL`, `SESSION_SECRET`, and
-  `CRON_SECRET`.
+- Secret Manager secrets for `DATABASE_URL`, `SESSION_SECRET`, `CRON_SECRET`,
+  and market provider tokens.
 - Cloud Scheduler job for school-day market polling.
 - Runtime service account with Cloud SQL Client and Secret Accessor access.
 - Scheduler service account with Cloud Run Invoker access.
@@ -144,9 +144,23 @@ Cloud Run receives:
 - `DATABASE_URL`, from Secret Manager
 - `SESSION_SECRET`, from Secret Manager
 - `CRON_SECRET`, from Secret Manager
+- `OBSERVABILITY_INGEST_SECRET`, from Secret Manager
 - `GOOGLE_CLOUD_PROJECT`, from Terraform
+- `MARKET_PROVIDER_TOKENS_SECRET`, the provisioned Secret Manager resource for
+  server-side market API tokens
+- `SSO_AUTHORIZATION_URL`, optional district OIDC authorization endpoint
+- `SSO_CLIENT_ID`, optional district OIDC client ID
+- `SSO_REDIRECT_URI`, optional registered OIDC redirect URI
+- `SSO_SCOPE`, defaults to `openid email profile`
 - `BOOTSTRAP_ADMIN_EMAIL`, optional first admin email
-- `BOOTSTRAP_ADMIN_PASSWORD_HASH`, optional SHA-256 hash for first admin
+- `BOOTSTRAP_ADMIN_PASSWORD_HASH`, optional bcrypt hash for first admin
+
+Generate an optional bootstrap admin password hash after installing
+dependencies:
+
+```bash
+node -e "require('bcryptjs').hash('change-me', 12).then(console.log)"
+```
 
 The container starts with:
 
@@ -192,6 +206,31 @@ The endpoint is implemented at `/api/market/poll`. It:
 - caps imported symbols at the configured limit;
 - writes integration health and failure events.
 
+## Credential Vault
+
+Terraform provisions a dedicated `MARKET_PROVIDER_TOKENS_SECRET` secret with an
+initial empty JSON payload. The Cloud Run service account can read that secret
+and add new versions, but it does not receive project-wide Secret Manager admin
+rights.
+
+The app stores only credential metadata in Cloud SQL. Secret values are written
+as new versions in Secret Manager and referenced from the database by opaque
+credential IDs. This is the shared path for market API tokens now and should be
+used for SSO client secrets, webhook signing secrets, and delivery provider
+credentials as those integrations move into production.
+
+## Authentication And Ingest Protection
+
+Password login uses persisted credentials when `DATABASE_URL` is configured and
+keeps demo auth disabled in production unless `ALLOW_DEMO_AUTH=true` is set
+explicitly. District SSO can start an OIDC redirect when the `SSO_*` variables
+are configured; callback token exchange and assertion validation must be matched
+to the district identity provider before live SSO rollout.
+
+Observability write endpoints require `OBSERVABILITY_INGEST_SECRET` in
+production. Trusted workers or frontend collectors must send that value in the
+`X-FutureFund-Ingest` header.
+
 ## Logging And Monitoring
 
 Use Google Cloud Logging and Cloud Monitoring for the platform layer. The app
@@ -215,7 +254,8 @@ Recommended alert policies:
 ## Security Checklist
 
 - Keep market API tokens in Secret Manager, never in client-side state.
-- Replace demo SHA-256 password checking with Argon2 or bcrypt before launch.
+- Use bcrypt hashes for production credentials. Legacy SHA-256 hashes are only
+  accepted for existing demo/bootstrap transition records and should be rotated.
 - Add server-side authorization checks for Student, Teacher, and Admin routes.
 - Configure district SSO through SAML or OIDC before school production use.
 - Use least-privilege service accounts for Cloud Run and Scheduler.

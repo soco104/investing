@@ -1,5 +1,6 @@
 import type { PerformanceEvent } from "@/lib/observability";
 import { createTraceId, nowIso, statusFromDuration } from "@/lib/observability";
+import { isAuthorizedServiceIngest, unauthorizedIngestResponse } from "@/lib/server/ingest-auth";
 import {
   hasProductionDatabase,
   listPerformanceEvents,
@@ -36,6 +37,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!(await isAuthorizedServiceIngest(request))) {
+    return unauthorizedIngestResponse();
+  }
+
   const body = (await request.json()) as Partial<PerformanceEvent>;
   const durationMs = Math.round(body.durationMs ?? 0);
   const event: PerformanceEvent = {

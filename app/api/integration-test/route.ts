@@ -1,5 +1,7 @@
 import { startOtelSpan, statusFromDuration } from "@/lib/observability";
+import { requirePermission } from "@/lib/server/auth";
 import { testMarketProvider } from "@/lib/server/market-providers";
+import { isSafeIntegrationEndpoint } from "@/lib/server/url-safety";
 
 type IntegrationTestRequest = {
   allowedSymbols?: string;
@@ -11,6 +13,12 @@ type IntegrationTestRequest = {
 };
 
 export async function POST(request: Request) {
+  const { response } = await requirePermission(request, "adminPortal");
+
+  if (response) {
+    return response;
+  }
+
   const span = startOtelSpan("integration.get-test", {
     route: "/api/integration-test",
   });
@@ -30,6 +38,24 @@ export async function POST(request: Request) {
         ok: false,
         importedSymbols: 0,
         message: "Endpoint is required before running GET.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (!isSafeIntegrationEndpoint(endpoint)) {
+    const endedSpan = span.end({ failed: true, reason: "unsafe_endpoint" });
+
+    return Response.json(
+      {
+        importedSymbols: 0,
+        message: "Endpoint must be HTTPS and cannot target private infrastructure.",
+        ok: false,
+        telemetry: {
+          durationMs: endedSpan.durationMs,
+          status: statusFromDuration(endedSpan.durationMs, true),
+          traceId: endedSpan.traceId,
+        },
       },
       { status: 400 }
     );

@@ -18,13 +18,6 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as UserMutationRequest;
   const count = body.action === "import" ? (body.users?.length ?? 0) : 1;
-  const persistence = await createOrUpdateUsers({
-    action: body.action,
-    actor: user,
-    reason: body.reason,
-    targetUserId: body.targetUserId,
-    users: body.users as Parameters<typeof createOrUpdateUsers>[0]["users"],
-  });
   const audit = await recordAuditEvent({
     action:
       body.action === "import"
@@ -37,6 +30,13 @@ export async function POST(request: Request) {
     reason: body.reason,
     targetId: body.targetUserId ?? `user-batch-${Date.now()}`,
     targetType: "user",
+  });
+  const persistence = await createOrUpdateUsers({
+    action: body.action,
+    actor: user,
+    reason: body.reason,
+    targetUserId: body.targetUserId,
+    users: body.users as Parameters<typeof createOrUpdateUsers>[0]["users"],
   });
 
   return Response.json({ audit, ok: true, persisted: true, persistence }, { status: 201 });

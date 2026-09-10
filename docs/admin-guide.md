@@ -27,7 +27,7 @@ or live custodial accounts.
 
 ## 2. Access and Login
 
-The current login screen accepts role-based demo accounts and routes users to
+The local login screen can accept role-based demo accounts and routes users to
 the allowed role surface. The app includes three role families:
 
 - `Student`: student dashboard, portfolio, learning quests, profile, inbox, and
@@ -37,11 +37,13 @@ the allowed role surface. The app includes three role families:
 - `Admin`: admin portal, system configuration, monitoring, support, user
   management, integrations, privacy, password resets, and portfolio corrections.
 
-The current password login API is implemented at `/api/auth/login`. SSO provider
-records exist in the schema for future district identity provider configuration,
-but live SSO is not connected yet. Production deployments should replace the
-seeded demo login model with persisted user credentials, hardened session
-storage, and district SSO.
+The password login API is implemented at `/api/auth/login`. Production
+deployments should use persisted user credentials, hardened session storage, and
+district SSO. Demo login is disabled in production unless a controlled demo
+deployment explicitly opts in. District OIDC SSO can start when the configured
+identity provider values are present; callback token exchange and assertion
+validation still need to be matched to the district identity provider before
+live rollout.
 
 ## 3. Role and Permission Model
 
@@ -301,8 +303,8 @@ be imported.
 
 ### GET Test Behavior
 
-The test API is implemented at `/api/integration-test`. It performs a backend
-GET request against the configured endpoint.
+The test API is implemented at `/api/integration-test`. It performs an
+admin-authorized backend GET request against the configured endpoint.
 
 If a token value is supplied, the request sends it as:
 
@@ -331,7 +333,8 @@ market polling endpoint during the school day. Production polling should:
 
 - Respect the configured polling frequency per integration.
 - Enforce the 200-symbol MVP maximum when allowed symbols is blank.
-- Store fetched market data with class and integration assignment context.
+- Store normalized fetched market data with class and integration assignment
+  context.
 - Disable or delete class assignments when a class is no longer in session.
 - Retain health and error history for troubleshooting.
 
@@ -344,7 +347,36 @@ delete, and test actions. Token values should be stored in Secret Manager and
 referenced by secret name; token values should not be written into logs,
 browser-visible state, or audit context.
 
-## 11. Privacy Posture
+## 11. Credential Vault
+
+Use the Credential Vault page to manage secrets required by system integrations.
+This includes market API tokens, SSO client secrets, email delivery credentials,
+webhook signing secrets, and provider usernames/passwords.
+
+The page tracks metadata only:
+
+- Credential label and provider
+- Credential type
+- Token placement or authentication style
+- District, school, or class scope
+- Masked username hint
+- Rotation timestamp
+- Last-used timestamp
+- Status
+
+Secret values are written to backend vault storage and are never returned to the
+browser, database list views, logs, exports, or audit context. To rotate a
+credential, enter the replacement secret value and save the credential again.
+
+Production endpoints:
+
+- `GET /api/admin/credentials`
+- `POST /api/admin/credentials`
+
+The endpoints require `Admin portal` permission and audit create, update,
+rotate, and delete actions before writing secret values or credential metadata.
+
+## 12. Privacy Posture
 
 Use the Privacy posture page to select the required district posture for student
 privacy compliance. This is a configuration aid and does not replace legal
@@ -375,7 +407,7 @@ Production endpoint:
 The endpoint requires `Admin portal` permission and audits posture, privacy
 contact, state code, actor, timestamp, and reason.
 
-## 12. Support Cases
+## 13. Support Cases
 
 The Support page shows open support cases and allows admins to create new cases.
 
@@ -406,7 +438,7 @@ Production endpoint:
 The endpoint requires `Admin portal` permission and audits new support case
 creation with category, summary, requester, status, actor, and timestamp.
 
-## 13. Password Resets
+## 14. Password Resets
 
 The Password resets widget opens a popup where an admin enters a user's email
 and triggers a reset.
@@ -432,7 +464,7 @@ accepts the token and a new password, updates the credential, clears
 `forceReset`, and marks the reset request complete. Email delivery remains the
 piece that needs a district-approved email provider.
 
-## 14. Portfolio Corrections
+## 15. Portfolio Corrections
 
 Use Portfolio corrections when a student's simulated portfolio needs an
 administrative adjustment, such as increasing or decreasing portfolio value
@@ -461,7 +493,7 @@ The endpoint requires `Portfolio corrections` permission and audits the
 portfolio id, adjustment amount, before/after snapshots, actor, timestamp, and
 reason.
 
-## 15. Monitoring and Logs
+## 16. Monitoring and Logs
 
 The Monitoring page gives admins visibility into:
 
@@ -524,7 +556,7 @@ The logs download is modeled as a ZIP export for support and troubleshooting.
 Production log exports should redact secrets, tokens, student-sensitive data,
 and unnecessary request payloads.
 
-## 16. Retention, Export, and Deletion
+## 17. Retention, Export, and Deletion
 
 District data requests should be handled through a controlled retention
 workflow. The MVP now includes a production-shaped endpoint for requesting
@@ -555,7 +587,7 @@ Deletion workflow:
 Production retention must be aligned to each district contract and applicable
 state/federal student privacy obligations.
 
-## 17. Moderation Review
+## 18. Moderation Review
 
 The app supports text-only direct messages and classroom discussions with a
 first-pass profanity filter. Production moderation should give teachers and
@@ -577,7 +609,7 @@ Moderation review process:
 4. Escalate messages that require administrator, counselor, or district review.
 5. Keep moderation notes factual and minimal.
 
-## 18. Backup, Restore, and Incident Response
+## 19. Backup, Restore, and Incident Response
 
 The Cloud Run infrastructure provisions Cloud SQL with backups and point-in-time
 recovery settings. Production operations should test restore procedures before a
@@ -611,7 +643,7 @@ Incident response procedure:
 5. Resolve the issue and document follow-up work.
 6. Create a postmortem for critical incidents.
 
-## 19. Deployment and Infrastructure
+## 20. Deployment and Infrastructure
 
 The Cloud Run infrastructure guide is available at
 `docs/cloud-run-infrastructure.md`.
@@ -632,7 +664,7 @@ SQLite/D1-shaped in code. The Cloud Run package provisions Cloud SQL
 PostgreSQL as the production target, but the app data access and migrations
 should be ported and validated before using Cloud SQL as the source of truth.
 
-## 20. Daily Admin Checklist
+## 21. Daily Admin Checklist
 
 At the start of the day:
 
@@ -656,7 +688,7 @@ End of day:
 - Document any portfolio corrections.
 - Confirm imports, exports, role changes, and corrections have audit context.
 
-## 21. Semester or Class Rollover Checklist
+## 22. Semester or Class Rollover Checklist
 
 Before a new class period or semester:
 
@@ -669,7 +701,7 @@ Before a new class period or semester:
 - Export reusable learning quest templates.
 - Review privacy posture before new integrations or vendors are added.
 
-## 22. Production Readiness Gaps
+## 23. Production Readiness Gaps
 
 The MVP admin guide reflects the current prototype and near-term infrastructure
 package. Before production use with real districts, confirm these items are
@@ -681,7 +713,7 @@ operating procedures:
   production server queries.
 - Enforce server-side authorization from the signed session on every protected
   route.
-- Store market provider tokens only in Secret Manager or the approved secret
-  store.
+- Store integration credentials only through the Credential Vault and approved
+  Secret Manager path.
 - Verify retention, export, deletion, backup, restore, and incident procedures
   with the district before launch.

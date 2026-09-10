@@ -6,8 +6,9 @@ import {
   findUserById,
   findUserByPassword,
   hasProductionDatabase,
+  revokeSession,
 } from "./repository";
-import { hashPassword, hashToken } from "./crypto";
+import { hashToken, verifyPassword } from "./crypto";
 
 export type AuthRole = "Student" | "Teacher" | "Admin";
 
@@ -92,6 +93,11 @@ export const seedAuthUsers: SeedAuthUser[] = [
 
 const sessionCookieName = "futurefund_session";
 const defaultSessionSecret = "futurefund-local-development-session-secret";
+const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
+
+export function isDemoAuthAllowed() {
+  return process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_AUTH === "true";
+}
 
 export function publicUser(user: SeedAuthUser): AuthenticatedUser {
   return {
@@ -107,22 +113,40 @@ export function publicUser(user: SeedAuthUser): AuthenticatedUser {
 }
 
 export async function authenticatePassword(email: string, password: string) {
-  const productionUser = await findUserByPassword(email, password);
+  const throttleKey = email.toLowerCase();
 
-  if (productionUser) {
-    return productionUser;
-  }
-
-  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_AUTH !== "true") {
+  if (isLoginThrottled(throttleKey)) {
     return null;
   }
 
-  const passwordHash = await hashPassword(password);
+  const productionUser = await findUserByPassword(email, password);
+
+  if (productionUser) {
+    clearLoginThrottle(throttleKey);
+    return productionUser;
+  }
+
+  if (!isDemoAuthAllowed()) {
+    recordFailedLogin(throttleKey);
+    return null;
+  }
+
   const demoUser = seedAuthUsers.find(
     (user) => user.email.toLowerCase() === email.toLowerCase()
   );
 
-  return demoUser && demoUser.passwordHash === passwordHash ? publicUser(demoUser) : null;
+  const authenticated =
+    demoUser && (await verifyPassword(password, demoUser.passwordHash))
+      ? publicUser(demoUser)
+      : null;
+
+  if (authenticated) {
+    clearLoginThrottle(throttleKey);
+  } else {
+    recordFailedLogin(throttleKey);
+  }
+
+  return authenticated;
 }
 
 export async function createSessionToken(user: AuthenticatedUser, request?: Request) {
@@ -201,6 +225,28 @@ export function attachSessionCookie(response: NextResponse, token: string) {
   });
 }
 
+export async function revokeCurrentSession(request: Request) {
+  const token = bearerToken(request) ?? cookieToken(request);
+
+  if (!token) {
+    return false;
+  }
+
+  await revokeSession(await hashToken(token));
+
+  return true;
+}
+
+export function clearSessionCookie(response: NextResponse) {
+  response.cookies.set(sessionCookieName, "", {
+    httpOnly: true,
+    maxAge: 0,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+}
+
 function bearerToken(request: Request) {
   const auth = request.headers.get("authorization");
 
@@ -250,7 +296,7 @@ async function verifySessionToken(token: string): Promise<AuthenticatedUser | nu
       return findUserById(session.user_id);
     }
 
-    if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_AUTH !== "true") {
+    if (!isDemoAuthAllowed()) {
       return null;
     }
 
@@ -269,6 +315,25 @@ async function verifySessionToken(token: string): Promise<AuthenticatedUser | nu
   } catch {
     return null;
   }
+}
+
+function isLoginThrottled(key: string) {
+  const attempt = loginAttempts.get(key);
+
+  return Boolean(attempt && attempt.lockedUntil > Date.now());
+}
+
+function recordFailedLogin(key: string) {
+  const previous = loginAttempts.get(key);
+  const count = (previous?.count ?? 0) + 1;
+  const lockedUntil =
+    count >= 5 ? Date.now() + Math.min(15 * 60 * 1000, count * 60 * 1000) : 0;
+
+  loginAttempts.set(key, { count, lockedUntil });
+}
+
+function clearLoginThrottle(key: string) {
+  loginAttempts.delete(key);
 }
 
 async function sign(payload: string) {

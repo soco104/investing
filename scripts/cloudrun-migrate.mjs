@@ -70,7 +70,7 @@ try {
       user_id text not null references app_users(id),
       email text not null unique,
       password_hash text not null,
-      password_algorithm text not null default 'sha256',
+      password_algorithm text not null default 'bcrypt',
       password_salt_ref text,
       force_reset boolean not null default false,
       last_login_at timestamp,
@@ -127,12 +127,71 @@ try {
       max_symbols integer not null default 200,
       token_required boolean not null default false,
       token_secret_ref text,
+      credential_id text,
+      target_class text not null default '',
+      token_placement text not null default 'bearer',
       polling_frequency_minutes integer not null default 15,
       delayed_quotes boolean not null default true,
       configured_by_user_id text,
       last_health_check_at timestamp,
       updated_at timestamp not null
     )
+  `;
+  await sql`
+    create table if not exists integration_credentials (
+      id text primary key,
+      district_id text not null references districts(id),
+      label text not null,
+      provider_name text not null,
+      credential_type text not null,
+      username_hint text,
+      token_placement text not null default 'bearer',
+      scope_type text not null default 'district',
+      scope_id text not null,
+      secret_ref text,
+      status text not null default 'active',
+      created_by_user_id text not null,
+      updated_by_user_id text not null,
+      last_rotated_at timestamp,
+      last_used_at timestamp,
+      created_at timestamp not null,
+      updated_at timestamp not null
+    )
+  `;
+  await sql`
+    alter table market_data_integrations
+    add column if not exists credential_id text
+  `;
+  await sql`
+    alter table market_data_integrations
+    add column if not exists token_placement text not null default 'bearer'
+  `;
+  await sql`
+    alter table market_data_integrations
+    add column if not exists target_class text not null default ''
+  `;
+  await sql`
+    create table if not exists market_quotes (
+      id text primary key,
+      district_id text not null references districts(id),
+      integration_id text references market_data_integrations(id),
+      ticker text not null,
+      name text not null,
+      price numeric not null,
+      change_percent numeric not null default 0,
+      delayed boolean not null default true,
+      source text not null,
+      target_class text,
+      fetched_at timestamp not null
+    )
+  `;
+  await sql`
+    alter table market_quotes
+    add column if not exists target_class text
+  `;
+  await sql`
+    create index if not exists market_quotes_ticker_fetched_idx
+    on market_quotes (ticker, fetched_at desc)
   `;
   await sql`
     create table if not exists privacy_posture_settings (
@@ -297,7 +356,7 @@ try {
       values (
         'bootstrap-admin-credential', 'bootstrap-admin',
         ${process.env.BOOTSTRAP_ADMIN_EMAIL.toLowerCase()},
-        ${process.env.BOOTSTRAP_ADMIN_PASSWORD_HASH}, 'sha256', false, now(), now()
+        ${process.env.BOOTSTRAP_ADMIN_PASSWORD_HASH}, 'bcrypt', false, now(), now()
       )
       on conflict (email) do nothing
     `;

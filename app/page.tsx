@@ -591,6 +591,7 @@ type AdminPage =
   | "overview"
   | "schools"
   | "integrations"
+  | "credentials"
   | "privacy"
   | "users"
   | "permissions"
@@ -707,6 +708,20 @@ type MarketIntegration = {
   enabled: boolean;
 };
 
+type CredentialRecord = {
+  id: string;
+  label: string;
+  providerName: string;
+  credentialType: "api_token" | "username_password" | "oauth_client_secret";
+  usernameHint: string;
+  tokenPlacement: "bearer" | "query" | "x-api-key" | "basic" | "client-secret";
+  scopeType: "district" | "school" | "class";
+  scopeId: string;
+  status: "active" | "disabled";
+  lastRotatedAt: string;
+  lastUsedAt: string;
+};
+
 const classOptions = [
   "7th Grade Finance A",
   "7th Grade Finance B",
@@ -817,6 +832,22 @@ const initialSupportCases: SupportCase[] = [
     category: "Integration",
     status: "Pending support",
     createdAt: "Mar 12",
+  },
+];
+
+const initialCredentials: CredentialRecord[] = [
+  {
+    id: "credential-market-sandbox",
+    label: "FutureFund Sandbox Feed",
+    providerName: "FutureFund Sandbox",
+    credentialType: "api_token",
+    usernameHint: "",
+    tokenPlacement: "bearer",
+    scopeType: "class",
+    scopeId: "7th Grade Finance A",
+    status: "active",
+    lastRotatedAt: "Demo seed",
+    lastUsedAt: "Demo seed",
   },
 ];
 
@@ -1369,6 +1400,12 @@ const adminModules = [
     icon: PlugZap,
   },
   {
+    title: "Credential Vault",
+    detail: "Store integration secrets in the backend vault and manage rotations.",
+    status: "Secret-backed",
+    icon: KeyRound,
+  },
+  {
     title: "Password resets",
     detail: "Reset credentials, review SSO status, and clear locked accounts.",
     status: "2 pending",
@@ -1481,6 +1518,20 @@ export default function Home() {
     classOptions[0]
   );
   const [integrationSymbols, setIntegrationSymbols] = useState("");
+  const [credentials, setCredentials] =
+    useState<CredentialRecord[]>(initialCredentials);
+  const [credentialLabel, setCredentialLabel] = useState("");
+  const [credentialProvider, setCredentialProvider] = useState("");
+  const [credentialType, setCredentialType] =
+    useState<CredentialRecord["credentialType"]>("api_token");
+  const [credentialPlacement, setCredentialPlacement] =
+    useState<CredentialRecord["tokenPlacement"]>("bearer");
+  const [credentialScopeType, setCredentialScopeType] =
+    useState<CredentialRecord["scopeType"]>("district");
+  const [credentialScopeId, setCredentialScopeId] = useState("district-lincoln-usd");
+  const [credentialUsername, setCredentialUsername] = useState("");
+  const [credentialSecret, setCredentialSecret] = useState("");
+  const [credentialNotice, setCredentialNotice] = useState("");
   const [privacyPosture, setPrivacyPosture] = useState("standard");
   const [privacyContact, setPrivacyContact] = useState(
     "privacy@lincolnusd.edu"
@@ -1639,14 +1690,30 @@ export default function Home() {
               role: string | null;
               status: string;
             }>;
+            credentials?: Array<{
+              credential_type: CredentialRecord["credentialType"];
+              id: string;
+              label: string;
+              last_rotated_at: string | null;
+              last_used_at: string | null;
+              provider_name: string;
+              scope_id: string;
+              scope_type: CredentialRecord["scopeType"];
+              status: CredentialRecord["status"];
+              token_placement: CredentialRecord["tokenPlacement"];
+              username_hint: string | null;
+            }>;
             marketIntegrations?: Array<{
               allowed_symbols_csv: string;
+              credential_id?: string | null;
               endpoint_url: string;
               id: string;
               max_symbols: number;
               polling_frequency_minutes: number;
               provider_name: string;
               status: string;
+              target_class?: string | null;
+              token_placement?: string | null;
               token_required: boolean;
             }>;
             schools?: Array<{
@@ -1715,6 +1782,28 @@ export default function Home() {
           );
         }
 
+        if (result.state.credentials?.length) {
+          setCredentials(
+            result.state.credentials.map((credential) => ({
+              credentialType: credential.credential_type,
+              id: credential.id,
+              label: credential.label,
+              lastRotatedAt: credential.last_rotated_at
+                ? new Date(credential.last_rotated_at).toLocaleString()
+                : "Never",
+              lastUsedAt: credential.last_used_at
+                ? new Date(credential.last_used_at).toLocaleString()
+                : "Never",
+              providerName: credential.provider_name,
+              scopeId: credential.scope_id,
+              scopeType: credential.scope_type,
+              status: credential.status,
+              tokenPlacement: credential.token_placement,
+              usernameHint: credential.username_hint ?? "",
+            }))
+          );
+        }
+
         if (result.state.marketIntegrations?.length) {
           setMarketIntegrations(
             result.state.marketIntegrations.map((integration) => ({
@@ -1733,7 +1822,7 @@ export default function Home() {
                   ? ("Needs key" as const)
                   : ("Connected" as const),
               symbols: integration.allowed_symbols_csv || "Up to 200 symbols",
-              targetClass: classOptions[0],
+              targetClass: integration.target_class || classOptions[0],
               token: "",
               tokenRequired: integration.token_required,
             }))
@@ -2302,7 +2391,7 @@ export default function Home() {
         provider: trimmedProvider,
         endpoint: trimmedEndpoint,
         tokenRequired: integrationTokenRequired,
-        token: integrationToken.trim(),
+        token: "",
         pollingFrequency: integrationPollingFrequency,
         status: "Testing",
         targetClass: integrationTargetClass,
@@ -2325,7 +2414,7 @@ export default function Home() {
         provider: createdIntegration.provider,
         reason: "Admin market integration creation",
         targetClass: createdIntegration.targetClass,
-        token: integrationTokenRequired ? createdIntegration.token : "",
+        token: integrationTokenRequired ? integrationToken.trim() : "",
       });
     } catch {
       return;
@@ -2335,6 +2424,24 @@ export default function Home() {
       ...currentIntegrations,
       createdIntegration,
     ]);
+    if (integrationTokenRequired && integrationToken.trim()) {
+      setCredentials((currentCredentials) => [
+        {
+          credentialType: "api_token",
+          id: `market-${createdIntegration.id}`,
+          label: `${createdIntegration.provider} market API`,
+          lastRotatedAt: "Just now",
+          lastUsedAt: "Never",
+          providerName: createdIntegration.provider,
+          scopeId: createdIntegration.targetClass,
+          scopeType: "class",
+          status: "active",
+          tokenPlacement: "bearer",
+          usernameHint: "",
+        },
+        ...currentCredentials,
+      ]);
+    }
     setIntegrationProvider("");
     setIntegrationEndpoint("/api/market");
     setIntegrationToken("");
@@ -2459,6 +2566,78 @@ export default function Home() {
     }
   }
 
+  async function saveCredential() {
+    const label = credentialLabel.trim();
+    const providerName = credentialProvider.trim();
+    const secretValue = credentialSecret.trim();
+
+    if (!label || !providerName || !secretValue) {
+      setCredentialNotice("Credential label, provider, and secret are required.");
+      return;
+    }
+
+    const credentialId = `credential-${Date.now()}`;
+
+    try {
+      await postAdminMutation("/api/admin/credentials", {
+        action: "create",
+        credentialId,
+        credentialType,
+        label,
+        providerName,
+        reason: "Admin credential vault setup",
+        scopeId: credentialScopeId,
+        scopeType: credentialScopeType,
+        secretValue,
+        tokenPlacement: credentialPlacement,
+        username: credentialUsername,
+      });
+    } catch (error) {
+      setCredentialNotice((error as Error).message);
+      return;
+    }
+
+    setCredentials((currentCredentials) => [
+      {
+        credentialType,
+        id: credentialId,
+        label,
+        lastRotatedAt: "Just now",
+        lastUsedAt: "Never",
+        providerName,
+        scopeId: credentialScopeId,
+        scopeType: credentialScopeType,
+        status: "active",
+        tokenPlacement: credentialPlacement,
+        usernameHint: maskLocalUsername(credentialUsername),
+      },
+      ...currentCredentials,
+    ]);
+    setCredentialLabel("");
+    setCredentialProvider("");
+    setCredentialSecret("");
+    setCredentialUsername("");
+    setCredentialNotice("Credential stored in the backend vault.");
+  }
+
+  async function deleteCredential(credentialId: string) {
+    try {
+      await postAdminMutation("/api/admin/credentials", {
+        action: "delete",
+        credentialId,
+        reason: "Admin credential removal",
+      });
+    } catch (error) {
+      setCredentialNotice((error as Error).message);
+      return;
+    }
+
+    setCredentials((currentCredentials) =>
+      currentCredentials.filter((credential) => credential.id !== credentialId)
+    );
+    setCredentialNotice("Credential metadata disabled.");
+  }
+
   function updateAllocationTarget(name: string, value: number) {
     setAllocationTargets((currentTargets) =>
       currentTargets.map((target) =>
@@ -2527,6 +2706,7 @@ export default function Home() {
       Support: "support",
       Monitoring: "monitoring",
       "Market APIs": "integrations",
+      "Credential Vault": "credentials",
       "Portfolio corrections": "portfolio-corrections",
     };
 
@@ -2585,7 +2765,12 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: "district-sso" }),
       });
-      const result = (await response.json()) as { message?: string };
+      const result = (await response.json()) as { message?: string; redirectUrl?: string };
+
+      if (result.redirectUrl) {
+        window.location.assign(result.redirectUrl);
+        return;
+      }
 
       setLoginNotice(
         result.message ??
@@ -3534,6 +3719,16 @@ export default function Home() {
                   <AdminDrilldown
                     activePage={activeAdminPage}
                     adminUsers={adminUsers}
+                    credentialLabel={credentialLabel}
+                    credentialNotice={credentialNotice}
+                    credentialPlacement={credentialPlacement}
+                    credentialProvider={credentialProvider}
+                    credentials={credentials}
+                    credentialScopeId={credentialScopeId}
+                    credentialScopeType={credentialScopeType}
+                    credentialSecret={credentialSecret}
+                    credentialType={credentialType}
+                    credentialUsername={credentialUsername}
                     filteredAdminUsers={filteredAdminUsers}
                     integrationEndpoint={integrationEndpoint}
                     integrationProvider={integrationProvider}
@@ -3553,9 +3748,18 @@ export default function Home() {
                     onApplyPortfolioCorrection={applyPortfolioCorrection}
                     onAddIntegration={addMarketIntegration}
                     onAddSchool={addSchool}
+                    onCredentialLabelChange={setCredentialLabel}
+                    onCredentialPlacementChange={setCredentialPlacement}
+                    onCredentialProviderChange={setCredentialProvider}
+                    onCredentialScopeIdChange={setCredentialScopeId}
+                    onCredentialScopeTypeChange={setCredentialScopeType}
+                    onCredentialSecretChange={setCredentialSecret}
+                    onCredentialTypeChange={setCredentialType}
+                    onCredentialUsernameChange={setCredentialUsername}
                     onBack={() => setActiveAdminPage("overview")}
                     onCreateIndividualUser={createIndividualUser}
                     onCreateSupportCase={createSupportCase}
+                    onDeleteCredential={deleteCredential}
                     onDeleteIntegration={deleteMarketIntegration}
                     onDeleteSchool={deleteSchool}
                     onIntegrationEndpointChange={setIntegrationEndpoint}
@@ -3597,6 +3801,7 @@ export default function Home() {
                     onSchoolStudentCountChange={setSchoolStudentCount}
                     onSupportCategoryChange={setSupportCategory}
                     onSupportSummaryChange={setSupportSummary}
+                    onSaveCredential={saveCredential}
                     onTestIntegration={testMarketIntegration}
                     onToggleIntegration={toggleMarketIntegration}
                     onToggleUserEnabled={toggleUserEnabled}
@@ -3894,6 +4099,10 @@ function LoginPage({
   onSsoLogin: () => void;
   onSubmit: () => void;
 }) {
+  const demoAccountsAvailable =
+    process.env.NODE_ENV !== "production" ||
+    process.env.NEXT_PUBLIC_ALLOW_DEMO_AUTH === "true";
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto grid min-h-screen max-w-6xl items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
@@ -3939,7 +4148,7 @@ function LoginPage({
               <h3 className="text-lg font-semibold">Sign in</h3>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Use a demo account or start the district SSO path.
+              Use your district account or start the district SSO path.
             </p>
           </div>
 
@@ -4004,25 +4213,27 @@ function LoginPage({
             Continue with district SSO
           </Button>
 
-          <div className="mt-5 rounded-lg border border-border bg-background p-4">
-            <p className="mb-3 text-sm font-medium">Demo accounts</p>
-            <div className="grid gap-2">
-              {demoLoginAccounts.map((account) => (
-                <Button
-                  key={account.email}
-                  type="button"
-                  variant="outline"
-                  className="justify-start"
-                  onClick={() => onSelectDemo(account)}
-                >
-                  {account.label}
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {account.email}
-                  </span>
-                </Button>
-              ))}
+          {demoAccountsAvailable ? (
+            <div className="mt-5 rounded-lg border border-border bg-background p-4">
+              <p className="mb-3 text-sm font-medium">Demo accounts</p>
+              <div className="grid gap-2">
+                {demoLoginAccounts.map((account) => (
+                  <Button
+                    key={account.email}
+                    type="button"
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => onSelectDemo(account)}
+                  >
+                    {account.label}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {account.email}
+                    </span>
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </section>
       </section>
     </main>
@@ -5219,6 +5430,16 @@ function ProfileHeader({
 function AdminDrilldown({
   activePage,
   adminUsers,
+  credentials,
+  credentialLabel,
+  credentialProvider,
+  credentialType,
+  credentialPlacement,
+  credentialScopeType,
+  credentialScopeId,
+  credentialUsername,
+  credentialSecret,
+  credentialNotice,
   filteredAdminUsers,
   schools,
   schoolName,
@@ -5258,6 +5479,16 @@ function AdminDrilldown({
   userRoleFilter,
   onBack,
   onAddSchool,
+  onSaveCredential,
+  onDeleteCredential,
+  onCredentialLabelChange,
+  onCredentialProviderChange,
+  onCredentialTypeChange,
+  onCredentialPlacementChange,
+  onCredentialScopeTypeChange,
+  onCredentialScopeIdChange,
+  onCredentialUsernameChange,
+  onCredentialSecretChange,
   onDeleteSchool,
   onSchoolNameChange,
   onSchoolDistrictChange,
@@ -5304,6 +5535,16 @@ function AdminDrilldown({
 }: {
   activePage: AdminPage;
   adminUsers: AdminUser[];
+  credentials: CredentialRecord[];
+  credentialLabel: string;
+  credentialProvider: string;
+  credentialType: CredentialRecord["credentialType"];
+  credentialPlacement: CredentialRecord["tokenPlacement"];
+  credentialScopeType: CredentialRecord["scopeType"];
+  credentialScopeId: string;
+  credentialUsername: string;
+  credentialSecret: string;
+  credentialNotice: string;
   filteredAdminUsers: AdminUser[];
   schools: SchoolRecord[];
   schoolName: string;
@@ -5343,6 +5584,18 @@ function AdminDrilldown({
   userRoleFilter: string;
   onBack: () => void;
   onAddSchool: () => void;
+  onSaveCredential: () => void;
+  onDeleteCredential: (credentialId: string) => void;
+  onCredentialLabelChange: (label: string) => void;
+  onCredentialProviderChange: (provider: string) => void;
+  onCredentialTypeChange: (type: CredentialRecord["credentialType"]) => void;
+  onCredentialPlacementChange: (
+    placement: CredentialRecord["tokenPlacement"]
+  ) => void;
+  onCredentialScopeTypeChange: (scopeType: CredentialRecord["scopeType"]) => void;
+  onCredentialScopeIdChange: (scopeId: string) => void;
+  onCredentialUsernameChange: (username: string) => void;
+  onCredentialSecretChange: (secret: string) => void;
   onDeleteSchool: (schoolId: string) => void;
   onSchoolNameChange: (name: string) => void;
   onSchoolDistrictChange: (district: string) => void;
@@ -5396,6 +5649,8 @@ function AdminDrilldown({
       ? "Schools"
       : activePage === "integrations"
         ? "Integrations"
+        : activePage === "credentials"
+          ? "Credential vault"
         : activePage === "privacy"
           ? "Privacy posture"
           : activePage === "users"
@@ -5459,6 +5714,31 @@ function AdminDrilldown({
           onIntegrationTokenRequiredChange={onIntegrationTokenRequiredChange}
           onTestIntegration={onTestIntegration}
           onToggleIntegration={onToggleIntegration}
+        />
+      ) : null}
+
+      {activePage === "credentials" ? (
+        <CredentialsAdminPage
+          credentialLabel={credentialLabel}
+          credentialNotice={credentialNotice}
+          credentialPlacement={credentialPlacement}
+          credentialProvider={credentialProvider}
+          credentialScopeId={credentialScopeId}
+          credentialScopeType={credentialScopeType}
+          credentialSecret={credentialSecret}
+          credentialType={credentialType}
+          credentialUsername={credentialUsername}
+          credentials={credentials}
+          onCredentialLabelChange={onCredentialLabelChange}
+          onCredentialPlacementChange={onCredentialPlacementChange}
+          onCredentialProviderChange={onCredentialProviderChange}
+          onCredentialScopeIdChange={onCredentialScopeIdChange}
+          onCredentialScopeTypeChange={onCredentialScopeTypeChange}
+          onCredentialSecretChange={onCredentialSecretChange}
+          onCredentialTypeChange={onCredentialTypeChange}
+          onCredentialUsernameChange={onCredentialUsernameChange}
+          onDeleteCredential={onDeleteCredential}
+          onSaveCredential={onSaveCredential}
         />
       ) : null}
 
@@ -5934,6 +6214,229 @@ function IntegrationsAdminPage({
             </div>
           </article>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function CredentialsAdminPage({
+  credentials,
+  credentialLabel,
+  credentialProvider,
+  credentialType,
+  credentialPlacement,
+  credentialScopeType,
+  credentialScopeId,
+  credentialUsername,
+  credentialSecret,
+  credentialNotice,
+  onCredentialLabelChange,
+  onCredentialProviderChange,
+  onCredentialTypeChange,
+  onCredentialPlacementChange,
+  onCredentialScopeTypeChange,
+  onCredentialScopeIdChange,
+  onCredentialUsernameChange,
+  onCredentialSecretChange,
+  onSaveCredential,
+  onDeleteCredential,
+}: {
+  credentials: CredentialRecord[];
+  credentialLabel: string;
+  credentialProvider: string;
+  credentialType: CredentialRecord["credentialType"];
+  credentialPlacement: CredentialRecord["tokenPlacement"];
+  credentialScopeType: CredentialRecord["scopeType"];
+  credentialScopeId: string;
+  credentialUsername: string;
+  credentialSecret: string;
+  credentialNotice: string;
+  onCredentialLabelChange: (label: string) => void;
+  onCredentialProviderChange: (provider: string) => void;
+  onCredentialTypeChange: (type: CredentialRecord["credentialType"]) => void;
+  onCredentialPlacementChange: (
+    placement: CredentialRecord["tokenPlacement"]
+  ) => void;
+  onCredentialScopeTypeChange: (scopeType: CredentialRecord["scopeType"]) => void;
+  onCredentialScopeIdChange: (scopeId: string) => void;
+  onCredentialUsernameChange: (username: string) => void;
+  onCredentialSecretChange: (secret: string) => void;
+  onSaveCredential: () => void;
+  onDeleteCredential: (credentialId: string) => void;
+}) {
+  return (
+    <div className="grid gap-6">
+      <div className="rounded-lg border border-border bg-background p-4">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="credential-label">Credential label</Label>
+            <Input
+              id="credential-label"
+              placeholder="Example: District market feed"
+              value={credentialLabel}
+              onChange={(event) => onCredentialLabelChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="credential-provider">Provider</Label>
+            <Input
+              id="credential-provider"
+              placeholder="Example: Polygon, Google, SendGrid"
+              value={credentialProvider}
+              onChange={(event) => onCredentialProviderChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Credential type</Label>
+            <Select value={credentialType} onValueChange={onCredentialTypeChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="api_token">API token</SelectItem>
+                <SelectItem value="username_password">Username/password</SelectItem>
+                <SelectItem value="oauth_client_secret">
+                  OAuth client secret
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Token placement</Label>
+            <Select
+              value={credentialPlacement}
+              onValueChange={onCredentialPlacementChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bearer">Bearer header</SelectItem>
+                <SelectItem value="x-api-key">X-API-Key header</SelectItem>
+                <SelectItem value="query">Query token</SelectItem>
+                <SelectItem value="basic">Basic auth</SelectItem>
+                <SelectItem value="client-secret">Client secret</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Scope</Label>
+            <Select
+              value={credentialScopeType}
+              onValueChange={onCredentialScopeTypeChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="district">District</SelectItem>
+                <SelectItem value="school">School</SelectItem>
+                <SelectItem value="class">Class</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="credential-scope-id">Scope ID</Label>
+            <Input
+              id="credential-scope-id"
+              placeholder="District, school, or class identifier"
+              value={credentialScopeId}
+              onChange={(event) => onCredentialScopeIdChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="credential-username">Username optional</Label>
+            <Input
+              id="credential-username"
+              placeholder="Stored as a masked hint"
+              value={credentialUsername}
+              onChange={(event) => onCredentialUsernameChange(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="credential-secret">Secret value</Label>
+            <Input
+              id="credential-secret"
+              placeholder="Token, password, or client secret"
+              type="password"
+              value={credentialSecret}
+              onChange={(event) => onCredentialSecretChange(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Secret values are written to backend vault storage and never returned
+            by the app.
+          </p>
+          <Button
+            type="button"
+            onClick={onSaveCredential}
+            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            <KeyRound className="size-4" aria-hidden="true" />
+            Store credential
+          </Button>
+        </div>
+        {credentialNotice ? (
+          <p className="mt-3 text-sm text-muted-foreground">{credentialNotice}</p>
+        ) : null}
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="min-w-[940px]">
+          <TableHeader>
+            <TableRow className="text-muted-foreground hover:bg-transparent">
+              <TableHead>Credential</TableHead>
+              <TableHead>Provider</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Placement</TableHead>
+              <TableHead>Scope</TableHead>
+              <TableHead>Rotation</TableHead>
+              <TableHead>Last used</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {credentials.map((credential) => (
+              <TableRow key={credential.id}>
+                <TableCell>
+                  <span className="font-medium">{credential.label}</span>
+                  {credential.usernameHint ? (
+                    <span className="block text-xs text-muted-foreground">
+                      user {credential.usernameHint}
+                    </span>
+                  ) : null}
+                </TableCell>
+                <TableCell>{credential.providerName}</TableCell>
+                <TableCell>{credentialTypeLabel(credential.credentialType)}</TableCell>
+                <TableCell>{credentialPlacementLabel(credential.tokenPlacement)}</TableCell>
+                <TableCell>
+                  {credential.scopeType}: {credential.scopeId}
+                </TableCell>
+                <TableCell>{credential.lastRotatedAt}</TableCell>
+                <TableCell>{credential.lastUsedAt}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="rounded-md bg-card">
+                    {credential.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onDeleteCredential(credential.id)}
+                  >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -7126,6 +7629,42 @@ function permissionLabel(permission: keyof AdminUser["permissions"]) {
   };
 
   return labels[permission];
+}
+
+function credentialTypeLabel(type: CredentialRecord["credentialType"]) {
+  const labels: Record<CredentialRecord["credentialType"], string> = {
+    api_token: "API token",
+    oauth_client_secret: "OAuth client secret",
+    username_password: "Username/password",
+  };
+
+  return labels[type];
+}
+
+function credentialPlacementLabel(placement: CredentialRecord["tokenPlacement"]) {
+  const labels: Record<CredentialRecord["tokenPlacement"], string> = {
+    basic: "Basic auth",
+    bearer: "Bearer header",
+    "client-secret": "Client secret",
+    query: "Query token",
+    "x-api-key": "X-API-Key header",
+  };
+
+  return labels[placement];
+}
+
+function maskLocalUsername(username: string) {
+  const trimmed = username.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.length <= 3) {
+    return "***";
+  }
+
+  return `${trimmed.slice(0, 2)}***${trimmed.slice(-1)}`;
 }
 
 function parseUsersCsv(csvText: string): AdminUser[] {

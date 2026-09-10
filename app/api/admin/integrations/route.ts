@@ -3,9 +3,11 @@ import { requirePermission } from "@/lib/server/auth";
 import { testMarketProvider } from "@/lib/server/market-providers";
 import {
   deleteIntegration,
+  upsertCredentialMetadata,
   upsertIntegration,
 } from "@/lib/server/repository";
 import { storeMarketIntegrationToken } from "@/lib/server/secrets";
+import { isSafeIntegrationEndpoint } from "@/lib/server/url-safety";
 
 type IntegrationMutationRequest = {
   action: "create" | "update" | "delete" | "test";
@@ -36,11 +38,18 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!isSafeIntegrationEndpoint(body.endpoint)) {
+    return Response.json(
+      {
+        message: "Endpoint must be HTTPS and cannot target private infrastructure.",
+        ok: false,
+      },
+      { status: 400 }
+    );
+  }
+
   const integrationId = body.integrationId ?? `integration-${Date.now()}`;
-  const tokenSecretRef =
-    body.token && body.action !== "delete"
-      ? await storeMarketIntegrationToken(integrationId, body.token)
-      : null;
+  const credentialId = body.token ? `market-${integrationId}` : null;
   const health =
     body.action === "test"
       ? await testMarketProvider({
@@ -52,21 +61,6 @@ export async function POST(request: Request) {
           tokenPlacement: body.tokenPlacement,
         })
       : null;
-  if (body.action === "delete") {
-    await deleteIntegration(integrationId);
-  } else {
-    await upsertIntegration({
-      actor: user,
-      allowedSymbols: body.allowedSymbols,
-      endpoint: body.endpoint,
-      integrationId,
-      maxSymbols: body.maxSymbols ?? 200,
-      provider: body.provider,
-      status: health?.ok === false ? "Needs key" : "Connected",
-      tokenRequired: Boolean(body.token),
-      tokenSecretRef,
-    });
-  }
   const audit = await recordAuditEvent({
     action:
       body.action === "delete"
@@ -77,16 +71,55 @@ export async function POST(request: Request) {
     actor: user,
     context: {
       allowedSymbols: body.allowedSymbols ? "explicit" : "default_200_max",
+      credentialId,
       endpoint: body.endpoint,
       health,
       provider: body.provider,
       targetClass: body.targetClass,
-      tokenSecretRef,
+      tokenSecretRef: credentialId ? "stored_after_audit" : null,
     },
     reason: body.reason,
     targetId: integrationId,
     targetType: "market_integration",
   });
+  const tokenSecretRef =
+    body.token && body.action !== "delete"
+      ? await storeMarketIntegrationToken(integrationId, body.token)
+      : null;
+
+  if (body.action === "delete") {
+    await deleteIntegration(integrationId);
+  } else {
+    if (credentialId && tokenSecretRef) {
+      await upsertCredentialMetadata({
+        actor: user,
+        credentialId,
+        credentialType: "api_token",
+        label: `${body.provider} market API`,
+        providerName: body.provider,
+        scopeId: body.targetClass,
+        scopeType: body.targetClass ? "class" : "district",
+        secretRef: tokenSecretRef,
+        status: "active",
+        tokenPlacement: body.tokenPlacement ?? "bearer",
+      });
+    }
+
+    await upsertIntegration({
+      actor: user,
+      allowedSymbols: body.allowedSymbols,
+      credentialId,
+      endpoint: body.endpoint,
+      integrationId,
+      maxSymbols: body.maxSymbols ?? 200,
+      provider: body.provider,
+      status: health?.ok === false ? "Needs key" : "Connected",
+      targetClass: body.targetClass,
+      tokenPlacement: body.tokenPlacement ?? "bearer",
+      tokenRequired: Boolean(body.token),
+      tokenSecretRef,
+    });
+  }
 
   return Response.json({ audit, health, ok: true, persisted: true }, { status: 201 });
 }

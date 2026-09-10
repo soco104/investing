@@ -56,6 +56,11 @@ resource "random_password" "cron_secret" {
   special = false
 }
 
+resource "random_password" "observability_ingest_secret" {
+  length  = 32
+  special = false
+}
+
 resource "google_sql_database_instance" "main" {
   name             = var.db_instance_name
   database_version = "POSTGRES_16"
@@ -101,7 +106,7 @@ resource "google_secret_manager_secret" "database_url" {
 }
 
 resource "google_secret_manager_secret_version" "database_url" {
-  secret = google_secret_manager_secret.database_url.id
+  secret      = google_secret_manager_secret.database_url.id
   secret_data = "postgresql://${var.db_user}:${urlencode(random_password.db_password.result)}@/${var.db_name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}"
 }
 
@@ -133,6 +138,36 @@ resource "google_secret_manager_secret" "cron_secret" {
 resource "google_secret_manager_secret_version" "cron_secret" {
   secret      = google_secret_manager_secret.cron_secret.id
   secret_data = random_password.cron_secret.result
+}
+
+resource "google_secret_manager_secret" "observability_ingest_secret" {
+  secret_id = "${var.service_name}-observability-ingest-secret"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_secret_manager_secret_version" "observability_ingest_secret" {
+  secret      = google_secret_manager_secret.observability_ingest_secret.id
+  secret_data = random_password.observability_ingest_secret.result
+}
+
+resource "google_secret_manager_secret" "market_provider_tokens" {
+  secret_id = "${var.service_name}-market-provider-tokens"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_secret_manager_secret_version" "market_provider_tokens_initial" {
+  secret      = google_secret_manager_secret.market_provider_tokens.id
+  secret_data = "{}"
 }
 
 resource "google_secret_manager_secret" "bootstrap_admin_password_hash" {
@@ -178,10 +213,22 @@ resource "google_secret_manager_secret_iam_member" "app_cron_secret" {
   member    = "serviceAccount:${google_service_account.app.email}"
 }
 
-resource "google_project_iam_member" "app_secret_manager_admin" {
-  project = var.project_id
-  role    = "roles/secretmanager.admin"
-  member  = "serviceAccount:${google_service_account.app.email}"
+resource "google_secret_manager_secret_iam_member" "app_observability_ingest_secret" {
+  secret_id = google_secret_manager_secret.observability_ingest_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.app.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "app_market_tokens_accessor" {
+  secret_id = google_secret_manager_secret.market_provider_tokens.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.app.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "app_market_tokens_version_adder" {
+  secret_id = google_secret_manager_secret.market_provider_tokens.id
+  role      = "roles/secretmanager.secretVersionAdder"
+  member    = "serviceAccount:${google_service_account.app.email}"
 }
 
 resource "google_cloud_run_v2_service" "app" {
@@ -254,13 +301,48 @@ resource "google_cloud_run_v2_service" "app" {
       }
 
       env {
+        name = "OBSERVABILITY_INGEST_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.observability_ingest_secret.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
       }
 
       env {
+        name  = "MARKET_PROVIDER_TOKENS_SECRET"
+        value = "projects/${var.project_id}/secrets/${google_secret_manager_secret.market_provider_tokens.secret_id}"
+      }
+
+      env {
         name  = "BOOTSTRAP_ADMIN_EMAIL"
         value = var.bootstrap_admin_email
+      }
+
+      env {
+        name  = "SSO_AUTHORIZATION_URL"
+        value = var.sso_authorization_url
+      }
+
+      env {
+        name  = "SSO_CLIENT_ID"
+        value = var.sso_client_id
+      }
+
+      env {
+        name  = "SSO_REDIRECT_URI"
+        value = var.sso_redirect_uri
+      }
+
+      env {
+        name  = "SSO_SCOPE"
+        value = var.sso_scope
       }
 
       dynamic "env" {
@@ -298,7 +380,9 @@ resource "google_cloud_run_v2_service" "app" {
     google_secret_manager_secret_iam_member.app_database_url,
     google_secret_manager_secret_iam_member.app_session_secret,
     google_secret_manager_secret_iam_member.app_cron_secret,
-    google_project_iam_member.app_secret_manager_admin,
+    google_secret_manager_secret_iam_member.app_observability_ingest_secret,
+    google_secret_manager_secret_iam_member.app_market_tokens_accessor,
+    google_secret_manager_secret_iam_member.app_market_tokens_version_adder,
   ]
 }
 

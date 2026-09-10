@@ -6,6 +6,7 @@ import {
   authenticatePassword,
   createSessionToken,
 } from "@/lib/server/auth";
+import { buildDistrictSsoStartUrl } from "@/lib/server/sso";
 
 export async function POST(request: NextRequest) {
   const span = startOtelSpan("auth.login");
@@ -19,6 +20,34 @@ export async function POST(request: NextRequest) {
     const provider = body.provider ?? "password";
 
     if (provider !== "password") {
+      const start = buildDistrictSsoStartUrl();
+
+      if (start) {
+        const response = NextResponse.json({
+          ok: true,
+          provider: "district-sso",
+          redirectUrl: start.redirectUrl,
+          telemetry: span.end(),
+        });
+
+        response.cookies.set("futurefund_sso_state", start.state, {
+          httpOnly: true,
+          maxAge: 60 * 10,
+          path: "/",
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        });
+        response.cookies.set("futurefund_sso_nonce", start.nonce, {
+          httpOnly: true,
+          maxAge: 60 * 10,
+          path: "/",
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        });
+
+        return response;
+      }
+
       return NextResponse.json(
         {
           ok: false,

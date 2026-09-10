@@ -25,13 +25,6 @@ export async function POST(request: Request) {
     );
   }
 
-  await createPrivacyPosture({
-    actor: user,
-    posture: body.posture,
-    privacyContactEmail: body.privacyContactEmail,
-    stateCode: body.stateCode,
-  });
-
   const audit = await recordAuditEvent({
     action: "privacy.updated",
     actor: user,
@@ -43,6 +36,12 @@ export async function POST(request: Request) {
     reason: body.reason,
     targetId: "district-lincoln-usd",
     targetType: "privacy_posture",
+  });
+  await createPrivacyPosture({
+    actor: user,
+    posture: body.posture,
+    privacyContactEmail: body.privacyContactEmail,
+    stateCode: body.stateCode,
   });
 
   return Response.json({ audit, ok: true, persisted: true });

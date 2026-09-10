@@ -27,13 +27,6 @@ export async function POST(request: Request) {
 
   const resetToken = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
-  await createPasswordReset({
-    expiresAt,
-    requestedByUserId: user.id,
-    tokenHash: await hashToken(resetToken),
-    userEmail: email,
-  });
-
   const audit = await recordAuditEvent({
     action: "password_reset.requested",
     actor: user,
@@ -45,6 +38,12 @@ export async function POST(request: Request) {
     reason: body.reason,
     targetId: email,
     targetType: "password_reset",
+  });
+  await createPasswordReset({
+    expiresAt,
+    requestedByUserId: user.id,
+    tokenHash: await hashToken(resetToken),
+    userEmail: email,
   });
 
   return Response.json({

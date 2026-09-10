@@ -2,6 +2,7 @@ import { createTraceId, statusFromDuration } from "@/lib/observability";
 import { testMarketProvider } from "@/lib/server/market-providers";
 import {
   listPollableIntegrations,
+  markCredentialUsed,
   updateIntegrationPollResult,
 } from "@/lib/server/repository";
 import { readSecretValue } from "@/lib/server/secrets";
@@ -24,18 +25,23 @@ export async function POST(request: Request) {
   for (const integration of integrations) {
     try {
       const token = await readSecretValue(integration.token_secret_ref);
+      if (integration.credential_id) {
+        await markCredentialUsed(integration.credential_id);
+      }
       const result = await testMarketProvider({
         allowedSymbols: integration.allowed_symbols_csv,
         endpoint: integration.endpoint_url,
         maxSymbols: integration.max_symbols,
         provider: integration.provider_name,
         token,
+        tokenPlacement: integration.token_placement ?? "bearer",
       });
 
       await updateIntegrationPollResult({
         errorMessage: result.ok ? undefined : result.message,
         integrationId: integration.id,
         ok: result.ok,
+        quotes: result.quotes,
       });
 
       results.push({

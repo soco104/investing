@@ -1,4 +1,6 @@
 import { startOtelSpan } from "@/lib/observability";
+import { userFromRequest } from "@/lib/server/auth";
+import { hasProductionDatabase, listLatestMarketQuotes } from "@/lib/server/repository";
 
 const marketSnapshot = [
   {
@@ -31,16 +33,32 @@ const marketSnapshot = [
   },
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const user = await userFromRequest(request);
+  const className = url.searchParams.get("className") ?? user?.className;
+  const productionQuotes = hasProductionDatabase()
+    ? await listLatestMarketQuotes(className)
+    : [];
   const span = startOtelSpan("market.snapshot", {
     route: "/api/market",
-    source: "mock-provider",
+    className: className ?? null,
+    source: productionQuotes.length ? "provider-cache" : "mock-provider",
   });
-  const endedSpan = span.end({ symbolCount: marketSnapshot.length });
+  const symbols = productionQuotes.length
+    ? productionQuotes.map((quote) => ({
+        changePercent: Number(quote.change_percent),
+        lessonUse: "Provider-backed classroom market data",
+        name: quote.name,
+        price: Number(quote.price),
+        ticker: quote.ticker,
+      }))
+    : marketSnapshot;
+  const endedSpan = span.end({ symbolCount: symbols.length });
 
   return Response.json({
-    mode: "simulated-delayed",
-    source: "mock-provider",
+    mode: productionQuotes.length ? "provider-backed-delayed" : "simulated-delayed",
+    source: productionQuotes.length ? "provider-cache" : "mock-provider",
     telemetry: {
       durationMs: endedSpan.durationMs,
       otelReady: true,
@@ -49,6 +67,6 @@ export async function GET() {
     updatedAt: new Date().toISOString(),
     disclosure:
       "Educational market context only. This endpoint does not place trades or provide financial advice.",
-    symbols: marketSnapshot,
+    symbols,
   });
 }

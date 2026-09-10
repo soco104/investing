@@ -1,9 +1,10 @@
 import postgres from "postgres";
 
 import type { AppErrorEvent, PerformanceEvent } from "@/lib/observability";
+import type { NormalizedMarketQuote } from "@/lib/server/market-providers";
 import type { AuditEvent } from "./audit";
 import type { AuthenticatedUser, PermissionKey } from "./auth";
-import { hashPassword } from "./crypto";
+import { hashPassword, verifyPassword } from "./crypto";
 
 type SqlClient = ReturnType<typeof postgres>;
 
@@ -35,7 +36,6 @@ export async function findUserByPassword(email: string, password: string) {
   }
 
   const sql = getSql();
-  const passwordHash = await hashPassword(password);
   const [row] = await sql<
     Array<{
       alias: string;
@@ -44,6 +44,7 @@ export async function findUserByPassword(email: string, password: string) {
       first_name: string;
       id: string;
       last_name: string;
+      password_hash: string;
       role: string | null;
       status: string;
     }>
@@ -55,19 +56,23 @@ export async function findUserByPassword(email: string, password: string) {
       app_users.last_name,
       app_users.alias,
       app_users.status,
+      user_credentials.password_hash,
       role_assignments.role,
       role_assignments.scope as class_name
     from user_credentials
     join app_users on app_users.id = user_credentials.user_id
     left join role_assignments on role_assignments.user_id = app_users.id
     where lower(user_credentials.email) = ${email.toLowerCase()}
-      and user_credentials.password_hash = ${passwordHash}
       and user_credentials.force_reset = false
     order by role_assignments.assigned_at desc
     limit 1
   `;
 
   if (!row || row.status !== "active") {
+    return null;
+  }
+
+  if (!(await verifyPassword(password, row.password_hash))) {
     return null;
   }
 
@@ -95,6 +100,19 @@ export async function findUserByPassword(email: string, password: string) {
     permissions: permissionsFromGrants(role, grants),
     role,
   } satisfies AuthenticatedUser;
+}
+
+export async function revokeSession(sessionTokenHash: string) {
+  if (!hasProductionDatabase()) {
+    return;
+  }
+
+  await getSql()`
+    update auth_sessions
+    set revoked_at = ${new Date()}
+    where session_token_hash = ${sessionTokenHash}
+      and revoked_at is null
+  `;
 }
 
 export async function findUserById(userId: string) {
@@ -232,6 +250,7 @@ export async function listAdminState() {
   if (!hasProductionDatabase()) {
     return {
       adminUsers: [],
+      credentials: [],
       marketIntegrations: [],
       schools: [],
       supportCases: [],
@@ -239,8 +258,9 @@ export async function listAdminState() {
   }
 
   const sql = getSql();
-  const [users, schools, supportCases, marketIntegrations] = await Promise.all([
-    sql`
+  const [users, schools, supportCases, marketIntegrations, credentials] =
+    await Promise.all([
+      sql`
       select
         app_users.id,
         app_users.first_name,
@@ -255,35 +275,134 @@ export async function listAdminState() {
       order by app_users.created_at desc
       limit 500
     `,
-    sql`
+      sql`
       select id, name, class_count, student_count
       from schools
       order by created_at desc
       limit 200
     `,
-    sql`
+      sql`
       select id, summary, category, status, created_at
       from support_tickets
       order by created_at desc
       limit 100
     `,
-    sql`
+      sql`
       select id, provider_name, endpoint_url, status, allowed_symbols_csv,
-        max_symbols, token_required, polling_frequency_minutes,
+        max_symbols, token_required, token_secret_ref, credential_id,
+        target_class, token_placement, polling_frequency_minutes,
         last_health_check_at
       from market_data_integrations
       where status <> 'deleted'
       order by updated_at desc
       limit 100
     `,
-  ]);
+      sql`
+      select id, label, provider_name, credential_type, username_hint,
+        token_placement, scope_type, scope_id, status, last_rotated_at,
+        last_used_at, created_at, updated_at
+      from integration_credentials
+      where status <> 'deleted'
+      order by updated_at desc
+      limit 200
+    `,
+    ]);
 
   return {
     adminUsers: users,
+    credentials,
     marketIntegrations,
     schools,
     supportCases,
   };
+}
+
+export async function listCredentialMetadata() {
+  if (!hasProductionDatabase()) {
+    return [];
+  }
+
+  return getSql()`
+    select id, label, provider_name, credential_type, username_hint,
+      token_placement, scope_type, scope_id, status, last_rotated_at,
+      last_used_at, created_at, updated_at
+    from integration_credentials
+    where status <> 'deleted'
+    order by updated_at desc
+    limit 200
+  `;
+}
+
+export async function upsertCredentialMetadata(input: {
+  actor: AuthenticatedUser;
+  credentialId: string;
+  credentialType: string;
+  label: string;
+  providerName: string;
+  scopeId?: string;
+  scopeType?: string;
+  secretRef?: string | null;
+  status?: string;
+  tokenPlacement?: string;
+  usernameHint?: string;
+}) {
+  if (!hasProductionDatabase()) {
+    return;
+  }
+
+  await ensureDistrict(getSql());
+  await getSql()`
+    insert into integration_credentials (
+      id, district_id, label, provider_name, credential_type, username_hint,
+      token_placement, scope_type, scope_id, secret_ref, status,
+      created_by_user_id, updated_by_user_id, last_rotated_at, created_at, updated_at
+    )
+    values (
+      ${input.credentialId}, ${defaultDistrictId}, ${input.label},
+      ${input.providerName}, ${input.credentialType}, ${input.usernameHint ?? null},
+      ${input.tokenPlacement ?? "bearer"}, ${input.scopeType ?? "district"},
+      ${input.scopeId ?? defaultDistrictId}, ${input.secretRef ?? null},
+      ${input.status ?? "active"}, ${input.actor.id}, ${input.actor.id},
+      ${input.secretRef ? new Date() : null}, ${new Date()}, ${new Date()}
+    )
+    on conflict (id) do update set
+      label = excluded.label,
+      provider_name = excluded.provider_name,
+      credential_type = excluded.credential_type,
+      username_hint = excluded.username_hint,
+      token_placement = excluded.token_placement,
+      scope_type = excluded.scope_type,
+      scope_id = excluded.scope_id,
+      secret_ref = coalesce(excluded.secret_ref, integration_credentials.secret_ref),
+      status = excluded.status,
+      updated_by_user_id = excluded.updated_by_user_id,
+      last_rotated_at = coalesce(excluded.last_rotated_at, integration_credentials.last_rotated_at),
+      updated_at = excluded.updated_at
+  `;
+}
+
+export async function deleteCredentialMetadata(credentialId: string) {
+  if (!hasProductionDatabase()) {
+    return;
+  }
+
+  await getSql()`
+    update integration_credentials
+    set status = 'deleted', updated_at = ${new Date()}
+    where id = ${credentialId}
+  `;
+}
+
+export async function markCredentialUsed(credentialId: string) {
+  if (!hasProductionDatabase()) {
+    return;
+  }
+
+  await getSql()`
+    update integration_credentials
+    set last_used_at = ${new Date()}, updated_at = ${new Date()}
+    where id = ${credentialId}
+  `;
 }
 
 export async function createOrUpdateUsers(input: {
@@ -324,73 +443,76 @@ export async function createOrUpdateUsers(input: {
 
   const users = input.users ?? [];
 
-  for (const user of users) {
-    const role = normalizeRole(user.role);
-    const existingUser = await sql<Array<{ id: string }>>`
-      select id
-      from app_users
-      where lower(email) = ${user.email.toLowerCase()}
-      limit 1
-    `;
-    const userId = input.targetUserId ?? existingUser[0]?.id ?? id("user");
-    const className = role === "Admin" ? "District" : user.className ?? "";
-    const firstName = user.firstName ?? "";
-    const lastName = user.lastName ?? "";
-    const alias = user.alias ?? `${firstName}${lastName}`.replace(/\s/g, "");
-
-    await ensureDistrict(sql);
-    await sql`
-      insert into app_users (
-        id, district_id, first_name, last_name, alias, profile_bio,
-        profile_visible, display_name, email, status, created_at, updated_at
-      )
-      values (
-        ${userId}, ${defaultDistrictId}, ${firstName}, ${lastName}, ${alias}, '',
-        true, ${`${firstName} ${lastName}`.trim()}, ${user.email.toLowerCase()},
-        'active', ${new Date()}, ${new Date()}
-      )
-      on conflict (email) do update set
-        first_name = excluded.first_name,
-        last_name = excluded.last_name,
-        alias = excluded.alias,
-        display_name = excluded.display_name,
-        status = 'active',
-        updated_at = excluded.updated_at
-    `;
-    await sql`
-      insert into role_assignments (
-        id, user_id, role, scope, assigned_by_user_id, assigned_at
-      )
-      values (${id("role")}, ${userId}, ${role}, ${className}, ${input.actor.id}, ${new Date()})
-    `;
-
-    for (const [permission, enabled] of Object.entries(permissionsForRole(role))) {
-      await sql`
-        insert into user_permission_grants (
-          id, user_id, permission, enabled, granted_by_user_id, granted_at
-        )
-        values (${id("grant")}, ${userId}, ${permission}, ${enabled}, ${input.actor.id}, ${new Date()})
+  await sql.begin(async (tx) => {
+    for (const user of users) {
+      const role = normalizeRole(user.role);
+      const existingUser = await tx<Array<{ id: string }>>`
+        select id
+        from app_users
+        where lower(email) = ${user.email.toLowerCase()}
+        limit 1
       `;
-    }
+      const userId = input.targetUserId ?? existingUser[0]?.id ?? id("user");
+      const className = role === "Admin" ? "District" : user.className ?? "";
+      const firstName = user.firstName ?? "";
+      const lastName = user.lastName ?? "";
+      const alias = user.alias ?? `${firstName}${lastName}`.replace(/\s/g, "");
 
-    if (user.temporaryPassword) {
-      await sql`
-        insert into user_credentials (
-          id, user_id, email, password_hash, password_algorithm, force_reset,
-          created_at, updated_at
+      await ensureDistrict(tx);
+      await tx`
+        insert into app_users (
+          id, district_id, first_name, last_name, alias, profile_bio,
+          profile_visible, display_name, email, status, created_at, updated_at
         )
         values (
-          ${id("credential")}, ${userId}, ${user.email.toLowerCase()},
-          ${await hashPassword(user.temporaryPassword)}, 'sha256', true,
-          ${new Date()}, ${new Date()}
+          ${userId}, ${defaultDistrictId}, ${firstName}, ${lastName}, ${alias}, '',
+          true, ${`${firstName} ${lastName}`.trim()}, ${user.email.toLowerCase()},
+          'active', ${new Date()}, ${new Date()}
         )
         on conflict (email) do update set
-          password_hash = excluded.password_hash,
-          force_reset = true,
+          first_name = excluded.first_name,
+          last_name = excluded.last_name,
+          alias = excluded.alias,
+          display_name = excluded.display_name,
+          status = 'active',
           updated_at = excluded.updated_at
       `;
+      await tx`
+        insert into role_assignments (
+          id, user_id, role, scope, assigned_by_user_id, assigned_at
+        )
+        values (${id("role")}, ${userId}, ${role}, ${className}, ${input.actor.id}, ${new Date()})
+      `;
+
+      for (const [permission, enabled] of Object.entries(permissionsForRole(role))) {
+        await tx`
+          insert into user_permission_grants (
+            id, user_id, permission, enabled, granted_by_user_id, granted_at
+          )
+          values (${id("grant")}, ${userId}, ${permission}, ${enabled}, ${input.actor.id}, ${new Date()})
+        `;
+      }
+
+      if (user.temporaryPassword) {
+        await tx`
+          insert into user_credentials (
+            id, user_id, email, password_hash, password_algorithm, force_reset,
+            created_at, updated_at
+          )
+          values (
+            ${id("credential")}, ${userId}, ${user.email.toLowerCase()},
+            ${await hashPassword(user.temporaryPassword)}, 'bcrypt', true,
+            ${new Date()}, ${new Date()}
+          )
+          on conflict (email) do update set
+            password_hash = excluded.password_hash,
+            password_algorithm = excluded.password_algorithm,
+            force_reset = true,
+            updated_at = excluded.updated_at
+        `;
+      }
     }
-  }
+  });
 
   return { affected: users.length };
 }
@@ -478,11 +600,14 @@ export async function createSupportTicket(input: {
 export async function upsertIntegration(input: {
   actor: AuthenticatedUser;
   allowedSymbols?: string;
+  credentialId?: string | null;
   endpoint: string;
   integrationId: string;
   maxSymbols: number;
   provider: string;
   status: string;
+  targetClass?: string;
+  tokenPlacement?: string;
   tokenRequired: boolean;
   tokenSecretRef?: string | null;
 }) {
@@ -494,14 +619,16 @@ export async function upsertIntegration(input: {
   await getSql()`
     insert into market_data_integrations (
       id, district_id, provider_name, endpoint_url, status, allowed_symbols_csv,
-      max_symbols, token_required, token_secret_ref, polling_frequency_minutes,
-      delayed_quotes, configured_by_user_id, last_health_check_at, updated_at
+      max_symbols, token_required, token_secret_ref, credential_id,
+      target_class, token_placement, polling_frequency_minutes, delayed_quotes,
+      configured_by_user_id, last_health_check_at, updated_at
     )
     values (
       ${input.integrationId}, ${defaultDistrictId}, ${input.provider}, ${input.endpoint},
       ${input.status}, ${input.allowedSymbols ?? ""}, ${input.maxSymbols},
-      ${input.tokenRequired}, ${input.tokenSecretRef ?? null}, 15, true,
-      ${input.actor.id}, ${new Date()}, ${new Date()}
+      ${input.tokenRequired}, ${input.tokenSecretRef ?? null}, ${input.credentialId ?? null},
+      ${input.targetClass ?? ""}, ${input.tokenPlacement ?? "bearer"}, 15,
+      true, ${input.actor.id}, ${new Date()}, ${new Date()}
     )
     on conflict (id) do update set
       provider_name = excluded.provider_name,
@@ -511,6 +638,9 @@ export async function upsertIntegration(input: {
       max_symbols = excluded.max_symbols,
       token_required = excluded.token_required,
       token_secret_ref = coalesce(excluded.token_secret_ref, market_data_integrations.token_secret_ref),
+      credential_id = coalesce(excluded.credential_id, market_data_integrations.credential_id),
+      target_class = excluded.target_class,
+      token_placement = excluded.token_placement,
       last_health_check_at = excluded.last_health_check_at,
       updated_at = excluded.updated_at
   `;
@@ -540,12 +670,15 @@ export async function listPollableIntegrations() {
       id: string;
       max_symbols: number;
       provider_name: string;
+      target_class: string | null;
       token_required: boolean;
       token_secret_ref: string | null;
+      credential_id: string | null;
+      token_placement: "bearer" | "query" | "x-api-key" | null;
     }>
   >`
     select id, provider_name, endpoint_url, allowed_symbols_csv, max_symbols,
-      token_required, token_secret_ref
+      token_required, token_secret_ref, credential_id, target_class, token_placement
     from market_data_integrations
     where status in ('connected', 'Connected', 'Testing')
       and status <> 'deleted'
@@ -556,32 +689,80 @@ export async function updateIntegrationPollResult(input: {
   errorMessage?: string;
   integrationId: string;
   ok: boolean;
+  quotes?: NormalizedMarketQuote[];
 }) {
   if (!hasProductionDatabase()) {
     return;
   }
 
-  await getSql()`
-    update market_data_integrations
-    set status = ${input.ok ? "Connected" : "Needs key"},
-        last_health_check_at = ${new Date()},
-        updated_at = ${new Date()}
-    where id = ${input.integrationId}
-  `;
-
-  if (!input.ok && input.errorMessage) {
-    await getSql()`
-      insert into app_error_events (
-        id, district_id, severity, source, message, route, user_role, trace_id,
-        context_json, created_at
-      )
-      values (
-        ${id("err")}, ${defaultDistrictId}, 'error', 'integration',
-        ${input.errorMessage}, '/api/market/poll', 'Admin', ${id("trace")},
-        ${JSON.stringify({ integrationId: input.integrationId })}, ${new Date()}
-      )
+  const sql = getSql();
+  await sql.begin(async (tx) => {
+    await tx`
+      update market_data_integrations
+      set status = ${input.ok ? "Connected" : "Needs key"},
+          last_health_check_at = ${new Date()},
+          updated_at = ${new Date()}
+      where id = ${input.integrationId}
     `;
+
+    for (const quote of input.quotes ?? []) {
+      await tx`
+        insert into market_quotes (
+          id, district_id, integration_id, ticker, name, price,
+          change_percent, delayed, source, target_class, fetched_at
+        )
+        values (
+          ${id("quote")}, ${defaultDistrictId}, ${input.integrationId},
+          ${quote.ticker}, ${quote.name}, ${quote.price}, ${quote.changePercent},
+          true, 'provider_poll',
+          (select target_class from market_data_integrations where id = ${input.integrationId}),
+          ${new Date()}
+        )
+      `;
+    }
+
+    if (!input.ok && input.errorMessage) {
+      await tx`
+        insert into app_error_events (
+          id, district_id, severity, source, message, route, user_role, trace_id,
+          context_json, created_at
+        )
+        values (
+          ${id("err")}, ${defaultDistrictId}, 'error', 'integration',
+          ${input.errorMessage}, '/api/market/poll', 'Admin', ${id("trace")},
+          ${JSON.stringify({ integrationId: input.integrationId })}, ${new Date()}
+        )
+      `;
+    }
+  });
+}
+
+export async function listLatestMarketQuotes(className?: string) {
+  if (!hasProductionDatabase()) {
+    return [];
   }
+
+  const sql = getSql();
+  const classFilter = className?.trim();
+
+  return sql<
+    Array<{
+      change_percent: number;
+      fetched_at: Date;
+      integration_id: string;
+      name: string;
+      price: number;
+      target_class: string | null;
+      ticker: string;
+    }>
+  >`
+    select distinct on (ticker)
+      ticker, name, price, change_percent, integration_id, target_class, fetched_at
+    from market_quotes
+    where ${classFilter ? sql`target_class = ${classFilter}` : sql`true`}
+    order by ticker, fetched_at desc
+    limit 200
+  `;
 }
 
 export async function createPrivacyPosture(input: {
@@ -669,13 +850,22 @@ export async function completePasswordReset(input: {
   await sql.begin(async (tx) => {
     await tx`
       update user_credentials
-      set password_hash = ${passwordHash}, force_reset = false, updated_at = ${new Date()}
+      set password_hash = ${passwordHash},
+          password_algorithm = 'bcrypt',
+          force_reset = false,
+          updated_at = ${new Date()}
       where user_id = ${reset.user_id}
     `;
     await tx`
       update password_reset_requests
       set status = 'completed', completed_at = ${new Date()}
       where id = ${reset.id}
+    `;
+    await tx`
+      update auth_sessions
+      set revoked_at = ${new Date()}
+      where user_id = ${reset.user_id}
+        and revoked_at is null
     `;
   });
 

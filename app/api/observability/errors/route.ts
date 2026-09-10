@@ -1,5 +1,6 @@
 import type { AppErrorEvent } from "@/lib/observability";
 import { createTraceId, nowIso } from "@/lib/observability";
+import { isAuthorizedServiceIngest, unauthorizedIngestResponse } from "@/lib/server/ingest-auth";
 import {
   hasProductionDatabase,
   listErrorEvents,
@@ -38,6 +39,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!(await isAuthorizedServiceIngest(request))) {
+    return unauthorizedIngestResponse();
+  }
+
   const body = (await request.json()) as Partial<AppErrorEvent>;
   const event: AppErrorEvent = {
     id: `err-${Date.now()}`,

@@ -18,10 +18,16 @@ db_name          = "futurefund"
 db_user          = "futurefund_app"
 db_tier          = "db-f1-micro"
 
-# Optional first admin. Generate the hash with:
-# node -e "crypto.subtle.digest('SHA-256', new TextEncoder().encode('change-me')).then(d=>console.log([...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('')))"
+# Optional first admin. Generate the bcrypt hash after npm install with:
+# node -e "require('bcryptjs').hash('change-me', 12).then(console.log)"
 bootstrap_admin_email         = "admin@example.edu"
 bootstrap_admin_password_hash = ""
 
 market_poll_schedule = "*/15 8-15 * * 1-5"
 market_poll_timezone = "America/New_York"
+
+# Optional district SSO initiation. Store client secrets through the Credential Vault.
+sso_authorization_url = ""
+sso_client_id         = ""
+sso_redirect_uri      = ""
+sso_scope             = "openid email profile"

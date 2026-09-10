@@ -64,7 +64,7 @@ variable "bootstrap_admin_email" {
 }
 
 variable "bootstrap_admin_password_hash" {
-  description = "Optional SHA-256 hash for the initial admin password."
+  description = "Optional bcrypt hash for the initial admin password."
   type        = string
   default     = ""
   sensitive   = true
@@ -92,4 +92,28 @@ variable "market_poll_timezone" {
   description = "Timezone for school-day scheduled work."
   type        = string
   default     = "America/New_York"
+}
+
+variable "sso_authorization_url" {
+  description = "Optional district OIDC authorization URL used to start SSO login."
+  type        = string
+  default     = ""
+}
+
+variable "sso_client_id" {
+  description = "Optional district OIDC client ID."
+  type        = string
+  default     = ""
+}
+
+variable "sso_redirect_uri" {
+  description = "Optional district OIDC redirect URI registered with the identity provider."
+  type        = string
+  default     = ""
+}
+
+variable "sso_scope" {
+  description = "OIDC scopes requested during district SSO login."
+  type        = string
+  default     = "openid email profile"
 }

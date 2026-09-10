@@ -36,18 +36,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (body.action === "create") {
-    await createSchool({
-      classCount: body.classCount ?? 0,
-      district: body.district ?? "",
-      name: body.name ?? "",
-      schoolId: body.schoolId ?? `school-${Date.now()}`,
-      state: body.state ?? "NA",
-      studentCount: body.studentCount ?? 0,
-    });
-  } else {
-    await deleteSchool(body.schoolId ?? "");
-  }
+  const schoolId = body.schoolId ?? `school-${Date.now()}`;
 
   const audit = await recordAuditEvent({
     action: body.action === "create" ? "school.created" : "school.deleted",
@@ -60,9 +49,22 @@ export async function POST(request: Request) {
       studentCount: body.studentCount,
     },
     reason: body.reason,
-    targetId: body.schoolId ?? `school-${Date.now()}`,
+    targetId: schoolId,
     targetType: "school",
   });
+
+  if (body.action === "create") {
+    await createSchool({
+      classCount: body.classCount ?? 0,
+      district: body.district ?? "",
+      name: body.name ?? "",
+      schoolId,
+      state: body.state ?? "NA",
+      studentCount: body.studentCount ?? 0,
+    });
+  } else {
+    await deleteSchool(schoolId);
+  }
 
   return Response.json({ audit, ok: true, persisted: true }, { status: 201 });
 }

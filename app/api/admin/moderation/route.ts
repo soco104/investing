@@ -26,14 +26,6 @@ export async function POST(request: Request) {
   }
 
   const moderation = reviewModerationItem(body);
-  await createModerationReview({
-    action: body.action,
-    districtId: defaultDistrictId,
-    messageId: body.messageId,
-    note: body.note,
-    reviewedByUserId: user.id,
-    statusAfterReview: moderation.status,
-  });
   const audit = await recordAuditEvent({
     action: "moderation.reviewed",
     actor: user,
@@ -41,6 +33,14 @@ export async function POST(request: Request) {
     reason: body.note,
     targetId: body.messageId,
     targetType: "conversation_message",
+  });
+  await createModerationReview({
+    action: body.action,
+    districtId: defaultDistrictId,
+    messageId: body.messageId,
+    note: body.note,
+    reviewedByUserId: user.id,
+    statusAfterReview: moderation.status,
   });
 
   return Response.json({ audit, moderation, ok: true });

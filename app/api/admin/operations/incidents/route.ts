@@ -24,11 +24,6 @@ export async function POST(request: Request) {
   }
 
   const incidentId = `incident-${Date.now()}`;
-  await createIncident({
-    ownerUserId: user.id,
-    severity: body.severity,
-    summary: body.summary,
-  });
   const audit = await recordAuditEvent({
     action: "incident.opened",
     actor: user,
@@ -46,6 +41,11 @@ export async function POST(request: Request) {
     reason: body.summary,
     targetId: incidentId,
     targetType: "incident_response_record",
+  });
+  await createIncident({
+    ownerUserId: user.id,
+    severity: body.severity,
+    summary: body.summary,
   });
 
   return Response.json(

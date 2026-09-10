@@ -27,14 +27,6 @@ export async function POST(request: Request) {
     districtId: defaultDistrictId,
     requestedByUserId: user.id,
   });
-  await createRetentionRequest({
-    districtId: defaultDistrictId,
-    reason: body.reason,
-    requestedByUserId: user.id,
-    targetId: body.targetId,
-    targetType: body.targetType,
-    type: body.type,
-  });
   const audit = await recordAuditEvent({
     action:
       body.type === "delete"
@@ -45,6 +37,14 @@ export async function POST(request: Request) {
     reason: body.reason,
     targetId: body.targetId,
     targetType: body.targetType,
+  });
+  await createRetentionRequest({
+    districtId: defaultDistrictId,
+    reason: body.reason,
+    requestedByUserId: user.id,
+    targetId: body.targetId,
+    targetType: body.targetType,
+    type: body.type,
   });
 
   return Response.json({ audit, ok: true, plan }, { status: 202 });

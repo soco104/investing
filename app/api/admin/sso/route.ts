@@ -28,15 +28,6 @@ export async function POST(request: Request) {
   }
 
   const providerId = `sso-${Date.now()}`;
-  await createSsoProvider({
-    actor: user,
-    clientId: body.clientId,
-    issuerUrl: body.issuerUrl,
-    metadataUrl: body.metadataUrl,
-    providerId,
-    providerName: body.providerName,
-    providerType: body.providerType,
-  });
   const audit = await recordAuditEvent({
     action: "sso.updated",
     actor: user,
@@ -51,6 +42,15 @@ export async function POST(request: Request) {
     reason: body.reason,
     targetId: providerId,
     targetType: "sso_identity_provider",
+  });
+  await createSsoProvider({
+    actor: user,
+    clientId: body.clientId,
+    issuerUrl: body.issuerUrl,
+    metadataUrl: body.metadataUrl,
+    providerId,
+    providerName: body.providerName,
+    providerType: body.providerType,
   });
 
   return Response.json(

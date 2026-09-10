@@ -123,6 +123,13 @@ class and role, and shows:
 
 Admins can create users one at a time or import users from a CSV.
 
+Production endpoint:
+
+- `POST /api/admin/users`
+
+This endpoint requires an authenticated session with `Admin portal` permission
+and records an admin audit event for create, import, enable, or disable actions.
+
 ### Individual User Creation
 
 Use individual creation when adding a small number of users or correcting a
@@ -219,6 +226,13 @@ When changing permissions:
 Admin permissions are intentionally locked on in the MVP. In production, admin
 rights should be scoped by district and protected with strong authentication.
 
+Production endpoint:
+
+- `POST /api/admin/permissions`
+
+The endpoint requires `Admin portal` permission and records the target user,
+permission key, enabled state, actor, timestamp, and reason in the audit trail.
+
 ## 9. Learning Quest Administration
 
 Teachers create and modify learning quests from the Teacher portal. Admins can
@@ -254,6 +268,10 @@ Recommended process:
 Production imports should validate schema version, author, district ownership,
 and unsafe content before saving.
 
+Production imports and exports should use the same audit pattern as other admin
+mutations. Quest template movement is privileged because a scoring rubric or
+hidden objective can change the student learning experience.
+
 ## 10. Market API Integrations
 
 The Market APIs widget opens the Integrations page. Admins use it to configure
@@ -284,6 +302,10 @@ If a token value is supplied, the request sends it as:
 Authorization: Bearer <token>
 ```
 
+The provider adapter also supports query-string token placement and `X-API-Key`
+headers for providers that require them. The default remains bearer token
+authorization because it is the cleanest common case for server-side GET calls.
+
 The classroom-safe mock market endpoint is available at `/api/market`. It
 returns simulated, delayed educational market data and should be used for demos
 or classroom-safe testing.
@@ -304,6 +326,15 @@ market polling endpoint during the school day. Production polling should:
 - Store fetched market data with class and integration assignment context.
 - Disable or delete class assignments when a class is no longer in session.
 - Retain health and error history for troubleshooting.
+
+Production endpoint:
+
+- `POST /api/admin/integrations`
+
+The endpoint requires `Admin portal` permission and records create, update,
+delete, and test actions. Token values should be stored in Secret Manager and
+referenced by secret name; token values should not be written into logs,
+browser-visible state, or audit context.
 
 ## 11. Privacy Posture
 
@@ -328,6 +359,13 @@ Recommended admin process:
 4. Revisit posture before enabling external integrations or data exports.
 5. Use stricter settings when the district requires vendor approval before data
    leaves the platform.
+
+Production endpoint:
+
+- `POST /api/admin/privacy`
+
+The endpoint requires `Admin portal` permission and audits posture, privacy
+contact, state code, actor, timestamp, and reason.
 
 ## 12. Support Cases
 
@@ -368,6 +406,14 @@ Production behavior should:
 - Log the requesting admin, target user, timestamp, and result.
 - Hand off to district SSO once SSO is implemented.
 
+Production endpoint:
+
+- `POST /api/admin/password-resets`
+
+The endpoint requires `Admin portal` permission and creates an audited reset
+request. The current implementation marks email delivery as pending until a
+district-approved email provider is attached.
+
 ## 14. Portfolio Corrections
 
 Use Portfolio corrections when a student's simulated portfolio needs an
@@ -389,6 +435,14 @@ Operating rules:
 - Do not use corrections to reward or penalize students outside the defined
   learning quest rules unless the district explicitly approves that policy.
 
+Production endpoint:
+
+- `POST /api/admin/portfolio-corrections`
+
+The endpoint requires `Portfolio corrections` permission and audits the
+portfolio id, adjustment amount, before/after snapshots, actor, timestamp, and
+reason.
+
 ## 15. Monitoring and Logs
 
 The Monitoring page gives admins visibility into:
@@ -400,6 +454,13 @@ The Monitoring page gives admins visibility into:
 The app currently includes frontend error reporting, performance reporting, and
 OTEL-ready span hooks. Monitoring data includes date and time stamps so admins
 can match issues to classroom activity.
+
+Audit endpoint:
+
+- `GET /api/admin/audit`
+
+The endpoint requires `Admin portal` permission and returns recent admin audit
+events.
 
 ### Open Errors
 
@@ -445,7 +506,94 @@ The logs download is modeled as a ZIP export for support and troubleshooting.
 Production log exports should redact secrets, tokens, student-sensitive data,
 and unnecessary request payloads.
 
-## 16. Deployment and Infrastructure
+## 16. Retention, Export, and Deletion
+
+District data requests should be handled through a controlled retention
+workflow. The MVP now includes a production-shaped endpoint for requesting
+exports and deletions:
+
+- `POST /api/admin/retention`
+
+The endpoint requires `Admin portal` permission and creates an audited retention
+plan for a student, teacher, classroom, school, or district target.
+
+Export workflow:
+
+1. Verify the requester's authority.
+2. Collect relevant profile, roster, portfolio, quest, message, and audit
+   records.
+3. Redact secrets and unrelated student data.
+4. Package the export for secure district delivery.
+5. Record completion in the audit trail.
+
+Deletion workflow:
+
+1. Verify district authorization and retention obligations.
+2. Export records required by contract before deletion.
+3. Delete or anonymize eligible records.
+4. Confirm deletion in an isolated verification step.
+5. Record the deletion audit event.
+
+Production retention must be aligned to each district contract and applicable
+state/federal student privacy obligations.
+
+## 17. Moderation Review
+
+The app supports text-only direct messages and classroom discussions with a
+first-pass profanity filter. Production moderation should give teachers and
+admins a review queue for blocked or escalated items.
+
+Production endpoint:
+
+- `POST /api/admin/moderation`
+
+The endpoint requires `Teacher portal` permission, which means teachers and
+admins can review classroom messages. Reviews support allow, block, and escalate
+actions, and every review creates an audit event.
+
+Moderation review process:
+
+1. Review message body, sender, room/conversation, timestamp, and matched terms.
+2. Allow messages that were incorrectly blocked.
+3. Block messages that violate classroom policy.
+4. Escalate messages that require administrator, counselor, or district review.
+5. Keep moderation notes factual and minimal.
+
+## 18. Backup, Restore, and Incident Response
+
+The Cloud Run infrastructure provisions Cloud SQL with backups and point-in-time
+recovery settings. Production operations should test restore procedures before a
+district pilot.
+
+Backup and restore-test endpoint:
+
+- `POST /api/admin/operations/backup`
+
+Incident endpoint:
+
+- `POST /api/admin/operations/incidents`
+
+Backup procedure:
+
+1. Confirm the latest Cloud SQL automated backup completed.
+2. Confirm the point-in-time recovery window matches district requirements.
+3. Record backup location and timestamp.
+4. Periodically run a restore into an isolated project or database.
+5. Verify migrations, login, admin portal, quest data, messaging data, and
+   portfolio data after restore.
+
+Incident response procedure:
+
+1. Triage severity and district impact.
+2. Preserve logs, trace IDs, request IDs, and relevant audit events.
+3. Contain the issue through rollback, integration disablement, permission
+   change, or traffic control.
+4. Notify the district contact if availability, student data, messaging, or
+   classroom workflows are affected.
+5. Resolve the issue and document follow-up work.
+6. Create a postmortem for critical incidents.
+
+## 19. Deployment and Infrastructure
 
 The Cloud Run infrastructure guide is available at
 `docs/cloud-run-infrastructure.md`.
@@ -466,7 +614,7 @@ SQLite/D1-shaped in code. The Cloud Run package provisions Cloud SQL
 PostgreSQL as the production target, but the app data access and migrations
 should be ported and validated before using Cloud SQL as the source of truth.
 
-## 17. Daily Admin Checklist
+## 20. Daily Admin Checklist
 
 At the start of the day:
 
@@ -490,7 +638,7 @@ End of day:
 - Document any portfolio corrections.
 - Confirm imports, exports, role changes, and corrections have audit context.
 
-## 18. Semester or Class Rollover Checklist
+## 21. Semester or Class Rollover Checklist
 
 Before a new class period or semester:
 
@@ -503,21 +651,18 @@ Before a new class period or semester:
 - Export reusable learning quest templates.
 - Review privacy posture before new integrations or vendors are added.
 
-## 19. Production Readiness Gaps
+## 22. Production Readiness Gaps
 
 The MVP admin guide reflects the current prototype and near-term infrastructure
-package. Before production use with real districts, complete these items:
+package. Before production use with real districts, confirm these items are
+fully wired to the selected production database, identity provider, and district
+operating procedures:
 
-- Persist admin actions to the production database.
-- Replace seeded demo auth with production credentials and SSO.
-- Add complete server-side authorization checks for every admin operation.
-- Implement audit logging for role changes, imports, exports, corrections,
-  integration changes, privacy changes, and password resets.
-- Add provider-specific market data adapters and token storage through Secret
-  Manager.
-- Add data retention, export, and deletion workflows aligned to district
-  contracts.
-- Add robust moderation review workflows for messages and discussions.
-- Add backup, restore, and incident response procedures.
-- Validate Cloud SQL migrations and application data access.
-
+- Replace seeded demo auth with fully persisted credentials and district SSO.
+- Wire every admin mutation endpoint to the selected production data adapter.
+- Enforce server-side authorization from the signed session on every protected
+  route.
+- Store market provider tokens only in Secret Manager or the approved secret
+  store.
+- Verify retention, export, deletion, backup, restore, and incident procedures
+  with the district before launch.

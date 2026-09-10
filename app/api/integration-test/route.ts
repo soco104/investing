@@ -1,9 +1,13 @@
 import { startOtelSpan, statusFromDuration } from "@/lib/observability";
+import { testMarketProvider } from "@/lib/server/market-providers";
 
 type IntegrationTestRequest = {
+  allowedSymbols?: string;
   endpoint?: string;
   maxSymbols?: number;
+  provider?: string;
   token?: string;
+  tokenPlacement?: "bearer" | "query" | "x-api-key";
 };
 
 export async function POST(request: Request) {
@@ -31,49 +35,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const symbolLimit = Math.min(Math.max(body.maxSymbols ?? 200, 1), 200);
-
-  if (endpoint.startsWith("/api/market")) {
-    const endedSpan = span.end({ endpoint, importedSymbols: 4 });
-
-    return Response.json({
-      telemetry: {
-        durationMs: endedSpan.durationMs,
-        status: statusFromDuration(endedSpan.durationMs),
-        traceId: endedSpan.traceId,
-      },
-      ok: true,
-      importedSymbols: 4,
-      message: "GET succeeded from the classroom-safe market endpoint.",
-    });
-  }
-
   try {
-    const response = await fetch(endpoint, {
-      headers: body.token
-        ? {
-            Authorization: `Bearer ${body.token}`,
-          }
-        : undefined,
-      method: "GET",
+    const result = await testMarketProvider({
+      allowedSymbols: body.allowedSymbols,
+      endpoint,
+      maxSymbols: body.maxSymbols,
+      provider: body.provider ?? "Custom provider",
+      token: body.token,
+      tokenPlacement: body.tokenPlacement ?? "bearer",
     });
     const endedSpan = span.end({
       endpoint,
-      statusCode: response.status,
+      statusCode: result.statusCode,
     });
 
-    return Response.json({
-      telemetry: {
-        durationMs: endedSpan.durationMs,
-        status: statusFromDuration(endedSpan.durationMs, !response.ok),
-        traceId: endedSpan.traceId,
+    return Response.json(
+      {
+        telemetry: {
+          durationMs: endedSpan.durationMs,
+          status: statusFromDuration(endedSpan.durationMs, !result.ok),
+          traceId: endedSpan.traceId,
+        },
+        ...result,
       },
-      ok: response.ok,
-      importedSymbols: response.ok ? symbolLimit : 0,
-      message: response.ok
-        ? `GET succeeded. Imported up to ${symbolLimit} symbols.`
-        : `GET returned ${response.status}.`,
-    });
+      { status: result.ok ? 200 : 502 }
+    );
   } catch {
     const endedSpan = span.end({ endpoint, failed: true });
 

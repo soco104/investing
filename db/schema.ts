@@ -414,6 +414,60 @@ export const adminAuditEvents = sqliteTable("admin_audit_events", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+export const dataRetentionRequests = sqliteTable("data_retention_requests", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id")
+    .notNull()
+    .references(() => districts.id),
+  requestedByUserId: text("requested_by_user_id").notNull(),
+  requestType: text("request_type").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("pending_review"),
+  exportLocation: text("export_location"),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const moderationReviews = sqliteTable("moderation_reviews", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id")
+    .notNull()
+    .references(() => districts.id),
+  messageId: text("message_id")
+    .notNull()
+    .references(() => conversationMessages.id),
+  reviewedByUserId: text("reviewed_by_user_id").notNull(),
+  action: text("action").notNull(),
+  note: text("note").notNull().default(""),
+  statusAfterReview: text("status_after_review").notNull(),
+  reviewedAt: integer("reviewed_at", { mode: "timestamp" }).notNull(),
+});
+
+export const backupJobs = sqliteTable("backup_jobs", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id").references(() => districts.id),
+  jobType: text("job_type").notNull(),
+  status: text("status").notNull().default("scheduled"),
+  backupLocation: text("backup_location"),
+  restoreTestedAt: integer("restore_tested_at", { mode: "timestamp" }),
+  startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+});
+
+export const incidentResponseRecords = sqliteTable("incident_response_records", {
+  id: text("id").primaryKey(),
+  districtId: text("district_id").references(() => districts.id),
+  severity: text("severity").notNull(),
+  summary: text("summary").notNull(),
+  status: text("status").notNull().default("open"),
+  ownerUserId: text("owner_user_id").notNull(),
+  startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+  postmortemUrl: text("postmortem_url"),
+});
+
 export const appErrorEvents = sqliteTable("app_error_events", {
   id: text("id").primaryKey(),
   districtId: text("district_id").references(() => districts.id),
@@ -511,7 +565,11 @@ export const districtsRelations = relations(districts, ({ many }) => ({
   marketDataIntegrations: many(marketDataIntegrations),
   privacyPostureSettings: many(privacyPostureSettings),
   auditEvents: many(adminAuditEvents),
+  backupJobs: many(backupJobs),
+  dataRetentionRequests: many(dataRetentionRequests),
   appErrorEvents: many(appErrorEvents),
+  incidentResponseRecords: many(incidentResponseRecords),
+  moderationReviews: many(moderationReviews),
   performanceEvents: many(performanceEvents),
 }));
 
@@ -789,6 +847,47 @@ export const adminAuditEventsRelations = relations(
   ({ one }) => ({
     district: one(districts, {
       fields: [adminAuditEvents.districtId],
+      references: [districts.id],
+    }),
+  })
+);
+
+export const dataRetentionRequestsRelations = relations(
+  dataRetentionRequests,
+  ({ one }) => ({
+    district: one(districts, {
+      fields: [dataRetentionRequests.districtId],
+      references: [districts.id],
+    }),
+  })
+);
+
+export const moderationReviewsRelations = relations(
+  moderationReviews,
+  ({ one }) => ({
+    district: one(districts, {
+      fields: [moderationReviews.districtId],
+      references: [districts.id],
+    }),
+    message: one(conversationMessages, {
+      fields: [moderationReviews.messageId],
+      references: [conversationMessages.id],
+    }),
+  })
+);
+
+export const backupJobsRelations = relations(backupJobs, ({ one }) => ({
+  district: one(districts, {
+    fields: [backupJobs.districtId],
+    references: [districts.id],
+  }),
+}));
+
+export const incidentResponseRecordsRelations = relations(
+  incidentResponseRecords,
+  ({ one }) => ({
+    district: one(districts, {
+      fields: [incidentResponseRecords.districtId],
       references: [districts.id],
     }),
   })

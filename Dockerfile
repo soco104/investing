@@ -5,6 +5,12 @@ RUN npm ci
 
 FROM node:22-slim AS builder
 WORKDIR /app
+
+# Docker-based production deployments (DigitalOcean App Platform and Cloud Run)
+# run Vinext as a normal Node HTTP server. This flag tells vite.config.ts to
+# omit the Cloudflare Workers plugin so the build emits Node-compatible output.
+ENV DEPLOY_TARGET=node
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

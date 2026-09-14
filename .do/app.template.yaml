@@ -16,7 +16,9 @@ region: __APP_REGION__
 # Public web/API service
 # -----------------------------------------------------------------------------
 # Uses the repository's existing production Dockerfile, but overrides the
-# container command so DigitalOcean-specific migration work runs before Vinext.
+# container command with a single Node entrypoint. That wrapper runs migrations
+# and then starts the long-running Vinext production server without relying on
+# shell chaining semantics in App Platform's run_command field.
 services:
   - name: web
     github:
@@ -25,7 +27,7 @@ services:
       deploy_on_push: true
     source_dir: /
     dockerfile_path: ./Dockerfile
-    run_command: node scripts/digitalocean-migrate.mjs && ./node_modules/.bin/vinext start --hostname 0.0.0.0
+    run_command: npm run start:digitalocean
     http_port: 8080
     instance_count: 1
     instance_size_slug: __APP_INSTANCE_SIZE__

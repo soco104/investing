@@ -1,15 +1,29 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+} from "node:crypto";
+
 import postgres from "postgres";
 
 const localSecrets = new Map<string, string>();
 
 type MarketTokenEnvelope = Record<string, string>;
-type SecretBackend =
-  | "digitalocean-env"
-  | "google-secret-manager"
-  | "local"
-  | "postgres-encrypted";
+type SecretSqlClient = ReturnType<typeof postgres>;
 
+const databaseSecretPrefix = "database://credential-secrets/";
+let secretSqlClient: SecretSqlClient | null = null;
+
+/**
+ * Store a market integration token using the configured production vault.
+ *
+ * Supported backends:
+ *   - Google Secret Manager when GOOGLE_CLOUD_PROJECT is configured.
+ *   - Encrypted PostgreSQL when DATABASE_URL is configured (DigitalOcean path).
+ *   - An in-memory Map for local development only.
+ *
+ * The database backend encrypts values with AES-256-GCM before persistence.
+ */
 export async function storeMarketIntegrationToken(
   integrationId: string,
   token: string
@@ -22,46 +36,36 @@ export async function storeCredentialSecret(credentialId: string, token: string)
     return null;
   }
 
-  const backend = secretBackend();
+  // Preserve the existing Google Cloud production behavior for Cloud Run.
+  if (process.env.GOOGLE_CLOUD_PROJECT) {
+    const secretName = process.env.MARKET_PROVIDER_TOKENS_SECRET;
 
-  if (backend === "local") {
-    const localRef = `local://futurefund-credential-vault#${credentialId}`;
-    localSecrets.set(localRef, token);
-    return localRef;
-  }
-
-  if (backend === "digitalocean-env") {
-    const envName = digitalOceanTokenEnvName();
-    const existingTokens = readDigitalOceanTokenEnvelope(envName);
-
-    if (existingTokens[credentialId]) {
-      return `do-env://${envName}#${credentialId}`;
+    if (!secretName) {
+      throw new Error("MARKET_PROVIDER_TOKENS_SECRET is required for token storage.");
     }
 
-    throw new Error(
-      `DigitalOcean App Platform encrypted environment variables are read-only at runtime. Add ${credentialId} to ${envName} or configure an external credential vault.`
-    );
+    const existingTokens = await readMarketTokenEnvelope(secretName);
+    const updatedTokens = {
+      ...existingTokens,
+      [credentialId]: token,
+    };
+
+    await addSecretVersion(secretName, JSON.stringify(updatedTokens));
+
+    return `${secretName}#${credentialId}`;
   }
 
-  if (backend === "postgres-encrypted") {
-    return storePostgresEncryptedCredential(credentialId, token);
+  // DigitalOcean (and any other ordinary Node/PostgreSQL production host)
+  // stores encrypted payloads in the production database.
+  if (process.env.DATABASE_URL) {
+    return storeDatabaseSecret(credentialId, token);
   }
 
-  const secretName = process.env.MARKET_PROVIDER_TOKENS_SECRET;
-
-  if (!secretName) {
-    throw new Error("MARKET_PROVIDER_TOKENS_SECRET is required for token storage.");
-  }
-
-  const existingTokens = await readMarketTokenEnvelope(secretName);
-  const updatedTokens = {
-    ...existingTokens,
-    [credentialId]: token,
-  };
-
-  await addSecretVersion(secretName, JSON.stringify(updatedTokens));
-
-  return `${secretName}#${credentialId}`;
+  // Local-only fallback. This intentionally remains non-persistent so local
+  // development does not require production infrastructure.
+  const localRef = `local://futurefund-credential-vault#${credentialId}`;
+  localSecrets.set(localRef, token);
+  return localRef;
 }
 
 export async function readSecretValue(secretRef: string | null | undefined) {
@@ -73,14 +77,12 @@ export async function readSecretValue(secretRef: string | null | undefined) {
     return localSecrets.get(secretRef) ?? "";
   }
 
-  if (secretRef.startsWith("do-env://")) {
-    return readDigitalOceanSecretValue(secretRef);
+  if (secretRef.startsWith(databaseSecretPrefix)) {
+    return readDatabaseSecret(secretRef);
   }
 
-  if (secretRef.startsWith("pg-encrypted://")) {
-    return readPostgresEncryptedCredential(secretRef);
-  }
-
+  // Any other reference is treated as the existing Google Secret Manager
+  // resource format: projects/.../secrets/...#credential-id.
   const [secretName, integrationId] = secretRef.split("#");
   const secretValue = await accessSecretVersion(secretName);
 
@@ -89,217 +91,145 @@ export async function readSecretValue(secretRef: string | null | undefined) {
   }
 
   const parsed = parseMarketTokenEnvelope(secretValue);
-
   return parsed[integrationId] ?? "";
 }
 
-function secretBackend(): SecretBackend {
-  const configured = process.env.MARKET_SECRET_BACKEND?.toLowerCase();
+// ---------------------------------------------------------------------------
+// PostgreSQL encrypted credential vault (DigitalOcean production path)
+// ---------------------------------------------------------------------------
 
-  if (configured === "digitalocean-env" || configured === "digitalocean") {
-    return "digitalocean-env";
+function getSecretSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required for database credential storage.");
   }
 
-  if (configured === "postgres-encrypted" || configured === "postgres") {
-    return "postgres-encrypted";
-  }
+  secretSqlClient ??= postgres(process.env.DATABASE_URL, {
+    // Keep this tiny because the main application repository already owns its
+    // own connection pool. Credential reads/writes are low-frequency.
+    max: 2,
+    prepare: false,
+  });
 
-  if (configured === "google-secret-manager" || configured === "google") {
-    return "google-secret-manager";
-  }
-
-  if (configured === "local") {
-    return "local";
-  }
-
-  if (process.env.MARKET_PROVIDER_TOKENS_SECRET?.startsWith("do-env://")) {
-    return "digitalocean-env";
-  }
-
-  if (process.env.MARKET_PROVIDER_TOKENS_SECRET?.startsWith("pg-encrypted://")) {
-    return "postgres-encrypted";
-  }
-
-  if (process.env.GOOGLE_CLOUD_PROJECT) {
-    return "google-secret-manager";
-  }
-
-  return "local";
+  return secretSqlClient;
 }
 
-function digitalOceanTokenEnvName() {
-  const secretRef = process.env.MARKET_PROVIDER_TOKENS_SECRET;
+function getCredentialEncryptionKey() {
+  const encoded = process.env.CREDENTIAL_ENCRYPTION_KEY;
 
-  if (secretRef?.startsWith("do-env://")) {
-    return secretRef.replace("do-env://", "").split("#")[0] || "MARKET_PROVIDER_TOKENS_JSON";
+  if (!encoded) {
+    throw new Error(
+      "CREDENTIAL_ENCRYPTION_KEY is required for production credential storage."
+    );
   }
 
-  return process.env.MARKET_PROVIDER_TOKENS_ENV ?? "MARKET_PROVIDER_TOKENS_JSON";
-}
-
-function readDigitalOceanSecretValue(secretRef: string) {
-  const [envName, credentialId] = secretRef.replace("do-env://", "").split("#");
-
-  if (!credentialId) {
-    return process.env[envName] ?? "";
-  }
-
-  return readDigitalOceanTokenEnvelope(envName)[credentialId] ?? "";
-}
-
-function readDigitalOceanTokenEnvelope(envName: string) {
-  return parseMarketTokenEnvelope(process.env[envName] ?? "");
-}
-
-async function storePostgresEncryptedCredential(
-  credentialId: string,
-  token: string
-) {
-  const encrypted = encryptCredentialValue(credentialId, token);
-  const sql = postgresDatabase();
-
-  try {
-    await ensureCredentialSecretTable(sql);
-    await sql`
-      insert into credential_secret_values (
-        credential_id, ciphertext, iv, auth_tag, algorithm, key_version,
-        created_at, updated_at
-      )
-      values (
-        ${credentialId}, ${encrypted.ciphertext}, ${encrypted.iv},
-        ${encrypted.authTag}, 'aes-256-gcm', ${encryptionKeyVersion()},
-        now(), now()
-      )
-      on conflict (credential_id) do update set
-        ciphertext = excluded.ciphertext,
-        iv = excluded.iv,
-        auth_tag = excluded.auth_tag,
-        algorithm = excluded.algorithm,
-        key_version = excluded.key_version,
-        updated_at = excluded.updated_at
-    `;
-  } finally {
-    await sql.end();
-  }
-
-  return `pg-encrypted://credential_secret_values#${credentialId}`;
-}
-
-async function readPostgresEncryptedCredential(secretRef: string) {
-  const credentialId = secretRef.replace("pg-encrypted://credential_secret_values#", "");
-
-  if (!credentialId || credentialId === secretRef) {
-    return "";
-  }
-
-  const sql = postgresDatabase();
-
-  try {
-    await ensureCredentialSecretTable(sql);
-    const rows = await sql<{
-      auth_tag: string;
-      ciphertext: string;
-      iv: string;
-      key_version: string;
-    }[]>`
-      select ciphertext, iv, auth_tag, key_version
-      from credential_secret_values
-      where credential_id = ${credentialId}
-      limit 1
-    `;
-
-    if (!rows[0]) {
-      return "";
-    }
-
-    return decryptCredentialValue(credentialId, rows[0]);
-  } finally {
-    await sql.end();
-  }
-}
-
-function encryptCredentialValue(credentialId: string, value: string) {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", credentialEncryptionKey(), iv);
-  cipher.setAAD(Buffer.from(credentialId, "utf8"));
-
-  const ciphertext = Buffer.concat([
-    cipher.update(value, "utf8"),
-    cipher.final(),
-  ]);
-  const authTag = cipher.getAuthTag();
-
-  return {
-    authTag: authTag.toString("base64"),
-    ciphertext: ciphertext.toString("base64"),
-    iv: iv.toString("base64"),
-  };
-}
-
-function decryptCredentialValue(
-  credentialId: string,
-  encrypted: { auth_tag: string; ciphertext: string; iv: string }
-) {
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    credentialEncryptionKey(),
-    Buffer.from(encrypted.iv, "base64")
-  );
-  decipher.setAAD(Buffer.from(credentialId, "utf8"));
-  decipher.setAuthTag(Buffer.from(encrypted.auth_tag, "base64"));
-
-  return Buffer.concat([
-    decipher.update(Buffer.from(encrypted.ciphertext, "base64")),
-    decipher.final(),
-  ]).toString("utf8");
-}
-
-function credentialEncryptionKey() {
-  const configuredKey = process.env.CREDENTIAL_ENCRYPTION_KEY?.trim();
-
-  if (!configuredKey) {
-    throw new Error("CREDENTIAL_ENCRYPTION_KEY is required for encrypted credential storage.");
-  }
-
-  const hexKey = /^[a-f0-9]{64}$/i.test(configuredKey)
-    ? Buffer.from(configuredKey, "hex")
-    : null;
-  const base64Key = hexKey ? null : Buffer.from(configuredKey, "base64");
-  const key = hexKey ?? base64Key;
+  const key = Buffer.from(encoded, "base64");
 
   if (key.length !== 32) {
-    throw new Error("CREDENTIAL_ENCRYPTION_KEY must decode to 32 bytes.");
+    throw new Error(
+      "CREDENTIAL_ENCRYPTION_KEY must be a base64-encoded 32-byte key."
+    );
   }
 
   return key;
 }
 
-function encryptionKeyVersion() {
-  return process.env.CREDENTIAL_ENCRYPTION_KEY_VERSION ?? "v1";
+function encryptCredentialValue(value: string) {
+  const key = getCredentialEncryptionKey();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+
+  const encrypted = Buffer.concat([
+    cipher.update(value, "utf8"),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  // One compact versioned payload keeps migration simple and leaves room for a
+  // future encryption format if the vault implementation changes.
+  return [
+    "v1",
+    iv.toString("base64"),
+    authTag.toString("base64"),
+    encrypted.toString("base64"),
+  ].join(".");
 }
 
-function postgresDatabase() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is required for encrypted credential storage.");
+function decryptCredentialValue(payload: string) {
+  const [version, ivBase64, authTagBase64, encryptedBase64] = payload.split(".");
+
+  if (
+    version !== "v1" ||
+    !ivBase64 ||
+    !authTagBase64 ||
+    !encryptedBase64
+  ) {
+    throw new Error("Stored credential payload has an unsupported format.");
   }
 
-  return postgres(process.env.DATABASE_URL, { max: 1, prepare: false });
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    getCredentialEncryptionKey(),
+    Buffer.from(ivBase64, "base64")
+  );
+
+  decipher.setAuthTag(Buffer.from(authTagBase64, "base64"));
+
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedBase64, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
 }
 
-async function ensureCredentialSecretTable(sql: ReturnType<typeof postgres>) {
+async function storeDatabaseSecret(credentialId: string, value: string) {
+  const encryptedValue = encryptCredentialValue(value);
+  const sql = getSecretSql();
+
   await sql`
-    create table if not exists credential_secret_values (
-      credential_id text primary key,
-      ciphertext text not null,
-      iv text not null,
-      auth_tag text not null,
-      algorithm text not null default 'aes-256-gcm',
-      key_version text not null default 'v1',
-      created_at timestamp not null,
-      updated_at timestamp not null
+    insert into credential_secrets (
+      credential_id,
+      encrypted_value,
+      created_at,
+      updated_at
     )
+    values (
+      ${credentialId},
+      ${encryptedValue},
+      now(),
+      now()
+    )
+    on conflict (credential_id)
+    do update set
+      encrypted_value = excluded.encrypted_value,
+      updated_at = now()
   `;
+
+  return `${databaseSecretPrefix}${encodeURIComponent(credentialId)}`;
 }
+
+async function readDatabaseSecret(secretRef: string) {
+  const credentialId = decodeURIComponent(
+    secretRef.slice(databaseSecretPrefix.length)
+  );
+
+  if (!credentialId) {
+    return "";
+  }
+
+  const [row] = await getSecretSql()<
+    Array<{ encrypted_value: string }>
+  >`
+    select encrypted_value
+    from credential_secrets
+    where credential_id = ${credentialId}
+    limit 1
+  `;
+
+  return row ? decryptCredentialValue(row.encrypted_value) : "";
+}
+
+// ---------------------------------------------------------------------------
+// Existing Google Secret Manager implementation
+// ---------------------------------------------------------------------------
 
 async function readMarketTokenEnvelope(secretName: string) {
   try {
@@ -345,7 +275,6 @@ async function accessSecretVersion(secretName: string) {
   }
 
   const body = (await response.json()) as { payload?: { data?: string } };
-
   return body.payload?.data ? atob(body.payload.data) : "";
 }
 

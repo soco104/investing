@@ -1,0 +1,177 @@
+# =============================================================================
+# FutureFund Classroom - DigitalOcean App Platform specification TEMPLATE
+# =============================================================================
+#
+# This file is intentionally safe to commit. It contains placeholders rather
+# than real secret values. deploy-digitalocean.sh renders a temporary copy and
+# sends that rendered copy to DigitalOcean.
+#
+# Do not replace secret placeholders here with real production secrets.
+# =============================================================================
+
+name: __APP_NAME__
+region: __APP_REGION__
+
+# -----------------------------------------------------------------------------
+# Public web/API service
+# -----------------------------------------------------------------------------
+# Uses the repository's existing production Dockerfile, but overrides the
+# container command so DigitalOcean-specific migration work runs before Vinext.
+services:
+  - name: web
+    github:
+      repo: __GITHUB_REPO__
+      branch: __GITHUB_BRANCH__
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: ./Dockerfile
+    run_command: node scripts/digitalocean-migrate.mjs && ./node_modules/.bin/vinext start --hostname 0.0.0.0
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: __APP_INSTANCE_SIZE__
+
+    # /api/health checks both the HTTP application and PostgreSQL connectivity.
+    health_check:
+      initial_delay_seconds: 15
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+      http_path: /api/health
+      port: 8080
+
+    envs:
+      # Production behavior / database
+      - key: NODE_ENV
+        value: "production"
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: DATABASE_URL
+        value: ${futurefund-db.DATABASE_URL}
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: DB_POOL_SIZE
+        value: "5"
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: ALLOW_DEMO_AUTH
+        value: "false"
+        scope: RUN_TIME
+        type: GENERAL
+
+      # Security secrets
+      - key: SESSION_SECRET
+        value: __SESSION_SECRET__
+        scope: RUN_TIME
+        type: SECRET
+
+      - key: CRON_SECRET
+        value: __CRON_SECRET__
+        scope: RUN_TIME
+        type: SECRET
+
+      - key: OBSERVABILITY_INGEST_SECRET
+        value: __OBSERVABILITY_INGEST_SECRET__
+        scope: RUN_TIME
+        type: SECRET
+
+      # AES-256 key used by lib/server/secrets.ts to encrypt provider
+      # credentials before saving them in PostgreSQL.
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        value: __CREDENTIAL_ENCRYPTION_KEY__
+        scope: RUN_TIME
+        type: SECRET
+
+      # Initial tenant/admin bootstrap. The migration uses these values only
+      # when the corresponding records do not already exist.
+      - key: BOOTSTRAP_DISTRICT_NAME
+        value: __DISTRICT_NAME__
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: BOOTSTRAP_DISTRICT_STATE
+        value: __DISTRICT_STATE__
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: PRIVACY_CONTACT_EMAIL
+        value: __PRIVACY_CONTACT_EMAIL__
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        value: __ADMIN_EMAIL__
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: BOOTSTRAP_ADMIN_PASSWORD_HASH
+        value: __BOOTSTRAP_ADMIN_PASSWORD_HASH__
+        scope: RUN_TIME
+        type: SECRET
+
+      # Market-provider network tuning
+      - key: MARKET_PROVIDER_TIMEOUT_MS
+        value: "7000"
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: MARKET_POLL_CONCURRENCY
+        value: "4"
+        scope: RUN_TIME
+        type: GENERAL
+
+# -----------------------------------------------------------------------------
+# Scheduled market polling job
+# -----------------------------------------------------------------------------
+# Jobs are billed only while they run. The helper POSTs to the web component's
+# internal App Platform address, so the cron task does not need to traverse the
+# public internet.
+jobs:
+  - name: market-poll
+    kind: SCHEDULED
+    schedule:
+      cron: __MARKET_CRON__
+      time_zone: __MARKET_TIME_ZONE__
+
+    github:
+      repo: __GITHUB_REPO__
+      branch: __GITHUB_BRANCH__
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: ./Dockerfile
+    run_command: node scripts/market-poll.mjs
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+
+    envs:
+      - key: MARKET_POLL_URL
+        value: "http://web:8080/api/market/poll"
+        scope: RUN_TIME
+        type: GENERAL
+
+      - key: CRON_SECRET
+        value: __CRON_SECRET__
+        scope: RUN_TIME
+        type: SECRET
+
+# -----------------------------------------------------------------------------
+# Existing DigitalOcean Managed PostgreSQL cluster
+# -----------------------------------------------------------------------------
+# deploy-digitalocean.sh creates the cluster/database/user first and then binds
+# that existing cluster to the app using its DigitalOcean cluster name.
+databases:
+  - name: futurefund-db
+    engine: PG
+    version: __PG_VERSION__
+    production: true
+    cluster_name: __DB_CLUSTER_NAME__
+    db_name: __DB_NAME__
+    db_user: __DB_USER__
+
+# Deployment/domain failures are surfaced in App Platform.
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED

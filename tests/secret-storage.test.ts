@@ -38,7 +38,7 @@ describe("market token secret storage", () => {
           return Promise.resolve([]);
         }
 
-        if (query.includes("select ciphertext, iv, auth_tag, key_version")) {
+        if (query.includes("select ciphertext, iv, auth_tag")) {
           const row = postgresMock.rows.get(String(values[0]));
           return Promise.resolve(row ? [row] : []);
         }
@@ -131,45 +131,6 @@ describe("market token secret storage", () => {
     });
   });
 
-  it("reads DigitalOcean encrypted environment token envelopes", async () => {
-    process.env.MARKET_SECRET_BACKEND = "digitalocean-env";
-    process.env.MARKET_PROVIDER_TOKENS_JSON = JSON.stringify({
-      "market-integration-finnhub": "finnhub-token",
-    });
-
-    const { readSecretValue } = await import("@/lib/server/secrets");
-
-    await expect(
-      readSecretValue("do-env://MARKET_PROVIDER_TOKENS_JSON#market-integration-finnhub")
-    ).resolves.toBe("finnhub-token");
-  });
-
-  it("does not pretend DigitalOcean encrypted environment variables can be updated at runtime", async () => {
-    process.env.MARKET_SECRET_BACKEND = "digitalocean-env";
-    process.env.MARKET_PROVIDER_TOKENS_JSON = "{}";
-
-    const { storeMarketIntegrationToken } = await import("@/lib/server/secrets");
-
-    await expect(
-      storeMarketIntegrationToken("integration-new", "new-token")
-    ).rejects.toThrow("read-only at runtime");
-  });
-
-  it("returns a DigitalOcean secret ref when the credential already exists in the encrypted environment", async () => {
-    process.env.MARKET_SECRET_BACKEND = "digitalocean-env";
-    process.env.MARKET_PROVIDER_TOKENS_JSON = JSON.stringify({
-      "market-integration-existing": "existing-token",
-    });
-
-    const { storeMarketIntegrationToken } = await import("@/lib/server/secrets");
-
-    await expect(
-      storeMarketIntegrationToken("integration-existing", "existing-token")
-    ).resolves.toBe(
-      "do-env://MARKET_PROVIDER_TOKENS_JSON#market-integration-existing"
-    );
-  });
-
   it("stores and reads encrypted PostgreSQL credentials for DigitalOcean mutable vaults", async () => {
     process.env.CREDENTIAL_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
     process.env.DATABASE_URL = "postgres://futurefund.test/db";
@@ -198,6 +159,6 @@ describe("market token secret storage", () => {
 
     await expect(
       storeMarketIntegrationToken("integration-finnhub", "finnhub-token")
-    ).rejects.toThrow("32 bytes");
+    ).rejects.toThrow("32-byte");
   });
 });

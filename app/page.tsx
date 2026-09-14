@@ -2295,6 +2295,67 @@ export default function Home() {
     setNewUserTemporaryPassword("");
   }
 
+  async function updateAdminUser(updatedUser: AdminUser) {
+    const firstName = updatedUser.firstName.trim();
+    const lastName = updatedUser.lastName.trim();
+    const email = updatedUser.email.trim().toLowerCase();
+    const alias = updatedUser.alias.trim() || `${firstName}${lastName}`;
+    const className = updatedUser.role === "Admin" ? "District" : updatedUser.className;
+
+    if (!firstName || !lastName || !email) {
+      setUserImportNotice("First name, last name, and email are required.");
+      return false;
+    }
+
+    if (
+      adminUsers.some(
+        (user) => user.id !== updatedUser.id && user.email.toLowerCase() === email
+      )
+    ) {
+      setUserImportNotice("A different user already has that email.");
+      return false;
+    }
+
+    const normalizedUser: AdminUser = {
+      ...updatedUser,
+      alias,
+      className,
+      classes: [className],
+      email,
+      firstName,
+      lastName,
+      permissions: permissionsForRole(updatedUser.role),
+    };
+
+    try {
+      await postAdminMutation("/api/admin/users", {
+        action: "update",
+        reason: "Admin user profile modification",
+        targetUserId: normalizedUser.id,
+        users: [
+          {
+            alias: normalizedUser.alias,
+            className: normalizedUser.className,
+            email: normalizedUser.email,
+            enabled: normalizedUser.enabled,
+            firstName: normalizedUser.firstName,
+            lastName: normalizedUser.lastName,
+            role: normalizedUser.role,
+          },
+        ],
+      });
+    } catch (error) {
+      setUserImportNotice((error as Error).message);
+      return false;
+    }
+
+    setAdminUsers((users) =>
+      users.map((user) => (user.id === normalizedUser.id ? normalizedUser : user))
+    );
+    setUserImportNotice(`${firstName} ${lastName} updated and audited.`);
+    return true;
+  }
+
   async function createSupportCase() {
     const trimmedSummary = supportSummary.trim();
 
@@ -3942,6 +4003,7 @@ export default function Home() {
                     onTestIntegration={testMarketIntegration}
                     onToggleIntegration={toggleMarketIntegration}
                     onUpdateClassMarketConfig={updateClassMarketConfig}
+                    onUpdateUser={updateAdminUser}
                     onToggleUserEnabled={toggleUserEnabled}
                     privacyContact={privacyContact}
                     privacyPosture={privacyPosture}
@@ -5821,6 +5883,7 @@ function AdminDrilldown({
   onSelectedPermissionUserChange,
   onToggleUserEnabled,
   onUpdateUserPermission,
+  onUpdateUser,
   onUserClassFilterChange,
   onUserRoleFilterChange,
   onCreateSupportCase,
@@ -5937,6 +6000,7 @@ function AdminDrilldown({
     permission: keyof AdminUser["permissions"],
     enabled: boolean
   ) => void;
+  onUpdateUser: (user: AdminUser) => Promise<boolean> | boolean;
   onUserClassFilterChange: (className: string) => void;
   onUserRoleFilterChange: (role: string) => void;
   onCreateSupportCase: () => void;
@@ -6092,6 +6156,7 @@ function AdminDrilldown({
           onOpenProfile={onOpenUserProfile}
           onRoleFilterChange={onUserRoleFilterChange}
           onToggleUserEnabled={onToggleUserEnabled}
+          onUpdateUser={onUpdateUser}
           selectedClass={userClassFilter}
           selectedRole={userRoleFilter}
         />
@@ -7625,6 +7690,7 @@ function UsersAdminPage({
   onOpenProfile,
   onRoleFilterChange,
   onToggleUserEnabled,
+  onUpdateUser,
 }: {
   filteredUsers: AdminUser[];
   selectedClass: string;
@@ -7650,6 +7716,7 @@ function UsersAdminPage({
   onOpenProfile: (userId: string) => void;
   onRoleFilterChange: (role: string) => void;
   onToggleUserEnabled: (userId: string, enabled: boolean) => void;
+  onUpdateUser: (user: AdminUser) => Promise<boolean> | boolean;
 }) {
   function handleCsvUpload(file: File | undefined) {
     if (!file) {
@@ -7831,7 +7898,7 @@ function UsersAdminPage({
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">
-        <Table className="min-w-[900px]">
+        <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow className="text-muted-foreground hover:bg-transparent">
               <TableHead>Name</TableHead>
@@ -7842,6 +7909,7 @@ function UsersAdminPage({
               <TableHead>Profile</TableHead>
               <TableHead>Enabled</TableHead>
               <TableHead>Permissions</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -7875,12 +7943,193 @@ function UsersAdminPage({
                 <TableCell>
                   {permissionSummary(user.permissions)}
                 </TableCell>
+                <TableCell>
+                  <UserEditDialog user={user} onUpdateUser={onUpdateUser} />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
     </div>
+  );
+}
+
+function UserEditDialog({
+  user,
+  onUpdateUser,
+}: {
+  user: AdminUser;
+  onUpdateUser: (user: AdminUser) => Promise<boolean> | boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<AdminUser>(user);
+  const [saving, setSaving] = useState(false);
+
+  function updateOpen(nextOpen: boolean) {
+    if (nextOpen) {
+      setDraft(user);
+    }
+    setOpen(nextOpen);
+  }
+
+  async function saveUser() {
+    setSaving(true);
+    const saved = await onUpdateUser({
+      ...draft,
+      className: draft.role === "Admin" ? "District" : draft.className,
+      classes: [draft.role === "Admin" ? "District" : draft.className],
+    });
+    setSaving(false);
+    if (saved) {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={updateOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm">
+          <FilePenLine className="size-4" aria-hidden="true" />
+          Edit
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Edit user</DialogTitle>
+          <DialogDescription>
+            Update profile, role, class assignment, and account status.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor={`edit-first-name-${user.id}`}>First name</Label>
+            <Input
+              id={`edit-first-name-${user.id}`}
+              value={draft.firstName}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  firstName: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`edit-last-name-${user.id}`}>Last name</Label>
+            <Input
+              id={`edit-last-name-${user.id}`}
+              value={draft.lastName}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  lastName: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`edit-email-${user.id}`}>Email</Label>
+            <Input
+              id={`edit-email-${user.id}`}
+              type="email"
+              value={draft.email}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  email: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`edit-alias-${user.id}`}>Alias</Label>
+            <Input
+              id={`edit-alias-${user.id}`}
+              value={draft.alias}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  alias: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Role</Label>
+            <Select
+              value={draft.role}
+              onValueChange={(value) =>
+                setDraft((current) => ({
+                  ...current,
+                  role: value as AdminUser["role"],
+                }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Student">Student</SelectItem>
+                <SelectItem value="Teacher">Teacher</SelectItem>
+                <SelectItem value="Admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Class</Label>
+            <Select
+              disabled={draft.role === "Admin"}
+              value={draft.role === "Admin" ? "District" : draft.className}
+              onValueChange={(value) =>
+                setDraft((current) => ({
+                  ...current,
+                  className: value,
+                  classes: [value],
+                }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {classOptions.map((className) => (
+                  <SelectItem key={className} value={className}>
+                    {className}
+                  </SelectItem>
+                ))}
+                <SelectItem value="District">District</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2">
+            <Label className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
+              <span>Enabled</span>
+              <Switch
+                checked={draft.enabled}
+                onCheckedChange={(checked) =>
+                  setDraft((current) => ({ ...current, enabled: checked }))
+                }
+              />
+            </Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={saveUser}
+            disabled={saving}
+            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            <Save className="size-4" aria-hidden="true" />
+            Save changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

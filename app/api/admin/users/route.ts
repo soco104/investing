@@ -3,7 +3,7 @@ import { requirePermission } from "@/lib/server/auth";
 import { createOrUpdateUsers } from "@/lib/server/repository";
 
 type UserMutationRequest = {
-  action: "create" | "import" | "enable" | "disable";
+  action: "create" | "import" | "enable" | "disable" | "update";
   reason?: string;
   users?: unknown[];
   targetUserId?: string;
@@ -24,7 +24,9 @@ export async function POST(request: Request) {
         ? "users.imported"
         : body.action === "create"
           ? "user.created"
-          : "user.updated",
+          : body.action === "update"
+            ? "user.modified"
+            : "user.updated",
     actor: user,
     context: { action: body.action, count },
     reason: body.reason,

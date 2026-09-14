@@ -585,13 +585,14 @@ export async function markCredentialUsed(credentialId: string) {
 
 export async function createOrUpdateUsers(input: {
   actor: AuthenticatedUser;
-  action: "create" | "import" | "enable" | "disable";
+  action: "create" | "import" | "enable" | "disable" | "update";
   reason?: string;
   targetUserId?: string;
   users?: Array<{
     alias?: string;
     className?: string;
     email: string;
+    enabled?: boolean;
     firstName?: string;
     lastName?: string;
     role?: string;
@@ -635,26 +636,53 @@ export async function createOrUpdateUsers(input: {
       const firstName = user.firstName ?? "";
       const lastName = user.lastName ?? "";
       const alias = user.alias ?? `${firstName}${lastName}`.replace(/\s/g, "");
+      const status =
+        input.action === "update" && user.enabled === false ? "disabled" : "active";
 
       await ensureDistrict(tx);
-      await tx`
-        insert into app_users (
-          id, district_id, first_name, last_name, alias, profile_bio,
-          profile_visible, display_name, email, status, created_at, updated_at
-        )
-        values (
-          ${userId}, ${defaultDistrictId}, ${firstName}, ${lastName}, ${alias}, '',
-          true, ${`${firstName} ${lastName}`.trim()}, ${user.email.toLowerCase()},
-          'active', ${new Date()}, ${new Date()}
-        )
-        on conflict (email) do update set
-          first_name = excluded.first_name,
-          last_name = excluded.last_name,
-          alias = excluded.alias,
-          display_name = excluded.display_name,
-          status = 'active',
-          updated_at = excluded.updated_at
-      `;
+      if (input.action === "update") {
+        await tx`
+          update app_users
+          set first_name = ${firstName},
+              last_name = ${lastName},
+              alias = ${alias},
+              display_name = ${`${firstName} ${lastName}`.trim()},
+              email = ${user.email.toLowerCase()},
+              status = ${status},
+              updated_at = ${new Date()}
+          where id = ${userId}
+        `;
+        await tx`
+          update user_credentials
+          set email = ${user.email.toLowerCase()},
+              updated_at = ${new Date()}
+          where user_id = ${userId}
+        `;
+        await tx`
+          delete from role_assignments
+          where user_id = ${userId}
+        `;
+      } else {
+        await tx`
+          insert into app_users (
+            id, district_id, first_name, last_name, alias, profile_bio,
+            profile_visible, display_name, email, status, created_at, updated_at
+          )
+          values (
+            ${userId}, ${defaultDistrictId}, ${firstName}, ${lastName}, ${alias}, '',
+            true, ${`${firstName} ${lastName}`.trim()}, ${user.email.toLowerCase()},
+            ${status}, ${new Date()}, ${new Date()}
+          )
+          on conflict (email) do update set
+            first_name = excluded.first_name,
+            last_name = excluded.last_name,
+            alias = excluded.alias,
+            display_name = excluded.display_name,
+            status = excluded.status,
+            updated_at = excluded.updated_at
+        `;
+      }
+
       await tx`
         insert into role_assignments (
           id, user_id, role, scope, assigned_by_user_id, assigned_at

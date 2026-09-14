@@ -133,14 +133,17 @@ class and role, and shows:
 - Enabled/disabled status
 - Permission summary
 
-Admins can create users one at a time or import users from a CSV.
+Admins can create users one at a time, import users from a CSV, or edit users
+after creation. The edit dialog supports name, email, alias, role, class
+assignment, and enabled/disabled status changes.
 
 Production endpoint:
 
 - `POST /api/admin/users`
 
 This endpoint requires an authenticated session with `Admin portal` permission
-and records an admin audit event for create, import, enable, or disable actions.
+and records an admin audit event for create, import, modify, enable, or disable
+actions.
 
 ### Individual User Creation
 

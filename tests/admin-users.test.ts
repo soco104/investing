@@ -91,6 +91,48 @@ describe("admin user mutations", () => {
     expect(repository.createOrUpdateUsers).not.toHaveBeenCalled();
   });
 
+  it("persists user modifications behind admin authorization and audit", async () => {
+    const { POST } = await import("@/app/api/admin/users/route");
+    const response = await POST(
+      mutationRequest({
+        action: "update",
+        reason: "correct roster details",
+        targetUserId: "user-avery",
+        users: [
+          {
+            alias: "ValueVoyager2",
+            className: "8th Grade Investing Lab",
+            email: "avery.updated@lincolnusd.edu",
+            enabled: true,
+            firstName: "Avery",
+            lastName: "Johnson",
+            role: "Student",
+          },
+        ],
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      persisted: true,
+    });
+    expect(response.status).toBe(201);
+    expect(audit.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "user.modified",
+        actor: adminUser,
+        targetId: "user-avery",
+      })
+    );
+    expect(repository.createOrUpdateUsers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "update",
+        actor: adminUser,
+        targetUserId: "user-avery",
+      })
+    );
+  });
+
   it("rejects admin mutations without the adminPortal permission", async () => {
     const { POST } = await import("@/app/api/admin/users/route");
     auth.requirePermission.mockResolvedValueOnce({

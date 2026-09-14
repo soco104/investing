@@ -2,6 +2,14 @@
 
 ## 2026-09-14
 
+### Admin User Management
+
+- Added Admin Users edit dialog for modifying created users.
+- Added audited `user.modified` API path for user profile, role, class, email,
+  alias, and enabled-state changes.
+- Added production persistence support for user updates and role reassignment.
+- Added automated coverage for audited admin user modifications.
+
 ### Demo Data
 
 - Added `npm run db:seed:demo` for idempotent PostgreSQL demo data loading.

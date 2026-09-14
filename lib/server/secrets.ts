@@ -11,7 +11,7 @@ const localSecrets = new Map<string, string>();
 type MarketTokenEnvelope = Record<string, string>;
 type SecretSqlClient = ReturnType<typeof postgres>;
 
-const databaseSecretPrefix = "database://credential-secrets/";
+const databaseSecretPrefix = "pg-encrypted://credential_secret_values#";
 let secretSqlClient: SecretSqlClient | null = null;
 
 /**
@@ -133,10 +133,11 @@ function getCredentialEncryptionKey() {
   return key;
 }
 
-function encryptCredentialValue(value: string) {
+function encryptCredentialValue(credentialId: string, value: string) {
   const key = getCredentialEncryptionKey();
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
+  cipher.setAAD(Buffer.from(credentialId, "utf8"));
 
   const encrypted = Buffer.concat([
     cipher.update(value, "utf8"),
@@ -144,87 +145,87 @@ function encryptCredentialValue(value: string) {
   ]);
   const authTag = cipher.getAuthTag();
 
-  // One compact versioned payload keeps migration simple and leaves room for a
-  // future encryption format if the vault implementation changes.
-  return [
-    "v1",
-    iv.toString("base64"),
-    authTag.toString("base64"),
-    encrypted.toString("base64"),
-  ].join(".");
+  return {
+    authTag: authTag.toString("base64"),
+    ciphertext: encrypted.toString("base64"),
+    iv: iv.toString("base64"),
+  };
 }
 
-function decryptCredentialValue(payload: string) {
-  const [version, ivBase64, authTagBase64, encryptedBase64] = payload.split(".");
-
-  if (
-    version !== "v1" ||
-    !ivBase64 ||
-    !authTagBase64 ||
-    !encryptedBase64
-  ) {
-    throw new Error("Stored credential payload has an unsupported format.");
-  }
-
+function decryptCredentialValue(
+  credentialId: string,
+  encrypted: { auth_tag: string; ciphertext: string; iv: string }
+) {
   const decipher = createDecipheriv(
     "aes-256-gcm",
     getCredentialEncryptionKey(),
-    Buffer.from(ivBase64, "base64")
+    Buffer.from(encrypted.iv, "base64")
   );
 
-  decipher.setAuthTag(Buffer.from(authTagBase64, "base64"));
+  decipher.setAAD(Buffer.from(credentialId, "utf8"));
+  decipher.setAuthTag(Buffer.from(encrypted.auth_tag, "base64"));
 
   return Buffer.concat([
-    decipher.update(Buffer.from(encryptedBase64, "base64")),
+    decipher.update(Buffer.from(encrypted.ciphertext, "base64")),
     decipher.final(),
   ]).toString("utf8");
 }
 
 async function storeDatabaseSecret(credentialId: string, value: string) {
-  const encryptedValue = encryptCredentialValue(value);
+  const encrypted = encryptCredentialValue(credentialId, value);
   const sql = getSecretSql();
 
   await sql`
-    insert into credential_secrets (
+    insert into credential_secret_values (
       credential_id,
-      encrypted_value,
+      ciphertext,
+      iv,
+      auth_tag,
+      algorithm,
+      key_version,
       created_at,
       updated_at
     )
     values (
       ${credentialId},
-      ${encryptedValue},
+      ${encrypted.ciphertext},
+      ${encrypted.iv},
+      ${encrypted.authTag},
+      'aes-256-gcm',
+      ${process.env.CREDENTIAL_ENCRYPTION_KEY_VERSION ?? "v1"},
       now(),
       now()
     )
     on conflict (credential_id)
     do update set
-      encrypted_value = excluded.encrypted_value,
+      ciphertext = excluded.ciphertext,
+      iv = excluded.iv,
+      auth_tag = excluded.auth_tag,
+      algorithm = excluded.algorithm,
+      key_version = excluded.key_version,
       updated_at = now()
   `;
 
-  return `${databaseSecretPrefix}${encodeURIComponent(credentialId)}`;
+  return `${databaseSecretPrefix}${credentialId}`;
 }
 
 async function readDatabaseSecret(secretRef: string) {
-  const credentialId = decodeURIComponent(
-    secretRef.slice(databaseSecretPrefix.length)
-  );
+  const credentialId = secretRef.slice(databaseSecretPrefix.length);
 
   if (!credentialId) {
     return "";
   }
 
   const [row] = await getSecretSql()<
-    Array<{ encrypted_value: string }>
+    Array<{ auth_tag: string; ciphertext: string; iv: string }>
   >`
-    select encrypted_value
-    from credential_secrets
+    select ciphertext, iv, auth_tag
+    from credential_secret_values
     where credential_id = ${credentialId}
     limit 1
   `;
 
-  return row ? decryptCredentialValue(row.encrypted_value) : "";
+  return row ? decryptCredentialValue(credentialId, row) : "";
 }
 
 // ---------------------------------------------------------------------------

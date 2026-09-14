@@ -370,12 +370,11 @@ delete, and test actions. Token values should be stored in Secret Manager and
 referenced by secret name; token values should not be written into logs,
 browser-visible state, or audit context.
 
-Cloud Run stores provider tokens through Google Secret Manager. DigitalOcean
-deployments store provider tokens as encrypted App Platform environment
-variables and reference them with `do-env://...` secret refs. Because
-DigitalOcean environment variables are configured outside the running app,
-brand-new token creation from the Admin portal requires either a preconfigured
-encrypted env value or a future external vault integration.
+Cloud Run can store provider tokens through Google Secret Manager. DigitalOcean
+deployments store provider tokens as AES-256-GCM ciphertext in PostgreSQL, with
+`CREDENTIAL_ENCRYPTION_KEY` supplied as an encrypted App Platform runtime
+environment variable. Both paths keep plaintext tokens out of browser-visible
+state and store only opaque secret refs with integration metadata.
 
 Provider calls now use a backend timeout, controlled by
 `MARKET_PROVIDER_TIMEOUT_MS`, defaulting to `7000ms`. The scheduled market poll
@@ -467,6 +466,12 @@ The page tracks metadata only:
 Secret values are written to backend vault storage and are never returned to the
 browser, database list views, logs, exports, or audit context. To rotate a
 credential, enter the replacement secret value and save the credential again.
+
+On DigitalOcean, credential creation and rotation happens through the app's
+PostgreSQL encrypted credential store. The app encrypts the secret with
+AES-256-GCM using `CREDENTIAL_ENCRYPTION_KEY`, stores ciphertext in
+`credential_secret_values`, and records a `pg-encrypted://...` reference in the
+integration metadata.
 
 Production endpoints:
 

@@ -248,10 +248,10 @@ credential IDs. This is the shared path for market API tokens now and should be
 used for SSO client secrets, webhook signing secrets, and delivery provider
 credentials as those integrations move into production.
 
-DigitalOcean deployments use `MARKET_SECRET_BACKEND=digitalocean-env` instead
-of Google Secret Manager. That backend reads encrypted App Platform environment
-variables such as `MARKET_PROVIDER_TOKENS_JSON`, but it cannot create or rotate
-new encrypted environment variables from inside the running app.
+DigitalOcean deployments use `MARKET_SECRET_BACKEND=postgres-encrypted` instead
+of Google Secret Manager. That backend stores AES-256-GCM ciphertext in
+PostgreSQL and receives `CREDENTIAL_ENCRYPTION_KEY` as an encrypted App
+Platform runtime environment variable.
 
 ## Authentication And Ingest Protection
 

@@ -159,6 +159,18 @@ try {
     )
   `;
   await sql`
+    create table if not exists credential_secret_values (
+      credential_id text primary key,
+      ciphertext text not null,
+      iv text not null,
+      auth_tag text not null,
+      algorithm text not null default 'aes-256-gcm',
+      key_version text not null default 'v1',
+      created_at timestamp not null,
+      updated_at timestamp not null
+    )
+  `;
+  await sql`
     alter table market_data_integrations
     add column if not exists credential_id text
   `;

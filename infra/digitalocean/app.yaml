@@ -43,17 +43,21 @@ envs:
     scope: RUN_TIME
     type: GENERAL
   - key: MARKET_SECRET_BACKEND
-    value: digitalocean-env
+    value: postgres-encrypted
     scope: RUN_TIME
     type: GENERAL
   - key: MARKET_PROVIDER_TOKENS_SECRET
-    value: do-env://MARKET_PROVIDER_TOKENS_JSON
+    value: pg-encrypted://credential_secret_values
     scope: RUN_TIME
     type: GENERAL
-  - key: MARKET_PROVIDER_TOKENS_JSON
-    value: "{}"
+  - key: CREDENTIAL_ENCRYPTION_KEY
+    value: REPLACE_WITH_32_BYTE_BASE64_KEY
     scope: RUN_TIME
     type: SECRET
+  - key: CREDENTIAL_ENCRYPTION_KEY_VERSION
+    value: v1
+    scope: RUN_TIME
+    type: GENERAL
   - key: DIGITALOCEAN_APP_URL
     value: https://REPLACE_WITH_APP_DOMAIN
     scope: RUN_TIME

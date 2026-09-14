@@ -68,8 +68,7 @@ placeholder values:
 - `DIGITALOCEAN_APP_URL`
 - `BOOTSTRAP_ADMIN_EMAIL`
 - `BOOTSTRAP_ADMIN_PASSWORD_HASH`, if using bootstrap admin login
-- `MARKET_PROVIDER_TOKENS_JSON`, if using market provider tokens on
-  DigitalOcean
+- `CREDENTIAL_ENCRYPTION_KEY`, required for encrypted credential storage
 - `SSO_*` values, if district SSO is configured
 
 Generate strong random values for secrets. For example:
@@ -77,6 +76,9 @@ Generate strong random values for secrets. For example:
 ```bash
 openssl rand -base64 32
 ```
+
+Generate the credential encryption key the same way. It must decode to exactly
+32 bytes because the app uses AES-256-GCM for credential encryption.
 
 Generate an optional bootstrap admin password hash after dependencies are
 installed:
@@ -209,44 +211,37 @@ Provider behavior:
 - Successful provider refreshes create class market snapshots.
 - Ordinary `/api/market` reads are authenticated, class-scoped, and read-only.
 
-## Credential Vault Note
+## Credential Vault
 
-The DigitalOcean spec uses encrypted App Platform environment variables for
-market provider tokens:
-
-```text
-MARKET_SECRET_BACKEND=digitalocean-env
-MARKET_PROVIDER_TOKENS_SECRET=do-env://MARKET_PROVIDER_TOKENS_JSON
-MARKET_PROVIDER_TOKENS_JSON={}
-```
-
-`MARKET_PROVIDER_TOKENS_JSON` must be configured as an encrypted `SECRET`
-environment variable in App Platform. Its value is an object keyed by the
-credential ID stored in the app database. Example:
-
-```json
-{
-  "market-integration-finnhub": "FINNHUB_API_KEY"
-}
-```
-
-DigitalOcean encrypted environment variables are available to the app at
-runtime, but the running app should not treat them as a mutable Secret Manager.
-The app can read token refs such as:
+The DigitalOcean spec stores integration credentials as AES-256-GCM ciphertext
+in PostgreSQL. The encryption key is supplied to the app as an encrypted App
+Platform runtime environment variable:
 
 ```text
-do-env://MARKET_PROVIDER_TOKENS_JSON#market-integration-finnhub
+MARKET_SECRET_BACKEND=postgres-encrypted
+MARKET_PROVIDER_TOKENS_SECRET=pg-encrypted://credential_secret_values
+CREDENTIAL_ENCRYPTION_KEY=REPLACE_WITH_32_BYTE_BASE64_KEY
+CREDENTIAL_ENCRYPTION_KEY_VERSION=v1
 ```
 
-If an admin enters a brand-new token through the app while
-`MARKET_SECRET_BACKEND=digitalocean-env`, token storage will fail with a clear
-message. Add or rotate provider tokens through the DigitalOcean app settings or
-app spec, then reference the matching credential ID from the integration. For a
-full production DigitalOcean deployment that requires runtime credential
-creation from the Admin portal, add an external managed vault integration.
+This preserves the app's credential-vault behavior without requiring Google
+Secret Manager:
 
-Do not place market provider tokens directly in the App Platform spec except as
-initial encrypted environment variables for temporary staging use.
+- Admins can create or rotate market API tokens from the Admin portal.
+- Plaintext tokens are never returned to the browser.
+- PostgreSQL stores only ciphertext, IV, auth tag, algorithm, and key version.
+- Integration records store opaque refs such as:
+
+```text
+pg-encrypted://credential_secret_values#market-integration-finnhub
+```
+
+Rotate `CREDENTIAL_ENCRYPTION_KEY` through a planned key-rotation workflow. The
+current schema tracks `key_version`, but existing ciphertext must be decrypted
+with the old key and re-encrypted with the new key before removing the old key
+from operational custody.
+
+Do not place market provider tokens directly in the App Platform spec.
 
 ## Operational Checklist
 

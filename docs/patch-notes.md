@@ -25,13 +25,16 @@
 
 ### DigitalOcean Secret Backend
 
-- Added provider-aware market credential storage for DigitalOcean App Platform.
-- Added `MARKET_SECRET_BACKEND=digitalocean-env` and
-  `do-env://MARKET_PROVIDER_TOKENS_JSON#credential-id` secret refs.
-- Updated DigitalOcean deployment config to use encrypted app environment
-  variables for market provider token envelopes.
-- Added tests proving DigitalOcean token reads work and runtime token writes
-  fail clearly instead of silently using Google Secret Manager assumptions.
+- Added provider-aware market credential storage for DigitalOcean App Platform
+  using AES-256-GCM encrypted PostgreSQL records.
+- Added `MARKET_SECRET_BACKEND=postgres-encrypted`,
+  `CREDENTIAL_ENCRYPTION_KEY`, and
+  `pg-encrypted://credential_secret_values#credential-id` secret refs.
+- Added `credential_secret_values` migration support.
+- Updated DigitalOcean deployment config to supply the credential encryption
+  key as an encrypted runtime environment variable.
+- Added tests proving encrypted PostgreSQL token writes do not store plaintext
+  and can be read back through opaque refs.
 
 ### DigitalOcean Deployment
 

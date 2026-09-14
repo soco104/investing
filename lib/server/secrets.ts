@@ -1,7 +1,14 @@
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import postgres from "postgres";
+
 const localSecrets = new Map<string, string>();
 
 type MarketTokenEnvelope = Record<string, string>;
-type SecretBackend = "digitalocean-env" | "google-secret-manager" | "local";
+type SecretBackend =
+  | "digitalocean-env"
+  | "google-secret-manager"
+  | "local"
+  | "postgres-encrypted";
 
 export async function storeMarketIntegrationToken(
   integrationId: string,
@@ -36,6 +43,10 @@ export async function storeCredentialSecret(credentialId: string, token: string)
     );
   }
 
+  if (backend === "postgres-encrypted") {
+    return storePostgresEncryptedCredential(credentialId, token);
+  }
+
   const secretName = process.env.MARKET_PROVIDER_TOKENS_SECRET;
 
   if (!secretName) {
@@ -66,6 +77,10 @@ export async function readSecretValue(secretRef: string | null | undefined) {
     return readDigitalOceanSecretValue(secretRef);
   }
 
+  if (secretRef.startsWith("pg-encrypted://")) {
+    return readPostgresEncryptedCredential(secretRef);
+  }
+
   const [secretName, integrationId] = secretRef.split("#");
   const secretValue = await accessSecretVersion(secretName);
 
@@ -85,6 +100,10 @@ function secretBackend(): SecretBackend {
     return "digitalocean-env";
   }
 
+  if (configured === "postgres-encrypted" || configured === "postgres") {
+    return "postgres-encrypted";
+  }
+
   if (configured === "google-secret-manager" || configured === "google") {
     return "google-secret-manager";
   }
@@ -95,6 +114,10 @@ function secretBackend(): SecretBackend {
 
   if (process.env.MARKET_PROVIDER_TOKENS_SECRET?.startsWith("do-env://")) {
     return "digitalocean-env";
+  }
+
+  if (process.env.MARKET_PROVIDER_TOKENS_SECRET?.startsWith("pg-encrypted://")) {
+    return "postgres-encrypted";
   }
 
   if (process.env.GOOGLE_CLOUD_PROJECT) {
@@ -126,6 +149,156 @@ function readDigitalOceanSecretValue(secretRef: string) {
 
 function readDigitalOceanTokenEnvelope(envName: string) {
   return parseMarketTokenEnvelope(process.env[envName] ?? "");
+}
+
+async function storePostgresEncryptedCredential(
+  credentialId: string,
+  token: string
+) {
+  const encrypted = encryptCredentialValue(credentialId, token);
+  const sql = postgresDatabase();
+
+  try {
+    await ensureCredentialSecretTable(sql);
+    await sql`
+      insert into credential_secret_values (
+        credential_id, ciphertext, iv, auth_tag, algorithm, key_version,
+        created_at, updated_at
+      )
+      values (
+        ${credentialId}, ${encrypted.ciphertext}, ${encrypted.iv},
+        ${encrypted.authTag}, 'aes-256-gcm', ${encryptionKeyVersion()},
+        now(), now()
+      )
+      on conflict (credential_id) do update set
+        ciphertext = excluded.ciphertext,
+        iv = excluded.iv,
+        auth_tag = excluded.auth_tag,
+        algorithm = excluded.algorithm,
+        key_version = excluded.key_version,
+        updated_at = excluded.updated_at
+    `;
+  } finally {
+    await sql.end();
+  }
+
+  return `pg-encrypted://credential_secret_values#${credentialId}`;
+}
+
+async function readPostgresEncryptedCredential(secretRef: string) {
+  const credentialId = secretRef.replace("pg-encrypted://credential_secret_values#", "");
+
+  if (!credentialId || credentialId === secretRef) {
+    return "";
+  }
+
+  const sql = postgresDatabase();
+
+  try {
+    await ensureCredentialSecretTable(sql);
+    const rows = await sql<{
+      auth_tag: string;
+      ciphertext: string;
+      iv: string;
+      key_version: string;
+    }[]>`
+      select ciphertext, iv, auth_tag, key_version
+      from credential_secret_values
+      where credential_id = ${credentialId}
+      limit 1
+    `;
+
+    if (!rows[0]) {
+      return "";
+    }
+
+    return decryptCredentialValue(credentialId, rows[0]);
+  } finally {
+    await sql.end();
+  }
+}
+
+function encryptCredentialValue(credentialId: string, value: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", credentialEncryptionKey(), iv);
+  cipher.setAAD(Buffer.from(credentialId, "utf8"));
+
+  const ciphertext = Buffer.concat([
+    cipher.update(value, "utf8"),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  return {
+    authTag: authTag.toString("base64"),
+    ciphertext: ciphertext.toString("base64"),
+    iv: iv.toString("base64"),
+  };
+}
+
+function decryptCredentialValue(
+  credentialId: string,
+  encrypted: { auth_tag: string; ciphertext: string; iv: string }
+) {
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    credentialEncryptionKey(),
+    Buffer.from(encrypted.iv, "base64")
+  );
+  decipher.setAAD(Buffer.from(credentialId, "utf8"));
+  decipher.setAuthTag(Buffer.from(encrypted.auth_tag, "base64"));
+
+  return Buffer.concat([
+    decipher.update(Buffer.from(encrypted.ciphertext, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
+function credentialEncryptionKey() {
+  const configuredKey = process.env.CREDENTIAL_ENCRYPTION_KEY?.trim();
+
+  if (!configuredKey) {
+    throw new Error("CREDENTIAL_ENCRYPTION_KEY is required for encrypted credential storage.");
+  }
+
+  const hexKey = /^[a-f0-9]{64}$/i.test(configuredKey)
+    ? Buffer.from(configuredKey, "hex")
+    : null;
+  const base64Key = hexKey ? null : Buffer.from(configuredKey, "base64");
+  const key = hexKey ?? base64Key;
+
+  if (key.length !== 32) {
+    throw new Error("CREDENTIAL_ENCRYPTION_KEY must decode to 32 bytes.");
+  }
+
+  return key;
+}
+
+function encryptionKeyVersion() {
+  return process.env.CREDENTIAL_ENCRYPTION_KEY_VERSION ?? "v1";
+}
+
+function postgresDatabase() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required for encrypted credential storage.");
+  }
+
+  return postgres(process.env.DATABASE_URL, { max: 1, prepare: false });
+}
+
+async function ensureCredentialSecretTable(sql: ReturnType<typeof postgres>) {
+  await sql`
+    create table if not exists credential_secret_values (
+      credential_id text primary key,
+      ciphertext text not null,
+      iv text not null,
+      auth_tag text not null,
+      algorithm text not null default 'aes-256-gcm',
+      key_version text not null default 'v1',
+      created_at timestamp not null,
+      updated_at timestamp not null
+    )
+  `;
 }
 
 async function readMarketTokenEnvelope(secretName: string) {

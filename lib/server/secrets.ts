@@ -1,6 +1,7 @@
 const localSecrets = new Map<string, string>();
 
 type MarketTokenEnvelope = Record<string, string>;
+type SecretBackend = "digitalocean-env" | "google-secret-manager" | "local";
 
 export async function storeMarketIntegrationToken(
   integrationId: string,
@@ -14,10 +15,25 @@ export async function storeCredentialSecret(credentialId: string, token: string)
     return null;
   }
 
-  if (!process.env.GOOGLE_CLOUD_PROJECT) {
+  const backend = secretBackend();
+
+  if (backend === "local") {
     const localRef = `local://futurefund-credential-vault#${credentialId}`;
     localSecrets.set(localRef, token);
     return localRef;
+  }
+
+  if (backend === "digitalocean-env") {
+    const envName = digitalOceanTokenEnvName();
+    const existingTokens = readDigitalOceanTokenEnvelope(envName);
+
+    if (existingTokens[credentialId]) {
+      return `do-env://${envName}#${credentialId}`;
+    }
+
+    throw new Error(
+      `DigitalOcean App Platform encrypted environment variables are read-only at runtime. Add ${credentialId} to ${envName} or configure an external credential vault.`
+    );
   }
 
   const secretName = process.env.MARKET_PROVIDER_TOKENS_SECRET;
@@ -46,6 +62,10 @@ export async function readSecretValue(secretRef: string | null | undefined) {
     return localSecrets.get(secretRef) ?? "";
   }
 
+  if (secretRef.startsWith("do-env://")) {
+    return readDigitalOceanSecretValue(secretRef);
+  }
+
   const [secretName, integrationId] = secretRef.split("#");
   const secretValue = await accessSecretVersion(secretName);
 
@@ -56,6 +76,56 @@ export async function readSecretValue(secretRef: string | null | undefined) {
   const parsed = parseMarketTokenEnvelope(secretValue);
 
   return parsed[integrationId] ?? "";
+}
+
+function secretBackend(): SecretBackend {
+  const configured = process.env.MARKET_SECRET_BACKEND?.toLowerCase();
+
+  if (configured === "digitalocean-env" || configured === "digitalocean") {
+    return "digitalocean-env";
+  }
+
+  if (configured === "google-secret-manager" || configured === "google") {
+    return "google-secret-manager";
+  }
+
+  if (configured === "local") {
+    return "local";
+  }
+
+  if (process.env.MARKET_PROVIDER_TOKENS_SECRET?.startsWith("do-env://")) {
+    return "digitalocean-env";
+  }
+
+  if (process.env.GOOGLE_CLOUD_PROJECT) {
+    return "google-secret-manager";
+  }
+
+  return "local";
+}
+
+function digitalOceanTokenEnvName() {
+  const secretRef = process.env.MARKET_PROVIDER_TOKENS_SECRET;
+
+  if (secretRef?.startsWith("do-env://")) {
+    return secretRef.replace("do-env://", "").split("#")[0] || "MARKET_PROVIDER_TOKENS_JSON";
+  }
+
+  return process.env.MARKET_PROVIDER_TOKENS_ENV ?? "MARKET_PROVIDER_TOKENS_JSON";
+}
+
+function readDigitalOceanSecretValue(secretRef: string) {
+  const [envName, credentialId] = secretRef.replace("do-env://", "").split("#");
+
+  if (!credentialId) {
+    return process.env[envName] ?? "";
+  }
+
+  return readDigitalOceanTokenEnvelope(envName)[credentialId] ?? "";
+}
+
+function readDigitalOceanTokenEnvelope(envName: string) {
+  return parseMarketTokenEnvelope(process.env[envName] ?? "");
 }
 
 async function readMarketTokenEnvelope(secretName: string) {

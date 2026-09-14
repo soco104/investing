@@ -6,13 +6,17 @@ describe("market token secret storage", () => {
   beforeEach(() => {
     vi.resetModules();
     delete process.env.GOOGLE_CLOUD_PROJECT;
+    delete process.env.MARKET_SECRET_BACKEND;
     delete process.env.MARKET_PROVIDER_TOKENS_SECRET;
+    delete process.env.MARKET_PROVIDER_TOKENS_JSON;
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
     delete process.env.GOOGLE_CLOUD_PROJECT;
+    delete process.env.MARKET_SECRET_BACKEND;
     delete process.env.MARKET_PROVIDER_TOKENS_SECRET;
+    delete process.env.MARKET_PROVIDER_TOKENS_JSON;
   });
 
   it("stores and reads local tokens without exposing them in the secret ref", async () => {
@@ -74,5 +78,44 @@ describe("market token secret storage", () => {
       "market-integration-existing": "existing-token",
       "market-integration-new": "new-token",
     });
+  });
+
+  it("reads DigitalOcean encrypted environment token envelopes", async () => {
+    process.env.MARKET_SECRET_BACKEND = "digitalocean-env";
+    process.env.MARKET_PROVIDER_TOKENS_JSON = JSON.stringify({
+      "market-integration-finnhub": "finnhub-token",
+    });
+
+    const { readSecretValue } = await import("@/lib/server/secrets");
+
+    await expect(
+      readSecretValue("do-env://MARKET_PROVIDER_TOKENS_JSON#market-integration-finnhub")
+    ).resolves.toBe("finnhub-token");
+  });
+
+  it("does not pretend DigitalOcean encrypted environment variables can be updated at runtime", async () => {
+    process.env.MARKET_SECRET_BACKEND = "digitalocean-env";
+    process.env.MARKET_PROVIDER_TOKENS_JSON = "{}";
+
+    const { storeMarketIntegrationToken } = await import("@/lib/server/secrets");
+
+    await expect(
+      storeMarketIntegrationToken("integration-new", "new-token")
+    ).rejects.toThrow("read-only at runtime");
+  });
+
+  it("returns a DigitalOcean secret ref when the credential already exists in the encrypted environment", async () => {
+    process.env.MARKET_SECRET_BACKEND = "digitalocean-env";
+    process.env.MARKET_PROVIDER_TOKENS_JSON = JSON.stringify({
+      "market-integration-existing": "existing-token",
+    });
+
+    const { storeMarketIntegrationToken } = await import("@/lib/server/secrets");
+
+    await expect(
+      storeMarketIntegrationToken("integration-existing", "existing-token")
+    ).resolves.toBe(
+      "do-env://MARKET_PROVIDER_TOKENS_JSON#market-integration-existing"
+    );
   });
 });

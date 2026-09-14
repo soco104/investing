@@ -248,6 +248,11 @@ credential IDs. This is the shared path for market API tokens now and should be
 used for SSO client secrets, webhook signing secrets, and delivery provider
 credentials as those integrations move into production.
 
+DigitalOcean deployments use `MARKET_SECRET_BACKEND=digitalocean-env` instead
+of Google Secret Manager. That backend reads encrypted App Platform environment
+variables such as `MARKET_PROVIDER_TOKENS_JSON`, but it cannot create or rotate
+new encrypted environment variables from inside the running app.
+
 ## Authentication And Ingest Protection
 
 Password login uses persisted credentials when `DATABASE_URL` is configured and

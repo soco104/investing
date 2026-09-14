@@ -68,6 +68,8 @@ placeholder values:
 - `DIGITALOCEAN_APP_URL`
 - `BOOTSTRAP_ADMIN_EMAIL`
 - `BOOTSTRAP_ADMIN_PASSWORD_HASH`, if using bootstrap admin login
+- `MARKET_PROVIDER_TOKENS_JSON`, if using market provider tokens on
+  DigitalOcean
 - `SSO_*` values, if district SSO is configured
 
 Generate strong random values for secrets. For example:
@@ -209,16 +211,39 @@ Provider behavior:
 
 ## Credential Vault Note
 
-The current DigitalOcean spec uses:
+The DigitalOcean spec uses encrypted App Platform environment variables for
+market provider tokens:
 
 ```text
-MARKET_PROVIDER_TOKENS_SECRET=local://futurefund-credential-vault
+MARKET_SECRET_BACKEND=digitalocean-env
+MARKET_PROVIDER_TOKENS_SECRET=do-env://MARKET_PROVIDER_TOKENS_JSON
+MARKET_PROVIDER_TOKENS_JSON={}
 ```
 
-This stores credential values through the app's local fallback vault path. For a
-full production DigitalOcean deployment, replace this with a dedicated external
-secret backend or managed vault integration before storing real district/provider
-credentials.
+`MARKET_PROVIDER_TOKENS_JSON` must be configured as an encrypted `SECRET`
+environment variable in App Platform. Its value is an object keyed by the
+credential ID stored in the app database. Example:
+
+```json
+{
+  "market-integration-finnhub": "FINNHUB_API_KEY"
+}
+```
+
+DigitalOcean encrypted environment variables are available to the app at
+runtime, but the running app should not treat them as a mutable Secret Manager.
+The app can read token refs such as:
+
+```text
+do-env://MARKET_PROVIDER_TOKENS_JSON#market-integration-finnhub
+```
+
+If an admin enters a brand-new token through the app while
+`MARKET_SECRET_BACKEND=digitalocean-env`, token storage will fail with a clear
+message. Add or rotate provider tokens through the DigitalOcean app settings or
+app spec, then reference the matching credential ID from the integration. For a
+full production DigitalOcean deployment that requires runtime credential
+creation from the Admin portal, add an external managed vault integration.
 
 Do not place market provider tokens directly in the App Platform spec except as
 initial encrypted environment variables for temporary staging use.

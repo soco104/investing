@@ -23,6 +23,16 @@
 - Added automated tests for Finnhub allowed-symbol imports, blank-symbol
   discovery, and token-header fallback.
 
+### DigitalOcean Secret Backend
+
+- Added provider-aware market credential storage for DigitalOcean App Platform.
+- Added `MARKET_SECRET_BACKEND=digitalocean-env` and
+  `do-env://MARKET_PROVIDER_TOKENS_JSON#credential-id` secret refs.
+- Updated DigitalOcean deployment config to use encrypted app environment
+  variables for market provider token envelopes.
+- Added tests proving DigitalOcean token reads work and runtime token writes
+  fail clearly instead of silently using Google Secret Manager assumptions.
+
 ### DigitalOcean Deployment
 
 - Added a DigitalOcean App Platform deployment spec.

@@ -42,8 +42,16 @@ envs:
     value: "4"
     scope: RUN_TIME
     type: GENERAL
+  - key: MARKET_SECRET_BACKEND
+    value: digitalocean-env
+    scope: RUN_TIME
+    type: GENERAL
   - key: MARKET_PROVIDER_TOKENS_SECRET
-    value: local://futurefund-credential-vault
+    value: do-env://MARKET_PROVIDER_TOKENS_JSON
+    scope: RUN_TIME
+    type: GENERAL
+  - key: MARKET_PROVIDER_TOKENS_JSON
+    value: "{}"
     scope: RUN_TIME
     type: SECRET
   - key: DIGITALOCEAN_APP_URL

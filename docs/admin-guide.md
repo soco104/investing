@@ -370,6 +370,13 @@ delete, and test actions. Token values should be stored in Secret Manager and
 referenced by secret name; token values should not be written into logs,
 browser-visible state, or audit context.
 
+Cloud Run stores provider tokens through Google Secret Manager. DigitalOcean
+deployments store provider tokens as encrypted App Platform environment
+variables and reference them with `do-env://...` secret refs. Because
+DigitalOcean environment variables are configured outside the running app,
+brand-new token creation from the Admin portal requires either a preconfigured
+encrypted env value or a future external vault integration.
+
 Provider calls now use a backend timeout, controlled by
 `MARKET_PROVIDER_TIMEOUT_MS`, defaulting to `7000ms`. The scheduled market poll
 process uses bounded concurrency, controlled by `MARKET_POLL_CONCURRENCY`,

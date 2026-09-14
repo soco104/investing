@@ -3,6 +3,7 @@ export type MarketProviderConfig = {
   endpoint: string;
   maxSymbols?: number;
   provider: string;
+  timeoutMs?: number;
   token?: string;
   tokenPlacement?: "bearer" | "query" | "x-api-key";
 };
@@ -50,7 +51,34 @@ export async function testMarketProvider(
 
   const url = tokenizedUrl(endpoint, config);
   const headers = tokenizedHeaders(config);
-  const response = await fetch(url, { headers, method: "GET" });
+  const timeoutMs = Math.min(
+    Math.max(config.timeoutMs ?? Number(process.env.MARKET_PROVIDER_TIMEOUT_MS ?? 7000), 1000),
+    30000
+  );
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      headers,
+      method: "GET",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    return {
+      importedSymbols: 0,
+      message:
+        (error as Error).name === "AbortError"
+          ? `GET timed out after ${timeoutMs}ms.`
+          : `GET failed: ${(error as Error).message}`,
+      ok: false,
+      quotes: [],
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+
   const quotes = response.ok
     ? normalizeProviderQuotes(await response.json(), symbolLimit)
     : [];

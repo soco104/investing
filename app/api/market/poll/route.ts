@@ -1,6 +1,7 @@
 import { createTraceId, statusFromDuration } from "@/lib/observability";
 import { testMarketProvider } from "@/lib/server/market-providers";
 import {
+  getClassMarketState,
   listPollableIntegrations,
   markCredentialUsed,
   updateIntegrationPollResult,
@@ -20,9 +21,11 @@ export async function POST(request: Request) {
 
   const startedAt = performance.now();
   const integrations = await listPollableIntegrations();
-  const results = [];
-
-  for (const integration of integrations) {
+  const concurrency = Math.min(
+    Math.max(Number(process.env.MARKET_POLL_CONCURRENCY ?? 4), 1),
+    8
+  );
+  const results = await mapWithConcurrency(integrations, concurrency, async (integration) => {
     try {
       const token = await readSecretValue(integration.token_secret_ref);
       if (integration.credential_id) {
@@ -44,26 +47,32 @@ export async function POST(request: Request) {
         quotes: result.quotes,
       });
 
-      results.push({
+      if (result.ok && integration.target_class) {
+        await getClassMarketState(integration.target_class, {
+          recordSnapshot: true,
+        });
+      }
+
+      return {
         importedSymbols: result.importedSymbols,
         integrationId: integration.id,
         ok: result.ok,
         provider: integration.provider_name,
-      });
+      };
     } catch (error) {
       await updateIntegrationPollResult({
         errorMessage: (error as Error).message,
         integrationId: integration.id,
         ok: false,
       });
-      results.push({
+      return {
         error: (error as Error).message,
         integrationId: integration.id,
         ok: false,
         provider: integration.provider_name,
-      });
+      };
     }
-  }
+  });
 
   const durationMs = Math.round(performance.now() - startedAt);
 
@@ -77,4 +86,27 @@ export async function POST(request: Request) {
       traceId: createTraceId(),
     },
   });
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>
+) {
+  const results: R[] = [];
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await worker(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => runWorker())
+  );
+
+  return results;
 }

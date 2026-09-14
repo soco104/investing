@@ -27,6 +27,7 @@ export type AuthenticatedUser = {
   alias: string;
   role: AuthRole;
   className: string;
+  classNames: string[];
   permissions: Record<PermissionKey, boolean>;
 };
 
@@ -43,6 +44,7 @@ export const seedAuthUsers: SeedAuthUser[] = [
     alias: "ValueVoyager",
     role: "Student",
     className: "7th Grade Finance A",
+    classNames: ["7th Grade Finance A"],
     passwordHash:
       "d5f83a521580eb51068dd4238cb9abd7c571e1f5f026a6859af398dce85c7c98",
     permissions: {
@@ -61,6 +63,7 @@ export const seedAuthUsers: SeedAuthUser[] = [
     alias: "MsRivera",
     role: "Teacher",
     className: "7th Grade Finance A",
+    classNames: ["7th Grade Finance A", "7th Grade Finance B"],
     passwordHash:
       "35ab81eb7001277104ecd69afa5cd978eaf41aad4eaf3e5053f05e66a2fe6bea",
     permissions: {
@@ -79,6 +82,7 @@ export const seedAuthUsers: SeedAuthUser[] = [
     alias: "DistrictAdmin",
     role: "Admin",
     className: "District",
+    classNames: ["District"],
     passwordHash:
       "198352b6a8078a827be267c847d39506629d3af446a3cc0bce670dd3a6b5d753",
     permissions: {
@@ -108,6 +112,7 @@ export function publicUser(user: SeedAuthUser): AuthenticatedUser {
     alias: user.alias,
     role: user.role,
     className: user.className,
+    classNames: user.classNames,
     permissions: user.permissions,
   };
 }
@@ -154,6 +159,7 @@ export async function createSessionToken(user: AuthenticatedUser, request?: Requ
   const payload = base64UrlEncode(
     JSON.stringify({
       className: user.className,
+      classNames: user.classNames,
       email: user.email,
       exp: expiresAt,
       id: user.id,
@@ -275,6 +281,7 @@ async function verifySessionToken(token: string): Promise<AuthenticatedUser | nu
   try {
     const parsed = JSON.parse(base64UrlDecode(payload)) as {
       className: string;
+      classNames?: string[];
       email: string;
       exp: number;
       id: string;
@@ -305,6 +312,7 @@ async function verifySessionToken(token: string): Promise<AuthenticatedUser | nu
     return {
       alias: seedUser?.alias ?? "",
       className: parsed.className,
+      classNames: seedUser?.classNames ?? parsed.classNames ?? [parsed.className],
       email: parsed.email,
       firstName: seedUser?.firstName ?? "",
       id: parsed.id,

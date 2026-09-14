@@ -90,6 +90,7 @@ export async function findUserByPassword(email: string, password: string) {
     order by granted_at asc
   `;
   const role = normalizeRole(row.role);
+  const classNames = await listUserClassNames(sql, row.id, role);
 
   await sql`
     update user_credentials
@@ -99,7 +100,8 @@ export async function findUserByPassword(email: string, password: string) {
 
   return {
     alias: row.alias,
-    className: role === "Admin" ? "District" : row.class_name ?? "",
+    className: role === "Admin" ? "District" : classNames[0] ?? row.class_name ?? "",
+    classNames: role === "Admin" ? ["District"] : classNames,
     email: row.email,
     firstName: row.first_name,
     id: row.id,
@@ -167,10 +169,12 @@ export async function findUserById(userId: string) {
     order by granted_at asc
   `;
   const role = normalizeRole(row.role);
+  const classNames = await listUserClassNames(sql, row.id, role);
 
   return {
     alias: row.alias,
-    className: role === "Admin" ? "District" : row.class_name ?? "",
+    className: role === "Admin" ? "District" : classNames[0] ?? row.class_name ?? "",
+    classNames: role === "Admin" ? ["District"] : classNames,
     email: row.email,
     firstName: row.first_name,
     id: row.id,
@@ -446,7 +450,10 @@ export async function upsertClassMarketConfig(input: {
   `;
 }
 
-export async function getClassMarketState(className: string) {
+export async function getClassMarketState(
+  className: string,
+  options: { recordSnapshot?: boolean } = {}
+) {
   const [config, quotes] = await Promise.all([
     getClassMarketConfig(className),
     listLatestMarketQuotes(className),
@@ -462,7 +469,9 @@ export async function getClassMarketState(className: string) {
     })),
   });
 
-  await recordClassMarketSnapshot(state);
+  if (options.recordSnapshot) {
+    await recordClassMarketSnapshot(state);
+  }
 
   return state;
 }
@@ -1293,6 +1302,27 @@ function permissionsFromGrants(
   }
 
   return base;
+}
+
+async function listUserClassNames(
+  sql: SqlClient,
+  userId: string,
+  role: AuthenticatedUser["role"]
+) {
+  if (role === "Admin") {
+    return ["District"];
+  }
+
+  const rows = await sql<Array<{ scope: string }>>`
+    select distinct scope
+    from role_assignments
+    where user_id = ${userId}
+      and scope <> ''
+      and scope <> 'District'
+    order by scope asc
+  `;
+
+  return rows.map((row) => row.scope);
 }
 
 function permissionsForRole(role: AuthenticatedUser["role"]) {

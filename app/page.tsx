@@ -2681,7 +2681,7 @@ export default function Home() {
         reason: "Class market simulator configuration update",
       });
     } catch {
-      return;
+      return false;
     }
 
     setClassMarketConfigs((currentConfigs) => {
@@ -2693,6 +2693,8 @@ export default function Home() {
         a.className.localeCompare(b.className)
       );
     });
+
+    return true;
   }
 
   async function saveCredential() {
@@ -5905,7 +5907,7 @@ function AdminDrilldown({
   onUpdateClassMarketConfig: (
     className: string,
     updates: Partial<ClassMarketConfig>
-  ) => void;
+  ) => Promise<boolean> | boolean;
   onIntegrationProviderChange: (provider: string) => void;
   onIntegrationEndpointChange: (endpoint: string) => void;
   onIntegrationTokenRequiredChange: (required: boolean) => void;
@@ -6539,12 +6541,59 @@ function MarketEngineAdminPage({
   onUpdateClassMarketConfig: (
     className: string,
     updates: Partial<ClassMarketConfig>
-  ) => void;
+  ) => Promise<boolean> | boolean;
 }) {
+  const [draftConfigOverrides, setDraftConfigOverrides] = useState<
+    Record<string, ClassMarketConfig>
+  >({});
   const activeIntegrations = integrations.filter((integration) => integration.enabled);
   const connectedClasses = new Set(
     activeIntegrations.map((integration) => integration.targetClass)
   );
+  const persistedConfigsByClass = new Map(
+    classMarketConfigs.map((config) => [config.className, config])
+  );
+  const displayedConfigs = classMarketConfigs.map(
+    (config) => draftConfigOverrides[config.className] ?? config
+  );
+
+  function updateDraftConfig(
+    className: string,
+    updates: Partial<ClassMarketConfig>
+  ) {
+    const persisted = persistedConfigsByClass.get(className);
+
+    if (!persisted) {
+      return;
+    }
+
+    setDraftConfigOverrides((currentOverrides) => ({
+      ...currentOverrides,
+      [className]: {
+        ...(currentOverrides[className] ?? persisted),
+        ...updates,
+      },
+    }));
+  }
+
+  function hasDraftChanges(config: ClassMarketConfig) {
+    const persisted = persistedConfigsByClass.get(config.className);
+
+    return persisted ? JSON.stringify(persisted) !== JSON.stringify(config) : true;
+  }
+
+  async function saveDraftConfig(config: ClassMarketConfig) {
+    const saved = await onUpdateClassMarketConfig(config.className, config);
+
+    if (saved) {
+      setDraftConfigOverrides((currentOverrides) => {
+        const nextOverrides = { ...currentOverrides };
+        delete nextOverrides[config.className];
+
+        return nextOverrides;
+      });
+    }
+  }
 
   return (
     <div className="grid gap-6">
@@ -6616,10 +6665,11 @@ function MarketEngineAdminPage({
               <TableHead>Starting cash</TableHead>
               <TableHead>Teacher controls</TableHead>
               <TableHead>Symbols</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {classMarketConfigs.map((config) => (
+            {displayedConfigs.map((config) => (
               <TableRow key={config.className}>
                 <TableCell className="font-medium">{config.className}</TableCell>
                 <TableCell>
@@ -6640,7 +6690,7 @@ function MarketEngineAdminPage({
                   <Select
                     value={config.simulationMode}
                     onValueChange={(value) =>
-                      onUpdateClassMarketConfig(config.className, {
+                      updateDraftConfig(config.className, {
                         simulationMode:
                           value as ClassMarketConfig["simulationMode"],
                       })
@@ -6660,7 +6710,7 @@ function MarketEngineAdminPage({
                   <Select
                     value={config.eventScenario}
                     onValueChange={(value) =>
-                      onUpdateClassMarketConfig(config.className, {
+                      updateDraftConfig(config.className, {
                         eventScenario:
                           value as ClassMarketConfig["eventScenario"],
                       })
@@ -6686,7 +6736,7 @@ function MarketEngineAdminPage({
                     type="number"
                     value={config.volatilityMultiplier}
                     onChange={(event) =>
-                      onUpdateClassMarketConfig(config.className, {
+                      updateDraftConfig(config.className, {
                         volatilityMultiplier: Number(event.target.value),
                       })
                     }
@@ -6699,7 +6749,7 @@ function MarketEngineAdminPage({
                     type="number"
                     value={Math.round(config.startingCashCents / 100)}
                     onChange={(event) =>
-                      onUpdateClassMarketConfig(config.className, {
+                      updateDraftConfig(config.className, {
                         startingCashCents: Number(event.target.value) * 100,
                       })
                     }
@@ -6709,7 +6759,7 @@ function MarketEngineAdminPage({
                   <Switch
                     checked={config.teacherControlsEnabled}
                     onCheckedChange={(checked) =>
-                      onUpdateClassMarketConfig(config.className, {
+                      updateDraftConfig(config.className, {
                         teacherControlsEnabled: checked,
                       })
                     }
@@ -6720,7 +6770,7 @@ function MarketEngineAdminPage({
                     className="w-56"
                     value={config.allowedSymbols.join(", ")}
                     onChange={(event) =>
-                      onUpdateClassMarketConfig(config.className, {
+                      updateDraftConfig(config.className, {
                         allowedSymbols: event.target.value
                           .split(",")
                           .map((symbol) => symbol.trim().toUpperCase())
@@ -6731,6 +6781,18 @@ function MarketEngineAdminPage({
                   <span className="mt-1 block text-xs text-muted-foreground">
                     Assets: {config.allowedAssetTypes.join(", ")}
                   </span>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={!hasDraftChanges(config)}
+                    onClick={() => void saveDraftConfig(config)}
+                    className="bg-[#28666e] text-white hover:bg-[#22565d]"
+                  >
+                    <Save className="size-4" aria-hidden="true" />
+                    Save
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

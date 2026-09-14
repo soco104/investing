@@ -6,7 +6,27 @@ import { getClassMarketState, hasProductionDatabase } from "@/lib/server/reposit
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const user = await userFromRequest(request);
-  const className = url.searchParams.get("className") ?? user?.className;
+  const requestedClassName = url.searchParams.get("className");
+
+  if (!user) {
+    return Response.json(
+      { message: "Authentication is required.", ok: false },
+      { status: 401 }
+    );
+  }
+
+  if (
+    requestedClassName &&
+    user.role !== "Admin" &&
+    !user.classNames.includes(requestedClassName)
+  ) {
+    return Response.json(
+      { message: "This account cannot view that class market.", ok: false },
+      { status: 403 }
+    );
+  }
+
+  const className = requestedClassName ?? user.className;
   const classMarketState =
     hasProductionDatabase() && className
       ? await getClassMarketState(className)

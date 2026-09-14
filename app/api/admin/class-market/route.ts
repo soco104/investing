@@ -124,5 +124,5 @@ function canManageClassMarket(
     return true;
   }
 
-  return user.permissions.teacherPortal && user.className === className;
+  return user.permissions.teacherPortal && user.classNames.includes(className);
 }

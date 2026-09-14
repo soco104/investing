@@ -154,6 +154,9 @@ Cloud Run receives:
 - `SSO_SCOPE`, defaults to `openid email profile`
 - `BOOTSTRAP_ADMIN_EMAIL`, optional first admin email
 - `BOOTSTRAP_ADMIN_PASSWORD_HASH`, optional bcrypt hash for first admin
+- `MARKET_PROVIDER_TIMEOUT_MS`, optional provider GET timeout, default `7000`
+- `MARKET_POLL_CONCURRENCY`, optional polling parallelism, default `4`, capped
+  at `8`
 
 Generate an optional bootstrap admin password hash after installing
 dependencies:
@@ -203,8 +206,15 @@ The endpoint is implemented at `/api/market/poll`. It:
 - reads active market integrations from the production database;
 - resolves provider tokens server-side from Secret Manager;
 - calls providers through the backend adapter;
+- times out slow provider GET calls;
+- polls integrations with bounded concurrency;
 - caps imported symbols at the configured limit;
 - writes integration health and failure events.
+- creates class market snapshots after successful provider refresh events.
+
+The student-facing `/api/market` route is read-only. It requires
+authentication, scopes results to the user's class access, and does not create
+database snapshots on ordinary page reads.
 
 ## Credential Vault
 

@@ -32,6 +32,9 @@ views that focus on learning evidence instead of real-money trading outcomes.
   and OTEL-ready trace/span hooks
 - Admin drill-in pages for school setup, market data integrations, and district
   privacy posture selection
+- Central market simulator with class-scoped market contexts, teacher/admin
+  configuration controls, authenticated class-market access, and scheduled
+  snapshot generation
 - Admin school setup captures school, district, state, class count, and student
   count
 - Admin market integrations capture provider, endpoint, optional token,
@@ -91,6 +94,16 @@ Admin operation and configuration guidance lives in
 [`docs/admin-guide.md`](docs/admin-guide.md). It covers schools, users,
 permissions, support, monitoring, market integrations, privacy posture,
 password resets, portfolio corrections, and learning quest import/export.
+
+## User Manual
+
+Day-to-day usage guidance for students, teachers, and admins lives in
+[`docs/user-manual.md`](docs/user-manual.md).
+
+## Patch Notes
+
+Implementation history and release notes live in
+[`docs/patch-notes.md`](docs/patch-notes.md).
 
 ## Product Guardrails
 

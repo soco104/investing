@@ -74,6 +74,8 @@ The Admin portal contains the following operational modules:
 - Support
 - Monitoring
 - Market APIs
+- Market Simulator
+- Credential Vault
 - Privacy posture
 - Password resets
 - Portfolio corrections
@@ -347,7 +349,77 @@ delete, and test actions. Token values should be stored in Secret Manager and
 referenced by secret name; token values should not be written into logs,
 browser-visible state, or audit context.
 
-## 11. Credential Vault
+Provider calls now use a backend timeout, controlled by
+`MARKET_PROVIDER_TIMEOUT_MS`, defaulting to `7000ms`. The scheduled market poll
+process uses bounded concurrency, controlled by `MARKET_POLL_CONCURRENCY`,
+defaulting to `4` and capped at `8`. These controls keep a slow or failed
+provider from delaying the full polling cycle.
+
+## 11. Market Simulator
+
+The Market Simulator page manages the central simulation service and class
+market contexts.
+
+Architecture:
+
+- Provider adapters pull market data from approved backend integrations.
+- The central quote cache stores normalized provider results.
+- The central simulator applies class-specific rules.
+- Student portfolios read the simulated class market state.
+
+Class market settings include:
+
+- Class name
+- Provider-backed or fallback feed status
+- Simulation mode
+- Scenario
+- Volatility multiplier
+- Starting cash
+- Teacher controls enabled/disabled
+- Allowed symbols
+- Allowed asset types
+
+Simulation modes:
+
+- `Shared provider`: uses centrally cached provider market data.
+- `Teacher scenario`: applies teacher/admin scenario behavior on top of
+  provider or fallback data.
+- `Frozen market`: pauses simulated movement for instruction or assessment.
+
+Scenarios:
+
+- `Baseline`
+- `Market drop`
+- `Growth rally`
+- `Rate shock`
+
+Admins can manage all class market contexts. Teachers can manage only assigned
+classes when teacher controls are enabled by district policy. Students can view
+only their own class market.
+
+Market simulator changes draft locally in the UI and are persisted only when
+the admin or teacher selects `Save`. This avoids excessive writes and prevents
+partial edits from creating noisy audit events.
+
+Production endpoints:
+
+- `GET /api/admin/class-market`
+- `POST /api/admin/class-market`
+- `GET /api/market`
+
+`/api/market` requires authentication. Students can view only their own class
+market. Teachers can view assigned classes. Admins can view district class
+markets.
+
+Class market snapshots are not written on ordinary market reads. Snapshots are
+created by the scheduled market polling path after successful provider refresh
+events. This keeps student page refreshes from creating unbounded write load.
+
+Audit action:
+
+- `class_market.updated`
+
+## 12. Credential Vault
 
 Use the Credential Vault page to manage secrets required by system integrations.
 This includes market API tokens, SSO client secrets, email delivery credentials,
@@ -376,7 +448,7 @@ Production endpoints:
 The endpoints require `Admin portal` permission and audit create, update,
 rotate, and delete actions before writing secret values or credential metadata.
 
-## 12. Privacy Posture
+## 13. Privacy Posture
 
 Use the Privacy posture page to select the required district posture for student
 privacy compliance. This is a configuration aid and does not replace legal
@@ -407,7 +479,7 @@ Production endpoint:
 The endpoint requires `Admin portal` permission and audits posture, privacy
 contact, state code, actor, timestamp, and reason.
 
-## 13. Support Cases
+## 14. Support Cases
 
 The Support page shows open support cases and allows admins to create new cases.
 
@@ -438,7 +510,7 @@ Production endpoint:
 The endpoint requires `Admin portal` permission and audits new support case
 creation with category, summary, requester, status, actor, and timestamp.
 
-## 14. Password Resets
+## 15. Password Resets
 
 The Password resets widget opens a popup where an admin enters a user's email
 and triggers a reset.
@@ -464,7 +536,7 @@ accepts the token and a new password, updates the credential, clears
 `forceReset`, and marks the reset request complete. Email delivery remains the
 piece that needs a district-approved email provider.
 
-## 15. Portfolio Corrections
+## 16. Portfolio Corrections
 
 Use Portfolio corrections when a student's simulated portfolio needs an
 administrative adjustment, such as increasing or decreasing portfolio value
@@ -493,7 +565,7 @@ The endpoint requires `Portfolio corrections` permission and audits the
 portfolio id, adjustment amount, before/after snapshots, actor, timestamp, and
 reason.
 
-## 16. Monitoring and Logs
+## 17. Monitoring and Logs
 
 The Monitoring page gives admins visibility into:
 
@@ -556,7 +628,7 @@ The logs download is modeled as a ZIP export for support and troubleshooting.
 Production log exports should redact secrets, tokens, student-sensitive data,
 and unnecessary request payloads.
 
-## 17. Retention, Export, and Deletion
+## 18. Retention, Export, and Deletion
 
 District data requests should be handled through a controlled retention
 workflow. The MVP now includes a production-shaped endpoint for requesting
@@ -587,7 +659,7 @@ Deletion workflow:
 Production retention must be aligned to each district contract and applicable
 state/federal student privacy obligations.
 
-## 18. Moderation Review
+## 19. Moderation Review
 
 The app supports text-only direct messages and classroom discussions with a
 first-pass profanity filter. Production moderation should give teachers and
@@ -609,7 +681,7 @@ Moderation review process:
 4. Escalate messages that require administrator, counselor, or district review.
 5. Keep moderation notes factual and minimal.
 
-## 19. Backup, Restore, and Incident Response
+## 20. Backup, Restore, and Incident Response
 
 The Cloud Run infrastructure provisions Cloud SQL with backups and point-in-time
 recovery settings. Production operations should test restore procedures before a
@@ -643,7 +715,7 @@ Incident response procedure:
 5. Resolve the issue and document follow-up work.
 6. Create a postmortem for critical incidents.
 
-## 20. Deployment and Infrastructure
+## 21. Deployment and Infrastructure
 
 The Cloud Run infrastructure guide is available at
 `docs/cloud-run-infrastructure.md`.
@@ -658,13 +730,14 @@ The current deployment package includes:
 - Cloud SQL PostgreSQL
 - Secret Manager
 - Cloud Scheduler for school-day market polling
+- Central class market config and snapshot tables
 
 Important production note: the current app schema and demo flows are still
 SQLite/D1-shaped in code. The Cloud Run package provisions Cloud SQL
 PostgreSQL as the production target, but the app data access and migrations
 should be ported and validated before using Cloud SQL as the source of truth.
 
-## 21. Daily Admin Checklist
+## 22. Daily Admin Checklist
 
 At the start of the day:
 
@@ -672,6 +745,8 @@ At the start of the day:
 - Review Monitoring for open critical errors.
 - Check Integration Health for failed market data calls.
 - Confirm active class integrations are enabled.
+- Confirm class market contexts have the intended scenario and teacher control
+  settings.
 - Review support cases pending admin or district action.
 
 During the school day:
@@ -680,6 +755,8 @@ During the school day:
 - Use password resets for account access issues.
 - Review messaging or discussion moderation concerns escalated by teachers.
 - Avoid changing market integrations during active quests unless necessary.
+- Avoid changing market simulator scenarios during active assessments unless
+  the quest design calls for it.
 
 End of day:
 
@@ -688,7 +765,7 @@ End of day:
 - Document any portfolio corrections.
 - Confirm imports, exports, role changes, and corrections have audit context.
 
-## 22. Semester or Class Rollover Checklist
+## 23. Semester or Class Rollover Checklist
 
 Before a new class period or semester:
 
@@ -698,10 +775,11 @@ Before a new class period or semester:
 - Confirm teacher assignments.
 - Review teacher permissions.
 - Delete or disable integrations for classes no longer in session.
+- Archive or reset class market contexts for classes no longer in session.
 - Export reusable learning quest templates.
 - Review privacy posture before new integrations or vendors are added.
 
-## 23. Production Readiness Gaps
+## 24. Production Readiness Gaps
 
 The MVP admin guide reflects the current prototype and near-term infrastructure
 package. Before production use with real districts, confirm these items are

@@ -180,6 +180,25 @@ node scripts/cloudrun-migrate.mjs && vinext start --hostname 0.0.0.0
 Cloud Run requires the container to listen on all interfaces and the configured
 port.
 
+## Optional Demo Data
+
+For a staging or district demo environment, seed the PostgreSQL database after
+the service has a valid `DATABASE_URL`:
+
+```bash
+npm run db:seed:demo
+```
+
+The seed is safe to rerun. It creates demo schools, users, bcrypt credentials,
+roles, permissions, integrations, class market simulator configs, quotes,
+support tickets, privacy posture, monitoring records, and audit examples.
+
+Demo credentials:
+
+- Student: `avery.johnson@example.edu` / `student-demo`
+- Teacher: `elena.rivera@example.edu` / `teacher-demo`
+- Admin: `sam.gordon@example.edu` / `admin-demo`
+
 ## Market Polling
 
 Terraform creates a Cloud Scheduler job:

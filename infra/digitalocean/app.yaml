@@ -1,0 +1,134 @@
+name: futurefund-classroom
+region: nyc
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+databases:
+  - name: futurefund-db
+    engine: PG
+    version: "16"
+    production: false
+    size: db-s-1vcpu-1gb
+    num_nodes: 1
+
+envs:
+  - key: NODE_ENV
+    value: production
+    scope: RUN_AND_BUILD_TIME
+    type: GENERAL
+  - key: DATABASE_URL
+    value: ${futurefund-db.DATABASE_URL}
+    scope: RUN_TIME
+    type: SECRET
+  - key: SESSION_SECRET
+    value: REPLACE_WITH_32_BYTE_RANDOM_VALUE
+    scope: RUN_TIME
+    type: SECRET
+  - key: CRON_SECRET
+    value: REPLACE_WITH_32_BYTE_RANDOM_VALUE
+    scope: RUN_TIME
+    type: SECRET
+  - key: OBSERVABILITY_INGEST_SECRET
+    value: REPLACE_WITH_32_BYTE_RANDOM_VALUE
+    scope: RUN_TIME
+    type: SECRET
+  - key: MARKET_PROVIDER_TIMEOUT_MS
+    value: "7000"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: MARKET_POLL_CONCURRENCY
+    value: "4"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: MARKET_PROVIDER_TOKENS_SECRET
+    value: local://futurefund-credential-vault
+    scope: RUN_TIME
+    type: SECRET
+  - key: DIGITALOCEAN_APP_URL
+    value: https://REPLACE_WITH_APP_DOMAIN
+    scope: RUN_TIME
+    type: GENERAL
+  - key: BOOTSTRAP_ADMIN_EMAIL
+    value: admin@example.edu
+    scope: RUN_TIME
+    type: GENERAL
+  - key: BOOTSTRAP_ADMIN_PASSWORD_HASH
+    value: ""
+    scope: RUN_TIME
+    type: SECRET
+  - key: SSO_AUTHORIZATION_URL
+    value: ""
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SSO_CLIENT_ID
+    value: ""
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SSO_REDIRECT_URI
+    value: ""
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SSO_SCOPE
+    value: openid email profile
+    scope: RUN_TIME
+    type: GENERAL
+
+services:
+  - name: web
+    github:
+      repo: soco104/investing
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    source_dir: /
+    run_command: npm run start:digitalocean
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    autoscaling:
+      min_instance_count: 1
+      max_instance_count: 3
+      metrics:
+        cpu:
+          percent: 70
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 6
+    liveness_health_check:
+      http_path: /api/health
+      initial_delay_seconds: 60
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    alerts:
+      - rule: CPU_UTILIZATION
+        operator: GREATER_THAN
+        value: 75
+        window: FIVE_MINUTES
+      - rule: MEM_UTILIZATION
+        operator: GREATER_THAN
+        value: 80
+        window: FIVE_MINUTES
+
+jobs:
+  - name: market-poll
+    github:
+      repo: soco104/investing
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    source_dir: /
+    run_command: npm run do:poll
+    kind: SCHEDULED
+    schedule:
+      cron: "*/15 8-15 * * 1-5"
+      time_zone: America/New_York
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1

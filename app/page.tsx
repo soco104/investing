@@ -2481,6 +2481,9 @@ export default function Home() {
     const trimmedProvider = integrationProvider.trim();
     const trimmedEndpoint = integrationEndpoint.trim();
     const trimmedSymbols = integrationSymbols.trim();
+    const tokenPlacement = trimmedProvider.toLowerCase().includes("finnhub")
+      ? "query"
+      : "bearer";
 
     if (!trimmedProvider || !trimmedEndpoint) {
       return;
@@ -2515,6 +2518,7 @@ export default function Home() {
         reason: "Admin market integration creation",
         targetClass: createdIntegration.targetClass,
         token: integrationTokenRequired ? integrationToken.trim() : "",
+        tokenPlacement,
       });
     } catch {
       return;
@@ -2536,7 +2540,7 @@ export default function Home() {
           scopeId: createdIntegration.targetClass,
           scopeType: "class",
           status: "active",
-          tokenPlacement: "bearer",
+          tokenPlacement,
           usernameHint: "",
         },
         ...currentCredentials,

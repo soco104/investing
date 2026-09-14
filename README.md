@@ -69,6 +69,17 @@ Run the local app:
 npm run dev
 ```
 
+Seed a production-shaped PostgreSQL database with reusable demo data:
+
+```bash
+DATABASE_URL="postgres://..." npm run db:seed:demo
+```
+
+The seed includes demo schools, users, bcrypt credentials, permissions,
+integrations, class market simulator settings, quotes, support cases,
+monitoring events, and audit examples. It is idempotent and skips cleanly when
+`DATABASE_URL` is not set.
+
 Build the app:
 
 ```bash
@@ -87,6 +98,13 @@ Google Cloud Run packaging and provisioning instructions live in
 [`docs/cloud-run-infrastructure.md`](docs/cloud-run-infrastructure.md). The
 package includes a `Dockerfile`, `cloudbuild.yaml`, and Terraform under
 `infra/cloudrun/` for the small school pilot infrastructure baseline.
+
+## DigitalOcean Deployment
+
+DigitalOcean App Platform deployment instructions live in
+[`docs/digitalocean-deployment.md`](docs/digitalocean-deployment.md). The
+package includes an App Platform spec under `infra/digitalocean/`, the shared
+`Dockerfile`, a health endpoint, and a scheduled market polling job helper.
 
 ## Admin Guide
 

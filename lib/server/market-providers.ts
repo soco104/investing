@@ -49,6 +49,10 @@ export async function testMarketProvider(
     };
   }
 
+  if (isFinnhubProvider(config.provider, endpoint)) {
+    return testFinnhubProvider({ ...config, endpoint }, symbolLimit);
+  }
+
   const url = tokenizedUrl(endpoint, config);
   const headers = tokenizedHeaders(config);
   const timeoutMs = Math.min(
@@ -128,6 +132,243 @@ function tokenizedHeaders(config: MarketProviderConfig) {
   }
 
   return { Authorization: `Bearer ${config.token}` };
+}
+
+async function testFinnhubProvider(
+  config: MarketProviderConfig,
+  symbolLimit: number
+): Promise<MarketProviderResult> {
+  const timeoutMs = boundedTimeout(config.timeoutMs);
+  const symbols = parseAllowedSymbols(config.allowedSymbols);
+  const quoteSymbols =
+    symbols.length > 0
+      ? symbols.slice(0, symbolLimit)
+      : await fetchFinnhubSymbols(config, symbolLimit, timeoutMs);
+
+  if (quoteSymbols.length === 0) {
+    return {
+      importedSymbols: 0,
+      message:
+        symbols.length > 0
+          ? "No valid Finnhub symbols were configured."
+          : "Finnhub symbol discovery returned no importable symbols.",
+      ok: false,
+      quotes: [],
+    };
+  }
+
+  const quoteResults = await mapWithConcurrency(
+    quoteSymbols,
+    4,
+    async (symbol) => fetchFinnhubQuote(config, symbol, timeoutMs)
+  );
+  const firstFailure = quoteResults.find((result) => !result.ok);
+  const quotes = quoteResults
+    .map((result) => result.quote)
+    .filter((quote): quote is NormalizedMarketQuote => Boolean(quote));
+
+  return {
+    importedSymbols: quotes.length,
+    message: firstFailure
+      ? `Finnhub GET partially succeeded. Imported ${quotes.length} of ${quoteSymbols.length} symbols.`
+      : `Finnhub GET succeeded. Imported ${quotes.length} symbols.`,
+    ok: quotes.length > 0 && !firstFailure,
+    quotes,
+    statusCode: firstFailure?.statusCode ?? 200,
+  };
+}
+
+async function fetchFinnhubSymbols(
+  config: MarketProviderConfig,
+  symbolLimit: number,
+  timeoutMs: number
+) {
+  const url = finnhubUrl(config.endpoint, "/stock/symbol", config, {
+    forcePath: true,
+  });
+  url.searchParams.set("exchange", "US");
+
+  const response = await fetchWithTimeout(url, config, timeoutMs);
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const payload = await response.json();
+  const rows = Array.isArray(payload) ? payload : [];
+
+  return rows
+    .map((row) => {
+      if (!row || typeof row !== "object") {
+        return "";
+      }
+      const record = row as Record<string, unknown>;
+      return String(record.displaySymbol ?? record.symbol ?? "").trim().toUpperCase();
+    })
+    .filter(Boolean)
+    .slice(0, symbolLimit);
+}
+
+async function fetchFinnhubQuote(
+  config: MarketProviderConfig,
+  symbol: string,
+  timeoutMs: number
+) {
+  try {
+    const url = finnhubUrl(config.endpoint, "/quote", config);
+    url.searchParams.set("symbol", symbol);
+
+    const response = await fetchWithTimeout(url, config, timeoutMs);
+
+    if (!response.ok) {
+      return { ok: false, statusCode: response.status };
+    }
+
+    return {
+      ok: true,
+      quote: normalizeFinnhubQuote(symbol, await response.json()),
+      statusCode: response.status,
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function normalizeFinnhubQuote(symbol: string, payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const price = Number(record.c);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+
+  const directPercent = Number(record.dp);
+  const dollarChange = Number(record.d);
+  const previousClose = Number(record.pc);
+  const calculatedPercent =
+    Number.isFinite(dollarChange) && Number.isFinite(previousClose) && previousClose > 0
+      ? (dollarChange / previousClose) * 100
+      : 0;
+
+  return {
+    changePercent: Number.isFinite(directPercent) ? directPercent : calculatedPercent,
+    name: symbol,
+    price,
+    ticker: symbol,
+  };
+}
+
+async function fetchWithTimeout(
+  url: URL,
+  config: MarketProviderConfig,
+  timeoutMs: number
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      headers: finnhubHeaders(config),
+      method: "GET",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function finnhubUrl(
+  endpoint: string,
+  fallbackPath: string,
+  config: MarketProviderConfig,
+  options: { forcePath?: boolean } = {}
+) {
+  const configured = new URL(endpoint);
+  const path =
+    options.forcePath ||
+    configured.pathname === "/" ||
+    configured.pathname === "/api/v1"
+      ? fallbackPath
+      : configured.pathname;
+  const url = new URL(`https://${configured.host}${path}`);
+
+  if (configured.search) {
+    for (const [key, value] of configured.searchParams.entries()) {
+      if (key !== "symbol" && key !== "token") {
+        url.searchParams.set(key, value);
+      }
+    }
+  }
+
+  if (config.token && config.tokenPlacement === "query") {
+    url.searchParams.set("token", config.token);
+  }
+
+  return url;
+}
+
+function finnhubHeaders(config: MarketProviderConfig) {
+  if (!config.token || config.tokenPlacement === "query") {
+    return undefined;
+  }
+
+  return { "X-Finnhub-Token": config.token };
+}
+
+function isFinnhubProvider(provider: string, endpoint: string) {
+  let host = "";
+
+  try {
+    host = new URL(endpoint).hostname.toLowerCase();
+  } catch {
+    host = "";
+  }
+
+  return (
+    provider.toLowerCase().includes("finnhub") ||
+    host.endsWith("finnhub.io")
+  );
+}
+
+function parseAllowedSymbols(allowedSymbols?: string) {
+  return (allowedSymbols ?? "")
+    .split(",")
+    .map((symbol) => symbol.trim().toUpperCase())
+    .filter(Boolean);
+}
+
+function boundedTimeout(timeoutMs?: number) {
+  return Math.min(
+    Math.max(timeoutMs ?? Number(process.env.MARKET_PROVIDER_TIMEOUT_MS ?? 7000), 1000),
+    30000
+  );
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>
+) {
+  const results: R[] = [];
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await worker(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => runWorker())
+  );
+
+  return results;
 }
 
 function normalizeProviderQuotes(payload: unknown, symbolLimit: number) {

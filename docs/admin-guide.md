@@ -318,6 +318,27 @@ The provider adapter also supports query-string token placement and `X-API-Key`
 headers for providers that require them. The default remains bearer token
 authorization because it is the cleanest common case for server-side GET calls.
 
+### Finnhub Setup
+
+Finnhub should be configured as a pull-based market integration. The webhook URL
+on the Finnhub account page can stay blank for the current app flow because the
+market engine polls Finnhub rather than receiving pushed events.
+
+Recommended settings:
+
+- API provider: `Finnhub`
+- API endpoint: `https://finnhub.io/api/v1/quote`
+- Token required: enabled
+- Token placement: query token
+- Allowed symbols: a comma-separated list such as `AAPL,MSFT,SPY`, or blank to
+  discover US symbols and import up to the configured 200-symbol maximum
+
+The Finnhub adapter calls `/quote` once per selected symbol, maps Finnhub's
+compact response fields into the app's normalized quote cache, and uses
+`/stock/symbol?exchange=US` only when allowed symbols is blank. Finnhub also
+supports the `X-Finnhub-Token` header, but query-token placement matches the
+published Swagger security shape and is the recommended app configuration.
+
 The classroom-safe mock market endpoint is available at `/api/market`. It
 returns simulated, delayed educational market data and should be used for demos
 or classroom-safe testing.
@@ -720,22 +741,46 @@ Incident response procedure:
 The Cloud Run infrastructure guide is available at
 `docs/cloud-run-infrastructure.md`.
 
+The DigitalOcean App Platform deployment guide is available at
+`docs/digitalocean-deployment.md`.
+
 The current deployment package includes:
 
 - `Dockerfile`
 - `cloudbuild.yaml`
 - Terraform in `infra/cloudrun/`
+- App Platform spec in `infra/digitalocean/`
 - Cloud Run service baseline
 - Artifact Registry
 - Cloud SQL PostgreSQL
 - Secret Manager
 - Cloud Scheduler for school-day market polling
+- DigitalOcean App Platform service and scheduled job template
 - Central class market config and snapshot tables
 
 Important production note: the current app schema and demo flows are still
 SQLite/D1-shaped in code. The Cloud Run package provisions Cloud SQL
 PostgreSQL as the production target, but the app data access and migrations
 should be ported and validated before using Cloud SQL as the source of truth.
+
+### Optional Demo Data Seed
+
+Staging and demo environments can be populated with a reusable demo data set:
+
+```bash
+npm run db:seed:demo
+```
+
+The seed loads demo schools, users, bcrypt credentials, role assignments,
+permission grants, market integrations, class market simulator settings,
+quotes, support tickets, privacy posture, monitoring events, and audit records.
+It is idempotent and runs the production table setup before inserting records.
+
+Demo accounts:
+
+- Student: `avery.johnson@example.edu` / `student-demo`
+- Teacher: `elena.rivera@example.edu` / `teacher-demo`
+- Admin: `sam.gordon@example.edu` / `admin-demo`
 
 ## 22. Daily Admin Checklist
 

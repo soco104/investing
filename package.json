@@ -11,7 +11,7 @@
     "build": "vinext build",
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "start:cloudrun": "node scripts/cloudrun-migrate.mjs && vinext start --hostname 0.0.0.0",
-    "start:digitalocean": "node scripts/cloudrun-migrate.mjs && vinext start --hostname 0.0.0.0",
+    "start:digitalocean": "node scripts/digitalocean-start.mjs",
     "do:poll": "node scripts/digitalocean-market-poll.mjs",
     "db:seed:demo": "node scripts/seed-demo-data.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",

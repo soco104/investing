@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const repository = vi.hoisted(() => ({
+  getClassMarketState: vi.fn(),
   hasProductionDatabase: vi.fn(),
-  listLatestMarketQuotes: vi.fn(),
 }));
 const auth = vi.hoisted(() => ({
   userFromRequest: vi.fn(),
@@ -20,16 +20,26 @@ describe("market snapshot route", () => {
     const { GET } = await import("@/app/api/market/route");
     repository.hasProductionDatabase.mockReturnValue(true);
     auth.userFromRequest.mockResolvedValue(null);
-    repository.listLatestMarketQuotes.mockResolvedValue([
-      {
-        change_percent: "1.25",
-        fetched_at: new Date(),
-        integration_id: "integration-1",
-        name: "Example ETF",
-        price: "101.42",
-        ticker: "EXM",
+    repository.getClassMarketState.mockResolvedValue({
+      className: "7th Grade Finance A",
+      config: {
+        simulationMode: "teacher_scenario",
       },
-    ]);
+      disclosure: "Educational simulation only.",
+      engineMode: "central-simulator",
+      generatedAt: "2026-09-14T12:00:00.000Z",
+      symbols: [
+        {
+          changePercent: 1.25,
+          lessonUse: "Provider-backed classroom market data",
+          name: "Example ETF",
+          price: 101.42,
+          simulatedChangePercent: 0.75,
+          simulatedPrice: 102.18,
+          ticker: "EXM",
+        },
+      ],
+    });
 
     const response = await GET(
       new Request("http://futurefund.test/api/market?className=7th%20Grade%20Finance%20A")
@@ -38,18 +48,18 @@ describe("market snapshot route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
-      mode: "provider-backed-delayed",
-      source: "provider-cache",
+      mode: "teacher_scenario",
+      source: "central-simulator",
     });
     expect(body.symbols).toEqual([
       expect.objectContaining({
-        changePercent: 1.25,
+        changePercent: 0.75,
         name: "Example ETF",
-        price: 101.42,
+        price: 102.18,
         ticker: "EXM",
       }),
     ]);
-    expect(repository.listLatestMarketQuotes).toHaveBeenCalledWith(
+    expect(repository.getClassMarketState).toHaveBeenCalledWith(
       "7th Grade Finance A"
     );
   });

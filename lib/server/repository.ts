@@ -1,6 +1,13 @@
 import postgres from "postgres";
 
 import type { AppErrorEvent, PerformanceEvent } from "@/lib/observability";
+import {
+  buildClassMarketState,
+  getDefaultClassMarketConfig,
+  normalizeClassMarketConfig,
+  type ClassMarketConfig,
+  type ClassMarketState,
+} from "@/lib/server/market-engine";
 import type { NormalizedMarketQuote } from "@/lib/server/market-providers";
 import type { AuditEvent } from "./audit";
 import type { AuthenticatedUser, PermissionKey } from "./auth";
@@ -258,7 +265,14 @@ export async function listAdminState() {
   }
 
   const sql = getSql();
-  const [users, schools, supportCases, marketIntegrations, credentials] =
+  const [
+    users,
+    schools,
+    supportCases,
+    marketIntegrations,
+    credentials,
+    classMarketConfigs,
+  ] =
     await Promise.all([
       sql`
       select
@@ -306,15 +320,170 @@ export async function listAdminState() {
       order by updated_at desc
       limit 200
     `,
+      sql`
+      select class_name, simulation_mode, allowed_asset_types_json,
+        allowed_symbols_csv, event_scenario, volatility_multiplier,
+        starting_cash_cents, teacher_controls_enabled, updated_at
+      from class_market_configs
+      order by updated_at desc
+      limit 100
+    `,
     ]);
 
   return {
     adminUsers: users,
+    classMarketConfigs,
     credentials,
     marketIntegrations,
     schools,
     supportCases,
   };
+}
+
+export async function listClassMarketConfigs() {
+  if (!hasProductionDatabase()) {
+    return [];
+  }
+
+  return getSql()<
+    Array<{
+      allowed_asset_types_json: string;
+      allowed_symbols_csv: string;
+      class_name: string;
+      event_scenario: string;
+      simulation_mode: string;
+      starting_cash_cents: number;
+      teacher_controls_enabled: boolean;
+      updated_at: Date;
+      volatility_multiplier: number;
+    }>
+  >`
+    select class_name, simulation_mode, allowed_asset_types_json,
+      allowed_symbols_csv, event_scenario, volatility_multiplier,
+      starting_cash_cents, teacher_controls_enabled, updated_at
+    from class_market_configs
+    order by updated_at desc
+    limit 100
+  `;
+}
+
+export async function getClassMarketConfig(className: string) {
+  if (!hasProductionDatabase()) {
+    return getDefaultClassMarketConfig(className);
+  }
+
+  const [row] = await getSql()<
+    Array<{
+      allowed_asset_types_json: string;
+      allowed_symbols_csv: string;
+      class_name: string;
+      event_scenario: string;
+      simulation_mode: string;
+      starting_cash_cents: number;
+      teacher_controls_enabled: boolean;
+      volatility_multiplier: number;
+    }>
+  >`
+    select class_name, simulation_mode, allowed_asset_types_json,
+      allowed_symbols_csv, event_scenario, volatility_multiplier,
+      starting_cash_cents, teacher_controls_enabled
+    from class_market_configs
+    where class_name = ${className}
+    limit 1
+  `;
+
+  if (!row) {
+    return getDefaultClassMarketConfig(className);
+  }
+
+  return normalizeClassMarketConfig({
+    allowedAssetTypes: parseJsonArray(row.allowed_asset_types_json),
+    allowedSymbols: row.allowed_symbols_csv,
+    className: row.class_name,
+    eventScenario: row.event_scenario,
+    simulationMode: row.simulation_mode,
+    startingCashCents: Number(row.starting_cash_cents),
+    teacherControlsEnabled: row.teacher_controls_enabled,
+    volatilityMultiplier: Number(row.volatility_multiplier),
+  });
+}
+
+export async function upsertClassMarketConfig(input: {
+  actor: AuthenticatedUser;
+  config: ClassMarketConfig;
+}) {
+  if (!hasProductionDatabase()) {
+    return;
+  }
+
+  await ensureDistrict(getSql());
+  await getSql()`
+    insert into class_market_configs (
+      id, district_id, class_name, simulation_mode, allowed_asset_types_json,
+      allowed_symbols_csv, event_scenario, volatility_multiplier,
+      starting_cash_cents, teacher_controls_enabled, configured_by_user_id,
+      updated_at
+    )
+    values (
+      ${id("class-market")}, ${defaultDistrictId}, ${input.config.className},
+      ${input.config.simulationMode},
+      ${JSON.stringify(input.config.allowedAssetTypes)},
+      ${input.config.allowedSymbols.join(",")},
+      ${input.config.eventScenario}, ${input.config.volatilityMultiplier},
+      ${input.config.startingCashCents}, ${input.config.teacherControlsEnabled},
+      ${input.actor.id}, ${new Date()}
+    )
+    on conflict (district_id, class_name) do update set
+      simulation_mode = excluded.simulation_mode,
+      allowed_asset_types_json = excluded.allowed_asset_types_json,
+      allowed_symbols_csv = excluded.allowed_symbols_csv,
+      event_scenario = excluded.event_scenario,
+      volatility_multiplier = excluded.volatility_multiplier,
+      starting_cash_cents = excluded.starting_cash_cents,
+      teacher_controls_enabled = excluded.teacher_controls_enabled,
+      configured_by_user_id = excluded.configured_by_user_id,
+      updated_at = excluded.updated_at
+  `;
+}
+
+export async function getClassMarketState(className: string) {
+  const [config, quotes] = await Promise.all([
+    getClassMarketConfig(className),
+    listLatestMarketQuotes(className),
+  ]);
+  const state = buildClassMarketState({
+    className,
+    config,
+    quotes: quotes.map((quote) => ({
+      changePercent: Number(quote.change_percent),
+      name: quote.name,
+      price: Number(quote.price),
+      ticker: quote.ticker,
+    })),
+  });
+
+  await recordClassMarketSnapshot(state);
+
+  return state;
+}
+
+export async function recordClassMarketSnapshot(state: ClassMarketState) {
+  if (!hasProductionDatabase()) {
+    return;
+  }
+
+  await ensureDistrict(getSql());
+  await getSql()`
+    insert into class_market_snapshots (
+      id, district_id, class_name, simulation_mode, scenario_label,
+      snapshot_json, generated_at
+    )
+    values (
+      ${id("market-snapshot")}, ${defaultDistrictId}, ${state.className},
+      ${state.config.simulationMode}, ${state.scenarioLabel},
+      ${JSON.stringify(state)}, ${new Date(state.generatedAt)}
+    )
+  `;
 }
 
 export async function listCredentialMetadata() {
@@ -1154,6 +1323,18 @@ function permissionsForRole(role: AuthenticatedUser["role"]) {
     studentProfile: true,
     teacherPortal: false,
   };
+}
+
+function parseJsonArray(value: string) {
+  try {
+    const parsed = JSON.parse(value);
+
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 export function id(prefix: string) {

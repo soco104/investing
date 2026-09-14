@@ -194,6 +194,38 @@ try {
     on market_quotes (ticker, fetched_at desc)
   `;
   await sql`
+    create table if not exists class_market_configs (
+      id text primary key,
+      district_id text not null references districts(id),
+      class_name text not null,
+      simulation_mode text not null default 'shared_provider',
+      allowed_asset_types_json text not null default '[]',
+      allowed_symbols_csv text not null default '',
+      event_scenario text not null default 'baseline',
+      volatility_multiplier numeric not null default 1,
+      starting_cash_cents integer not null default 100000,
+      teacher_controls_enabled boolean not null default true,
+      configured_by_user_id text,
+      updated_at timestamp not null,
+      unique (district_id, class_name)
+    )
+  `;
+  await sql`
+    create table if not exists class_market_snapshots (
+      id text primary key,
+      district_id text not null references districts(id),
+      class_name text not null,
+      simulation_mode text not null,
+      scenario_label text not null,
+      snapshot_json text not null,
+      generated_at timestamp not null
+    )
+  `;
+  await sql`
+    create index if not exists class_market_snapshots_class_generated_idx
+    on class_market_snapshots (class_name, generated_at desc)
+  `;
+  await sql`
     create table if not exists privacy_posture_settings (
       id text primary key,
       district_id text not null references districts(id),

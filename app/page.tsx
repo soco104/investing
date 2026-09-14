@@ -591,6 +591,7 @@ type AdminPage =
   | "overview"
   | "schools"
   | "integrations"
+  | "market-engine"
   | "credentials"
   | "privacy"
   | "users"
@@ -706,6 +707,17 @@ type MarketIntegration = {
   importedSymbols: number;
   lastFetchStatus: string;
   enabled: boolean;
+};
+
+type ClassMarketConfig = {
+  allowedAssetTypes: string[];
+  allowedSymbols: string[];
+  className: string;
+  eventScenario: "baseline" | "market_drop" | "growth_rally" | "rate_shock";
+  simulationMode: "shared_provider" | "teacher_scenario" | "frozen";
+  startingCashCents: number;
+  teacherControlsEnabled: boolean;
+  volatilityMultiplier: number;
 };
 
 type CredentialRecord = {
@@ -1117,6 +1129,49 @@ const initialMarketIntegrations: MarketIntegration[] = [
   },
 ];
 
+const initialClassMarketConfigs: ClassMarketConfig[] = [
+  {
+    allowedAssetTypes: ["Stocks", "ETFs", "Bonds", "Cash"],
+    allowedSymbols: ["SPY", "QQQ", "BND", "IPO-LAB"],
+    className: "7th Grade Finance A",
+    eventScenario: "market_drop",
+    simulationMode: "teacher_scenario",
+    startingCashCents: 100000,
+    teacherControlsEnabled: true,
+    volatilityMultiplier: 1.2,
+  },
+  {
+    allowedAssetTypes: ["Stocks", "ETFs", "Bonds", "Cash"],
+    allowedSymbols: ["SPY", "QQQ", "BND"],
+    className: "7th Grade Finance B",
+    eventScenario: "baseline",
+    simulationMode: "shared_provider",
+    startingCashCents: 100000,
+    teacherControlsEnabled: true,
+    volatilityMultiplier: 1,
+  },
+  {
+    allowedAssetTypes: ["Stocks", "ETFs", "Roth IRA", "Cash"],
+    allowedSymbols: ["VTI", "VXUS", "BND", "SPY"],
+    className: "8th Grade Investing Lab",
+    eventScenario: "growth_rally",
+    simulationMode: "teacher_scenario",
+    startingCashCents: 150000,
+    teacherControlsEnabled: true,
+    volatilityMultiplier: 1.35,
+  },
+  {
+    allowedAssetTypes: ["Stocks", "ETFs", "Bonds", "Retirement", "Cash"],
+    allowedSymbols: ["SPY", "QQQ", "BND", "VTI"],
+    className: "High School Personal Finance",
+    eventScenario: "rate_shock",
+    simulationMode: "teacher_scenario",
+    startingCashCents: 200000,
+    teacherControlsEnabled: true,
+    volatilityMultiplier: 1.1,
+  },
+];
+
 const privacyPostures = [
   {
     value: "standard",
@@ -1400,6 +1455,12 @@ const adminModules = [
     icon: PlugZap,
   },
   {
+    title: "Market Simulator",
+    detail: "Manage the central simulator and class-specific market contexts.",
+    status: "Class scoped",
+    icon: ChartNoAxesCombined,
+  },
+  {
     title: "Credential Vault",
     detail: "Store integration secrets in the backend vault and manage rotations.",
     status: "Secret-backed",
@@ -1454,6 +1515,9 @@ export default function Home() {
   const [selectedQuestId, setSelectedQuestId] = useState(
     initialTeacherQuests[0].id
   );
+  const [selectedAdminLibraryQuest, setSelectedAdminLibraryQuest] =
+    useState<TeacherQuest | null>(null);
+  const [adminQuestDetailsOpen, setAdminQuestDetailsOpen] = useState(false);
   const [draftQuest, setDraftQuest] = useState<TeacherQuest>(
     initialTeacherQuests[0]
   );
@@ -1507,6 +1571,9 @@ export default function Home() {
   const [marketIntegrations, setMarketIntegrations] = useState<
     MarketIntegration[]
   >(initialMarketIntegrations);
+  const [classMarketConfigs, setClassMarketConfigs] = useState<ClassMarketConfig[]>(
+    initialClassMarketConfigs
+  );
   const [integrationProvider, setIntegrationProvider] = useState("");
   const [integrationEndpoint, setIntegrationEndpoint] = useState("/api/market");
   const [integrationTokenRequired, setIntegrationTokenRequired] =
@@ -1729,6 +1796,16 @@ export default function Home() {
               status: string;
               summary: string;
             }>;
+            classMarketConfigs?: Array<{
+              allowed_asset_types_json: string;
+              allowed_symbols_csv: string;
+              class_name: string;
+              event_scenario: ClassMarketConfig["eventScenario"];
+              simulation_mode: ClassMarketConfig["simulationMode"];
+              starting_cash_cents: number;
+              teacher_controls_enabled: boolean;
+              volatility_multiplier: number;
+            }>;
           };
         };
 
@@ -1828,6 +1905,24 @@ export default function Home() {
             }))
           );
         }
+
+        if (result.state.classMarketConfigs?.length) {
+          setClassMarketConfigs(
+            result.state.classMarketConfigs.map((config) => ({
+              allowedAssetTypes: parseJsonList(config.allowed_asset_types_json),
+              allowedSymbols: config.allowed_symbols_csv
+                .split(",")
+                .map((symbol) => symbol.trim().toUpperCase())
+                .filter(Boolean),
+              className: config.class_name,
+              eventScenario: config.event_scenario,
+              simulationMode: config.simulation_mode,
+              startingCashCents: config.starting_cash_cents,
+              teacherControlsEnabled: config.teacher_controls_enabled,
+              volatilityMultiplier: Number(config.volatility_multiplier),
+            }))
+          );
+        }
       } catch {
         // The prototype seed data remains available when production state is unavailable.
       }
@@ -1879,6 +1974,11 @@ export default function Home() {
   function loadQuest(quest: TeacherQuest) {
     setSelectedQuestId(quest.id);
     setDraftQuest(quest);
+  }
+
+  function openAdminQuestDetails(quest: TeacherQuest) {
+    setSelectedAdminLibraryQuest(quest);
+    setAdminQuestDetailsOpen(true);
   }
 
   function createBlankQuest() {
@@ -2566,6 +2666,35 @@ export default function Home() {
     }
   }
 
+  async function updateClassMarketConfig(
+    className: string,
+    updates: Partial<ClassMarketConfig>
+  ) {
+    const existing =
+      classMarketConfigs.find((config) => config.className === className) ??
+      initialClassMarketConfigs[0];
+    const nextConfig = { ...existing, ...updates, className };
+
+    try {
+      await postAdminMutation("/api/admin/class-market", {
+        ...nextConfig,
+        reason: "Class market simulator configuration update",
+      });
+    } catch {
+      return;
+    }
+
+    setClassMarketConfigs((currentConfigs) => {
+      const others = currentConfigs.filter(
+        (config) => config.className !== className
+      );
+
+      return [...others, nextConfig].sort((a, b) =>
+        a.className.localeCompare(b.className)
+      );
+    });
+  }
+
   async function saveCredential() {
     const label = credentialLabel.trim();
     const providerName = credentialProvider.trim();
@@ -2706,6 +2835,7 @@ export default function Home() {
       Support: "support",
       Monitoring: "monitoring",
       "Market APIs": "integrations",
+      "Market Simulator": "market-engine",
       "Credential Vault": "credentials",
       "Portfolio corrections": "portfolio-corrections",
     };
@@ -3719,6 +3849,7 @@ export default function Home() {
                   <AdminDrilldown
                     activePage={activeAdminPage}
                     adminUsers={adminUsers}
+                    classMarketConfigs={classMarketConfigs}
                     credentialLabel={credentialLabel}
                     credentialNotice={credentialNotice}
                     credentialPlacement={credentialPlacement}
@@ -3804,6 +3935,7 @@ export default function Home() {
                     onSaveCredential={saveCredential}
                     onTestIntegration={testMarketIntegration}
                     onToggleIntegration={toggleMarketIntegration}
+                    onUpdateClassMarketConfig={updateClassMarketConfig}
                     onToggleUserEnabled={toggleUserEnabled}
                     privacyContact={privacyContact}
                     privacyPosture={privacyPosture}
@@ -3970,7 +4102,19 @@ export default function Home() {
                   </TableHeader>
                   <TableBody>
                     {teacherQuests.map((quest) => (
-                      <TableRow key={quest.id}>
+                      <TableRow
+                        key={quest.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openAdminQuestDetails(quest)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openAdminQuestDetails(quest);
+                          }
+                        }}
+                        className="cursor-pointer transition hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
                         <TableCell className="font-medium">{quest.title}</TableCell>
                         <TableCell>Grade 7 Finance</TableCell>
                         <TableCell className="capitalize">
@@ -3993,6 +4137,15 @@ export default function Home() {
                     ))}
                   </TableBody>
                 </Table>
+
+                <Dialog
+                  open={adminQuestDetailsOpen}
+                  onOpenChange={setAdminQuestDetailsOpen}
+                >
+                  {selectedAdminLibraryQuest ? (
+                    <AdminQuestDetailsDialog quest={selectedAdminLibraryQuest} />
+                  ) : null}
+                </Dialog>
 
                 <LearningQuestTransferPanel
                   audience="Admin"
@@ -4359,6 +4512,146 @@ function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
           {mission.progress > 0 ? "Continue quest" : "Start quest"}
         </Button>
       </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function AdminQuestDetailsDialog({ quest }: { quest: TeacherQuest }) {
+  const totalPoints = quest.criteria.reduce(
+    (total, criterion) => total + criterion.points,
+    0
+  );
+  const hiddenRules = quest.criteria.filter(
+    (criterion) => !criterion.visibleToStudents
+  ).length;
+  const submittedPercent =
+    quest.assigned > 0 ? Math.round((quest.submitted / quest.assigned) * 100) : 0;
+
+  return (
+    <DialogContent className="max-h-[min(88vh,760px)] overflow-y-auto sm:max-w-3xl">
+      <DialogHeader className="pr-8">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <Badge className="rounded-md bg-[#e8f0ed] text-[#24493f] hover:bg-[#e8f0ed]">
+            {quest.status}
+          </Badge>
+          <Badge variant="outline" className="rounded-md capitalize">
+            {quest.marketMode}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={
+              quest.scoreVisibility === "hidden"
+                ? "rounded-md border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+                : "rounded-md border-[#28666e]/30 bg-[#e8f0ed] text-[#24493f]"
+            }
+          >
+            {quest.scoreVisibility} scoring
+          </Badge>
+        </div>
+        <DialogTitle className="text-2xl leading-tight">
+          {quest.title}
+        </DialogTitle>
+        <DialogDescription className="text-base leading-7">
+          {quest.objective}
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <section className="space-y-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <LineChart className="size-5 text-[#28666e]" />
+              <h3 className="font-semibold">Market parameters</h3>
+            </div>
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-muted-foreground">Mode</dt>
+                <dd className="mt-1 font-medium capitalize">{quest.marketMode}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Window</dt>
+                <dd className="mt-1 font-medium">{quest.marketWindow}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground">Symbols</dt>
+                <dd className="mt-1 font-medium">
+                  {quest.marketSymbols || "No symbols configured"}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Target className="size-5 text-[#28666e]" />
+                <h3 className="font-semibold">Scoring rules</h3>
+              </div>
+              <Badge variant="outline" className="rounded-md">
+                {totalPoints} pts
+              </Badge>
+            </div>
+            <div className="space-y-3">
+              {quest.criteria.map((criterion) => (
+                <div
+                  key={criterion.id}
+                  className="grid gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_80px_130px]"
+                >
+                  <p className="text-sm font-medium leading-6">
+                    {criterion.label}
+                  </p>
+                  <p className="text-sm font-semibold">{criterion.points} pts</p>
+                  <Badge
+                    variant="outline"
+                    className={
+                      criterion.visibleToStudents
+                        ? "w-fit rounded-md border-[#28666e]/30 bg-[#e8f0ed] text-[#24493f]"
+                        : "w-fit rounded-md border-[#c44536]/30 bg-[#fff0ed] text-[#8a3025]"
+                    }
+                  >
+                    {criterion.visibleToStudents ? "Visible" : "Hidden"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Completion</h3>
+              <span className="text-sm font-medium">{submittedPercent}%</span>
+            </div>
+            <Progress value={submittedPercent} className="h-2 bg-[#e8f0ed]" />
+            <div className="mt-4 grid gap-3 text-sm">
+              <QuestMonitorMetric label="Assigned" value={quest.assigned} />
+              <QuestMonitorMetric label="Submitted" value={quest.submitted} />
+              <QuestMonitorMetric label="Average" value={`${quest.avgScore}%`} />
+              <QuestMonitorMetric label="Review flags" value={quest.flagged} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              {quest.scoreVisibility === "hidden" ? (
+                <EyeOff className="size-5 text-[#a13d2e]" />
+              ) : (
+                <Eye className="size-5 text-[#28666e]" />
+              )}
+              <h3 className="font-semibold">Student visibility</h3>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {hiddenRules} rubric signal{hiddenRules === 1 ? "" : "s"} hidden
+              from students. Reflection is{" "}
+              {quest.requireReflection ? "required" : "optional"} for this
+              quest.
+            </p>
+          </div>
+        </aside>
+      </div>
+
+      <DialogFooter showCloseButton />
     </DialogContent>
   );
 }
@@ -5448,6 +5741,7 @@ function AdminDrilldown({
   schoolClassCount,
   schoolStudentCount,
   marketIntegrations,
+  classMarketConfigs,
   integrationProvider,
   integrationEndpoint,
   integrationTokenRequired,
@@ -5499,6 +5793,7 @@ function AdminDrilldown({
   onDeleteIntegration,
   onTestIntegration,
   onToggleIntegration,
+  onUpdateClassMarketConfig,
   onIntegrationProviderChange,
   onIntegrationEndpointChange,
   onIntegrationTokenRequiredChange,
@@ -5553,6 +5848,7 @@ function AdminDrilldown({
   schoolClassCount: string;
   schoolStudentCount: string;
   marketIntegrations: MarketIntegration[];
+  classMarketConfigs: ClassMarketConfig[];
   integrationProvider: string;
   integrationEndpoint: string;
   integrationTokenRequired: boolean;
@@ -5606,6 +5902,10 @@ function AdminDrilldown({
   onDeleteIntegration: (integrationId: string) => void;
   onTestIntegration: (integrationId: string) => void;
   onToggleIntegration: (integrationId: string, enabled: boolean) => void;
+  onUpdateClassMarketConfig: (
+    className: string,
+    updates: Partial<ClassMarketConfig>
+  ) => void;
   onIntegrationProviderChange: (provider: string) => void;
   onIntegrationEndpointChange: (endpoint: string) => void;
   onIntegrationTokenRequiredChange: (required: boolean) => void;
@@ -5649,19 +5949,21 @@ function AdminDrilldown({
       ? "Schools"
       : activePage === "integrations"
         ? "Integrations"
-        : activePage === "credentials"
-          ? "Credential vault"
-        : activePage === "privacy"
-          ? "Privacy posture"
-          : activePage === "users"
-            ? "Users"
-            : activePage === "permissions"
-              ? "Permissions"
-              : activePage === "support"
-                ? "Support"
-                : activePage === "monitoring"
-                  ? "Monitoring"
-                  : "Portfolio corrections";
+        : activePage === "market-engine"
+          ? "Market simulator"
+          : activePage === "credentials"
+            ? "Credential vault"
+            : activePage === "privacy"
+              ? "Privacy posture"
+              : activePage === "users"
+                ? "Users"
+                : activePage === "permissions"
+                  ? "Permissions"
+                  : activePage === "support"
+                    ? "Support"
+                    : activePage === "monitoring"
+                      ? "Monitoring"
+                      : "Portfolio corrections";
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -5714,6 +6016,14 @@ function AdminDrilldown({
           onIntegrationTokenRequiredChange={onIntegrationTokenRequiredChange}
           onTestIntegration={onTestIntegration}
           onToggleIntegration={onToggleIntegration}
+        />
+      ) : null}
+
+      {activePage === "market-engine" ? (
+        <MarketEngineAdminPage
+          classMarketConfigs={classMarketConfigs}
+          integrations={marketIntegrations}
+          onUpdateClassMarketConfig={onUpdateClassMarketConfig}
         />
       ) : null}
 
@@ -6215,6 +6525,218 @@ function IntegrationsAdminPage({
           </article>
         ))}
       </div>
+    </div>
+  );
+}
+
+function MarketEngineAdminPage({
+  classMarketConfigs,
+  integrations,
+  onUpdateClassMarketConfig,
+}: {
+  classMarketConfigs: ClassMarketConfig[];
+  integrations: MarketIntegration[];
+  onUpdateClassMarketConfig: (
+    className: string,
+    updates: Partial<ClassMarketConfig>
+  ) => void;
+}) {
+  const activeIntegrations = integrations.filter((integration) => integration.enabled);
+  const connectedClasses = new Set(
+    activeIntegrations.map((integration) => integration.targetClass)
+  );
+
+  return (
+    <div className="grid gap-6">
+      <section className="grid gap-4 lg:grid-cols-3">
+        <SummaryCard
+          icon={<ChartNoAxesCombined className="size-5" />}
+          label="Central simulator"
+          value="Online"
+          detail="One simulation service feeds class contexts"
+        />
+        <SummaryCard
+          icon={<PlugZap className="size-5" />}
+          label="Provider feeds"
+          value={`${activeIntegrations.length} active`}
+          detail="Market APIs normalize into shared cache"
+        />
+        <SummaryCard
+          icon={<School className="size-5" />}
+          label="Class contexts"
+          value={`${classMarketConfigs.length} configured`}
+          detail="Teachers administer their own class market"
+        />
+      </section>
+
+      <section className="rounded-lg border border-border bg-background p-4">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#e8f0ed] text-[#28666e]">
+            <LineChart className="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h4 className="font-semibold">Market engine flow</h4>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Provider adapters pull market data into the central cache. The
+              simulator applies class rules, then every student portfolio in
+              that class reads the same classroom-safe market state.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          {[
+            "Provider adapters",
+            "Central quote cache",
+            "Class simulation rules",
+            "Student portfolios",
+          ].map((step, index) => (
+            <div
+              key={step}
+              className="rounded-lg border border-border bg-card p-3 text-sm"
+            >
+              <span className="mb-2 grid size-6 place-items-center rounded-md bg-[#e8f0ed] text-xs font-semibold text-[#24493f]">
+                {index + 1}
+              </span>
+              <p className="font-medium">{step}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="overflow-x-auto rounded-lg border border-border">
+        <Table className="min-w-[1040px]">
+          <TableHeader>
+            <TableRow className="text-muted-foreground hover:bg-transparent">
+              <TableHead>Class market</TableHead>
+              <TableHead>Feed</TableHead>
+              <TableHead>Mode</TableHead>
+              <TableHead>Scenario</TableHead>
+              <TableHead>Volatility</TableHead>
+              <TableHead>Starting cash</TableHead>
+              <TableHead>Teacher controls</TableHead>
+              <TableHead>Symbols</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {classMarketConfigs.map((config) => (
+              <TableRow key={config.className}>
+                <TableCell className="font-medium">{config.className}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={
+                      connectedClasses.has(config.className)
+                        ? "rounded-md border-[#28666e]/30 bg-[#e8f0ed] text-[#24493f]"
+                        : "rounded-md bg-card"
+                    }
+                  >
+                    {connectedClasses.has(config.className)
+                      ? "Provider-backed"
+                      : "Fallback simulation"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={config.simulationMode}
+                    onValueChange={(value) =>
+                      onUpdateClassMarketConfig(config.className, {
+                        simulationMode:
+                          value as ClassMarketConfig["simulationMode"],
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[170px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="shared_provider">Shared provider</SelectItem>
+                      <SelectItem value="teacher_scenario">Teacher scenario</SelectItem>
+                      <SelectItem value="frozen">Frozen market</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={config.eventScenario}
+                    onValueChange={(value) =>
+                      onUpdateClassMarketConfig(config.className, {
+                        eventScenario:
+                          value as ClassMarketConfig["eventScenario"],
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[170px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="baseline">Baseline</SelectItem>
+                      <SelectItem value="market_drop">Market drop</SelectItem>
+                      <SelectItem value="growth_rally">Growth rally</SelectItem>
+                      <SelectItem value="rate_shock">Rate shock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Input
+                    className="w-24"
+                    min={0}
+                    max={3}
+                    step={0.05}
+                    type="number"
+                    value={config.volatilityMultiplier}
+                    onChange={(event) =>
+                      onUpdateClassMarketConfig(config.className, {
+                        volatilityMultiplier: Number(event.target.value),
+                      })
+                    }
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    className="w-28"
+                    min={0}
+                    type="number"
+                    value={Math.round(config.startingCashCents / 100)}
+                    onChange={(event) =>
+                      onUpdateClassMarketConfig(config.className, {
+                        startingCashCents: Number(event.target.value) * 100,
+                      })
+                    }
+                  />
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    checked={config.teacherControlsEnabled}
+                    onCheckedChange={(checked) =>
+                      onUpdateClassMarketConfig(config.className, {
+                        teacherControlsEnabled: checked,
+                      })
+                    }
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    className="w-56"
+                    value={config.allowedSymbols.join(", ")}
+                    onChange={(event) =>
+                      onUpdateClassMarketConfig(config.className, {
+                        allowedSymbols: event.target.value
+                          .split(",")
+                          .map((symbol) => symbol.trim().toUpperCase())
+                          .filter(Boolean),
+                      })
+                    }
+                  />
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Assets: {config.allowedAssetTypes.join(", ")}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </section>
     </div>
   );
 }
@@ -7651,6 +8173,18 @@ function credentialPlacementLabel(placement: CredentialRecord["tokenPlacement"])
   };
 
   return labels[placement];
+}
+
+function parseJsonList(value: string) {
+  try {
+    const parsed = JSON.parse(value);
+
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function maskLocalUsername(username: string) {

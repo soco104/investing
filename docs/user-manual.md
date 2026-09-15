@@ -65,6 +65,17 @@ The market may be:
 
 Students can only view their own class market context.
 
+### Market Page
+
+The Market page is available to students and teachers. It shows classroom-safe
+live market data in a quote table with price cells colored green for gains and
+red for losses. Each row includes the symbol, price, daily range, movement, and
+latest classroom news for that symbol.
+
+Students can buy or sell simulated shares from this page using portfolio cash.
+Trades update available cash, add an entry to recent portfolio activity, and
+appear in the student's profile under the `Stocks` information box.
+
 ### Messaging and Discussions
 
 Messaging is text-only. The app includes a first-pass profanity filter.
@@ -128,6 +139,12 @@ Teachers may adjust:
 Market configuration changes are saved intentionally and audited. Draft edits
 do not take effect until saved.
 
+Teachers can also use the Market page for quick classroom scenario controls.
+They can raise or lower selected symbol prices and trigger the initial Strait of
+Hormuz blockade scenario. The scenario creates a major oil-price shock against
+teacher-selected symbols, raising energy or oil-service symbols and lowering
+travel symbols that are negatively affected by fuel costs.
+
 ## Admin Experience
 
 Admins use the Admin portal for district/system configuration.
@@ -185,4 +202,3 @@ not be copied into support tickets, messages, logs, screenshots, or exports.
 For account issues, roster issues, market feed problems, incorrect simulated
 portfolio data, or classroom moderation needs, create a support case in the
 Admin portal or contact the configured district support owner.
-

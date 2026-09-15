@@ -445,6 +445,17 @@ Class market snapshots are not written on ordinary market reads. Snapshots are
 created by the scheduled market polling path after successful provider refresh
 events. This keeps student page refreshes from creating unbounded write load.
 
+Student and teacher users can open the Market page to view the current class
+market table. Students can execute simulated buy/sell actions against portfolio
+cash; those actions update recent portfolio activity and the student profile
+`Stocks` information box.
+
+Teachers with market controls can use the Market page to raise or lower symbol
+prices during instruction. The first built-in world scenario is `Strait of
+Hormuz blockade`, which applies a large oil-price shock to teacher-selected
+symbols. Energy and oil-service symbols are raised, while travel symbols can be
+lowered to model increased fuel costs.
+
 Audit action:
 
 - `class_market.updated`

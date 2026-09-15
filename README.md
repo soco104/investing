@@ -10,6 +10,9 @@ views that focus on learning evidence instead of real-money trading outcomes.
 - Web-first student dashboard for simulated portfolio learning
 - Student portfolio page with overview metrics, recent simulated trade/change
   history, holdings mix, and allocation target changes
+- Student/teacher Market page with a black-and-green quote table, price movement
+  coloring, classroom news, simulated student buy/sell actions, and a Stocks
+  profile box
 - Student and teacher profile pages with aliases, profile search, portfolio
   snapshots for students, teacher class/quest summaries, teacher inboxes, and
   message links
@@ -35,6 +38,9 @@ views that focus on learning evidence instead of real-money trading outcomes.
 - Central market simulator with class-scoped market contexts, teacher/admin
   configuration controls, authenticated class-market access, and scheduled
   snapshot generation
+- Teacher market controls for class-safe price raises/lowers and the initial
+  Strait of Hormuz scenario, applying oil-price shocks to teacher-selected
+  symbols
 - Admin school setup captures school, district, state, class count, and student
   count
 - Admin market integrations capture provider, endpoint, optional token,

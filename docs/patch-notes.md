@@ -10,6 +10,18 @@
 - Added production persistence support for user updates and role reassignment.
 - Added automated coverage for audited admin user modifications.
 
+### Student and Teacher Market Page
+
+- Added a student/teacher Market page with a black-and-green quote table,
+  classroom news by symbol, and green/red price movement treatment.
+- Added simulated student buy/sell actions that update portfolio cash, stock
+  holdings, and recent portfolio activity.
+- Added a `Stocks` information box to student profiles so holdings are visible
+  after simulated trades.
+- Added teacher price raise/lower controls for classroom market instruction.
+- Added the initial Strait of Hormuz blockade scenario, applying a large
+  oil-price shock to teacher-selected symbols.
+
 ### Demo Data
 
 - Added `npm run db:seed:demo` for idempotent PostgreSQL demo data loading.

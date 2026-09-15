@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarClock,
   ChartNoAxesCombined,
+  CircleDollarSign,
   ClipboardList,
   Download,
   ArrowLeft,
@@ -257,6 +258,94 @@ const marketWatch = [
   { ticker: "QQQ", label: "Growth ETF", move: "-0.4%", tone: "down" },
   { ticker: "BND", label: "Bond ETF", move: "+0.2%", tone: "up" },
   { ticker: "IPO", label: "IPO basket", move: "+1.9%", tone: "up" },
+];
+
+const initialMarketQuotes: MarketQuote[] = [
+  {
+    changePercent: 0.74,
+    dayHigh: 690.1,
+    dayLow: 681.4,
+    name: "S&P 500 ETF",
+    news: "Broad indexes opened higher as earnings expectations improved.",
+    price: 689.42,
+    sector: "Index ETF",
+    ticker: "SPY",
+  },
+  {
+    changePercent: -0.41,
+    dayHigh: 625.2,
+    dayLow: 618.72,
+    name: "Growth ETF",
+    news: "Growth names slipped as rate-sensitive stocks cooled.",
+    price: 621.15,
+    sector: "Growth ETF",
+    ticker: "QQQ",
+  },
+  {
+    changePercent: 0.18,
+    dayHigh: 74.36,
+    dayLow: 73.98,
+    name: "Bond ETF",
+    news: "Bonds stayed steady while investors watched central bank signals.",
+    price: 74.18,
+    sector: "Bonds",
+    ticker: "BND",
+  },
+  {
+    changePercent: 1.88,
+    dayHigh: 32.04,
+    dayLow: 30.92,
+    name: "Simulated IPO basket",
+    news: "New listing demand rose after a strong classroom IPO auction.",
+    price: 31.62,
+    sector: "IPO Lab",
+    ticker: "IPO",
+  },
+  {
+    changePercent: 0.29,
+    dayHigh: 331.9,
+    dayLow: 328.4,
+    name: "Total Stock Market ETF",
+    news: "Diversified equity funds gained on stable consumer data.",
+    price: 331.22,
+    sector: "Broad Market",
+    ticker: "VTI",
+  },
+  {
+    changePercent: 0.35,
+    dayHigh: 84.75,
+    dayLow: 81.8,
+    name: "Energy Select ETF",
+    news: "Energy shares rose as traders weighed supply risk headlines.",
+    price: 84.12,
+    sector: "Energy",
+    ticker: "XLE",
+  },
+  {
+    changePercent: -0.22,
+    dayHigh: 74.4,
+    dayLow: 72.95,
+    name: "Airline ETF",
+    news: "Airline shares softened as fuel-cost expectations ticked up.",
+    price: 73.28,
+    sector: "Travel",
+    ticker: "JETS",
+  },
+  {
+    changePercent: 0.12,
+    dayHigh: 78.1,
+    dayLow: 76.6,
+    name: "Oil Services ETF",
+    news: "Oil service companies moved slightly higher before scenario events.",
+    price: 77.35,
+    sector: "Oil Services",
+    ticker: "OIH",
+  },
+];
+
+const initialStudentHoldings: StockHolding[] = [
+  { averageCost: 674.25, name: "S&P 500 ETF", quantity: 1, ticker: "SPY" },
+  { averageCost: 73.9, name: "Bond ETF", quantity: 3, ticker: "BND" },
 ];
 
 const classRows = [
@@ -587,6 +676,24 @@ type Conversation = {
   messages: ConversationMessage[];
 };
 
+type MarketQuote = {
+  changePercent: number;
+  dayLow: number;
+  dayHigh: number;
+  name: string;
+  news: string;
+  price: number;
+  sector: string;
+  ticker: string;
+};
+
+type StockHolding = {
+  averageCost: number;
+  name: string;
+  quantity: number;
+  ticker: string;
+};
+
 type AdminPage =
   | "overview"
   | "schools"
@@ -718,6 +825,12 @@ type ClassMarketConfig = {
   startingCashCents: number;
   teacherControlsEnabled: boolean;
   volatilityMultiplier: number;
+};
+
+type TeacherScenarioDraft = {
+  affectedSymbols: string;
+  oilSpikePercent: number;
+  selectedClass: string;
 };
 
 type CredentialRecord = {
@@ -1505,6 +1618,19 @@ export default function Home() {
   const [portfolioActivity, setPortfolioActivity] = useState(
     initialPortfolioActivity
   );
+  const [studentCash, setStudentCash] = useState(525);
+  const [studentHoldings, setStudentHoldings] = useState<StockHolding[]>(
+    initialStudentHoldings
+  );
+  const [marketQuotes, setMarketQuotes] =
+    useState<MarketQuote[]>(initialMarketQuotes);
+  const [marketNotice, setMarketNotice] = useState("");
+  const [teacherScenarioDraft, setTeacherScenarioDraft] =
+    useState<TeacherScenarioDraft>({
+      affectedSymbols: "XLE,OIH,JETS",
+      oilSpikePercent: 18,
+      selectedClass: classOptions[0],
+    });
   const [portfolioAdjustment, setPortfolioAdjustment] = useState("25");
   const [portfolioCorrectionReason, setPortfolioCorrectionReason] = useState(
     "Teacher-approved correction"
@@ -1631,6 +1757,11 @@ export default function Home() {
   );
   const cashBuffer =
     allocationTargets.find((item) => item.name === "Cash buffer")?.value ?? 0;
+  const stockHoldingsValue = studentHoldings.reduce((total, holding) => {
+    const quote = marketQuotes.find((item) => item.ticker === holding.ticker);
+
+    return total + holding.quantity * (quote?.price ?? holding.averageCost);
+  }, 0);
   const selectedQuest =
     teacherQuests.find((quest) => quest.id === selectedQuestId) ??
     teacherQuests[0];
@@ -2041,6 +2172,143 @@ export default function Home() {
   function updateUserAlias(userId: string, alias: string) {
     setAdminUsers((users) =>
       users.map((user) => (user.id === userId ? { ...user, alias } : user))
+    );
+  }
+
+  function tradeStock(ticker: string, action: "buy" | "sell") {
+    const quote = marketQuotes.find((item) => item.ticker === ticker);
+
+    if (!quote) {
+      return;
+    }
+
+    const existingHolding = studentHoldings.find(
+      (holding) => holding.ticker === ticker
+    );
+
+    if (action === "buy") {
+      if (studentCash < quote.price) {
+        setMarketNotice(`Not enough portfolio cash to buy ${ticker}.`);
+        return;
+      }
+
+      setStudentCash((cash) => roundMoney(cash - quote.price));
+      setStudentHoldings((holdings) => {
+        if (!existingHolding) {
+          return [
+            ...holdings,
+            {
+              averageCost: quote.price,
+              name: quote.name,
+              quantity: 1,
+              ticker,
+            },
+          ];
+        }
+
+        return holdings.map((holding) =>
+          holding.ticker === ticker
+            ? {
+                ...holding,
+                averageCost: roundMoney(
+                  (holding.averageCost * holding.quantity + quote.price) /
+                    (holding.quantity + 1)
+                ),
+                quantity: holding.quantity + 1,
+              }
+            : holding
+        );
+      });
+      setPortfolioActivity((activity) => [
+        {
+          id: `trade-buy-${ticker}-${Date.now()}`,
+          action: "Buy",
+          amount: `$${quote.price.toFixed(2)}`,
+          date: "Today",
+          note: `Purchased 1 share of ${ticker} from Market page.`,
+          vehicle: "Stocks",
+        },
+        ...activity,
+      ]);
+      setMarketNotice(`Bought 1 share of ${ticker}.`);
+      return;
+    }
+
+    if (!existingHolding || existingHolding.quantity < 1) {
+      setMarketNotice(`No ${ticker} shares available to sell.`);
+      return;
+    }
+
+    setStudentCash((cash) => roundMoney(cash + quote.price));
+    setStudentHoldings((holdings) =>
+      holdings
+        .map((holding) =>
+          holding.ticker === ticker
+            ? { ...holding, quantity: holding.quantity - 1 }
+            : holding
+        )
+        .filter((holding) => holding.quantity > 0)
+    );
+    setPortfolioActivity((activity) => [
+      {
+        id: `trade-sell-${ticker}-${Date.now()}`,
+        action: "Sell",
+        amount: `$${quote.price.toFixed(2)}`,
+        date: "Today",
+        note: `Sold 1 share of ${ticker} from Market page.`,
+        vehicle: "Stocks",
+      },
+      ...activity,
+    ]);
+    setMarketNotice(`Sold 1 share of ${ticker}.`);
+  }
+
+  function adjustMarketPrice(ticker: string, direction: "up" | "down") {
+    const changePercent = direction === "up" ? 3 : -3;
+
+    setMarketQuotes((quotes) =>
+      quotes.map((quote) =>
+        quote.ticker === ticker ? applyQuoteMove(quote, changePercent) : quote
+      )
+    );
+    setMarketNotice(
+      `${ticker} moved ${direction === "up" ? "up" : "down"} by ${Math.abs(
+        changePercent
+      )}%.`
+    );
+  }
+
+  function triggerHormuzScenario() {
+    const affectedSymbols = teacherScenarioDraft.affectedSymbols
+      .split(",")
+      .map((symbol) => symbol.trim().toUpperCase())
+      .filter(Boolean);
+    const oilSpike = Math.max(
+      1,
+      Math.min(60, teacherScenarioDraft.oilSpikePercent)
+    );
+
+    setMarketQuotes((quotes) =>
+      quotes.map((quote) => {
+        if (affectedSymbols.includes(quote.ticker)) {
+          const move =
+            quote.sector === "Travel" || quote.ticker === "JETS"
+              ? -Math.round(oilSpike * 0.45)
+              : oilSpike;
+
+          return {
+            ...applyQuoteMove(quote, move),
+            news: `Teacher scenario: Strait of Hormuz blockade triggered for ${teacherScenarioDraft.selectedClass}. Oil supply risk moved this symbol.`,
+          };
+        }
+
+        return quote;
+      })
+    );
+    setMarketNotice(
+      `Strait of Hormuz blockade scenario applied to ${affectedSymbols.join(
+        ", "
+      )}.`
     );
   }
 
@@ -3148,6 +3416,12 @@ export default function Home() {
                 <TabsTrigger value="discussion" className="min-h-9 px-3">
                   Discussion
                 </TabsTrigger>
+                {authenticatedUser.permissions.studentProfile ||
+                authenticatedUser.permissions.teacherPortal ? (
+                  <TabsTrigger value="market" className="min-h-9 px-3">
+                    Market
+                  </TabsTrigger>
+                ) : null}
               </TabsList>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -3200,10 +3474,12 @@ export default function Home() {
                     allocationTargets={allocationTargets}
                     inboxConversations={inboxConversations}
                     latestValue={latestValue}
+                    marketQuotes={marketQuotes}
                     onBack={() => setActiveStudentPage("dashboard")}
                     onMessage={messageUser}
                     portfolio={portfolio}
                     quests={teacherQuests}
+                    stockHoldings={studentHoldings}
                     totalGrowth={totalGrowth}
                     user={selectedProfileUser}
                   />
@@ -3382,9 +3658,20 @@ export default function Home() {
                 </div>
 
                 <div className="mt-5 rounded-lg bg-[#f7f2e8] p-4">
-                  <div className="flex items-center gap-2 font-medium text-[#5b3f0b]">
-                    <ShieldCheck className="size-4" aria-hidden="true" />
-                    Student-safe market feed
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 font-medium text-[#5b3f0b]">
+                      <ShieldCheck className="size-4" aria-hidden="true" />
+                      Student-safe market feed
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setActiveTab("market")}
+                      className="w-full border-[#d9c99b] bg-white text-[#5b3f0b] hover:bg-[#fff8e8] sm:w-auto"
+                    >
+                      Open market
+                    </Button>
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {marketWatch.map((item) => (
@@ -3504,6 +3791,24 @@ export default function Home() {
                   warning={discussionWarning}
                 />
               </>
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="market" className="mt-6 space-y-6">
+            {activeTab === "market" ? (
+              <MarketPage
+                cash={studentCash}
+                holdings={studentHoldings}
+                marketNotice={marketNotice}
+                quotes={marketQuotes}
+                role={authenticatedUser.role}
+                stockHoldingsValue={stockHoldingsValue}
+                teacherScenarioDraft={teacherScenarioDraft}
+                onAdjustPrice={adjustMarketPrice}
+                onScenarioDraftChange={setTeacherScenarioDraft}
+                onTrade={tradeStock}
+                onTriggerScenario={triggerHormuzScenario}
+              />
             ) : null}
           </TabsContent>
 
@@ -4584,6 +4889,364 @@ function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
   );
 }
 
+function MarketPage({
+  cash,
+  holdings,
+  marketNotice,
+  quotes,
+  role,
+  stockHoldingsValue,
+  teacherScenarioDraft,
+  onAdjustPrice,
+  onScenarioDraftChange,
+  onTrade,
+  onTriggerScenario,
+}: {
+  cash: number;
+  holdings: StockHolding[];
+  marketNotice: string;
+  quotes: MarketQuote[];
+  role: AdminUser["role"];
+  stockHoldingsValue: number;
+  teacherScenarioDraft: TeacherScenarioDraft;
+  onAdjustPrice: (ticker: string, direction: "up" | "down") => void;
+  onScenarioDraftChange: (draft: TeacherScenarioDraft) => void;
+  onTrade: (ticker: string, action: "buy" | "sell") => void;
+  onTriggerScenario: () => void;
+}) {
+  const isTeacher = role === "Teacher";
+  const holdingsByTicker = new Map(
+    holdings.map((holding) => [holding.ticker, holding])
+  );
+
+  return (
+    <section className="space-y-6">
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              Classroom market feed
+            </p>
+            <h3 className="text-2xl font-semibold tracking-normal">
+              Live market data
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Simulated trading decisions use class-safe market data and are
+              reflected in the student portfolio.
+            </p>
+          </div>
+          <Badge className="w-fit rounded-md bg-[#07130d] px-3 py-1 text-[#8cffb0] hover:bg-[#07130d]">
+            Market classroom
+          </Badge>
+        </div>
+      </div>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <SummaryCard
+          icon={<CircleDollarSign className="size-5" />}
+          label="Available cash"
+          value={formatCurrency(cash)}
+          detail="Portfolio cash for simulated trades"
+        />
+        <SummaryCard
+          icon={<TrendingUp className="size-5" />}
+          label="Stocks value"
+          value={formatCurrency(stockHoldingsValue)}
+          detail={`${holdings.length} symbols held`}
+        />
+        <SummaryCard
+          icon={<LineChart className="size-5" />}
+          label="Market rows"
+          value={`${quotes.length}`}
+          detail="Quotes plus classroom news"
+        />
+      </section>
+
+      {marketNotice ? (
+        <p className="rounded-md border border-[#28666e]/20 bg-[#e8f0ed] px-3 py-2 text-sm text-[#24493f]">
+          {marketNotice}
+        </p>
+      ) : null}
+
+      <section className="overflow-x-auto rounded-lg border border-[#1f3a2c] bg-[#050806] p-3 shadow-sm">
+        <Table className="min-w-[1060px] text-[#dbffe7]">
+          <TableHeader>
+            <TableRow className="border-[#1f3a2c] text-[#8cffb0] hover:bg-transparent">
+              <TableHead className="text-[#8cffb0]">Symbol</TableHead>
+              <TableHead className="text-[#8cffb0]">Name</TableHead>
+              <TableHead className="text-right text-[#8cffb0]">Price</TableHead>
+              <TableHead className="text-right text-[#8cffb0]">Move</TableHead>
+              <TableHead className="text-[#8cffb0]">Range</TableHead>
+              <TableHead className="text-[#8cffb0]">Latest news</TableHead>
+              <TableHead className="text-[#8cffb0]">Student action</TableHead>
+              {isTeacher ? (
+                <TableHead className="text-[#8cffb0]">Teacher controls</TableHead>
+              ) : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {quotes.map((quote) => {
+              const holding = holdingsByTicker.get(quote.ticker);
+              const isUp = quote.changePercent >= 0;
+
+              return (
+                <TableRow
+                  key={quote.ticker}
+                  className="border-[#1f3a2c] hover:bg-[#0d1c13]"
+                >
+                  <TableCell className="font-semibold text-white">
+                    {quote.ticker}
+                    {holding ? (
+                      <span className="ml-2 rounded-sm bg-[#102c1b] px-1.5 py-0.5 text-xs text-[#8cffb0]">
+                        {holding.quantity} held
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    <span className="block text-white">{quote.name}</span>
+                    <span className="text-xs text-[#93b59e]">{quote.sector}</span>
+                  </TableCell>
+                  <TableCell
+                    className={`text-right font-semibold ${
+                      isUp ? "text-[#62f58e]" : "text-[#ff6b6b]"
+                    }`}
+                  >
+                    {formatCurrency(quote.price)}
+                  </TableCell>
+                  <TableCell
+                    className={`text-right font-semibold ${
+                      isUp ? "text-[#62f58e]" : "text-[#ff6b6b]"
+                    }`}
+                  >
+                    {formatSignedPercent(quote.changePercent)}
+                  </TableCell>
+                  <TableCell className="text-sm text-[#c7f7d7]">
+                    {formatCurrency(quote.dayLow)} - {formatCurrency(quote.dayHigh)}
+                  </TableCell>
+                  <TableCell className="max-w-[320px] text-sm text-[#c7f7d7]">
+                    {quote.news}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => onTrade(quote.ticker, "buy")}
+                        className="bg-[#0fa35a] text-white hover:bg-[#0c874b]"
+                      >
+                        Buy
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onTrade(quote.ticker, "sell")}
+                        className="border-[#ff6b6b]/60 bg-transparent text-[#ffb0b0] hover:bg-[#351111]"
+                      >
+                        Sell
+                      </Button>
+                    </div>
+                  </TableCell>
+                  {isTeacher ? (
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onAdjustPrice(quote.ticker, "up")}
+                          className="border-[#62f58e]/60 bg-transparent text-[#8cffb0] hover:bg-[#102c1b]"
+                        >
+                          Raise
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onAdjustPrice(quote.ticker, "down")}
+                          className="border-[#ff6b6b]/60 bg-transparent text-[#ffb0b0] hover:bg-[#351111]"
+                        >
+                          Lower
+                        </Button>
+                      </div>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
+        <StocksInfoBox holdings={holdings} quotes={quotes} />
+
+        {isTeacher ? (
+          <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold">Teacher scenario</h3>
+                <p className="text-sm text-muted-foreground">
+                  Trigger a class market event and apply it to selected symbols.
+                </p>
+              </div>
+              <TriangleAlert className="size-5 text-[#c44536]" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Class market</Label>
+                <Select
+                  value={teacherScenarioDraft.selectedClass}
+                  onValueChange={(value) =>
+                    onScenarioDraftChange({
+                      ...teacherScenarioDraft,
+                      selectedClass: value,
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classOptions.map((className) => (
+                      <SelectItem key={className} value={className}>
+                        {className}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hormuz-symbols">Affected symbols</Label>
+                <Input
+                  id="hormuz-symbols"
+                  value={teacherScenarioDraft.affectedSymbols}
+                  onChange={(event) =>
+                    onScenarioDraftChange({
+                      ...teacherScenarioDraft,
+                      affectedSymbols: event.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="oil-spike">Oil spike %</Label>
+                <Input
+                  id="oil-spike"
+                  max={60}
+                  min={1}
+                  type="number"
+                  value={teacherScenarioDraft.oilSpikePercent}
+                  onChange={(event) =>
+                    onScenarioDraftChange({
+                      ...teacherScenarioDraft,
+                      oilSpikePercent: Number(event.target.value),
+                    })
+                  }
+                />
+              </div>
+            </div>
+            <div className="mt-4 rounded-lg bg-[#fff3da] p-4 text-sm text-[#5b3f0b]">
+              Strait of Hormuz blockade creates a major oil supply shock. Energy
+              and oil-service symbols spike; travel symbols can fall because
+              fuel costs rise.
+            </div>
+            <Button
+              type="button"
+              onClick={onTriggerScenario}
+              className="mt-4 bg-[#c44536] text-white hover:bg-[#a9362a]"
+            >
+              <TriangleAlert className="size-4" aria-hidden="true" />
+              Trigger scenario
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+            <h3 className="text-lg font-semibold">Trading notes</h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Buy and sell actions are simulated. They change your classroom
+              portfolio cash, update your Stocks box, and add an entry to your
+              portfolio history.
+            </p>
+          </div>
+        )}
+      </section>
+    </section>
+  );
+}
+
+function StocksInfoBox({
+  holdings,
+  quotes,
+}: {
+  holdings: StockHolding[];
+  quotes: MarketQuote[];
+}) {
+  const totalValue = holdings.reduce((total, holding) => {
+    const quote = quotes.find((item) => item.ticker === holding.ticker);
+
+    return total + holding.quantity * (quote?.price ?? holding.averageCost);
+  }, 0);
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">Stocks</h3>
+          <p className="text-sm text-muted-foreground">
+            Simulated shares currently held in the portfolio.
+          </p>
+        </div>
+        <CircleDollarSign className="size-5 text-[#28666e]" />
+      </div>
+      <div className="mb-4 rounded-md bg-[#e8f0ed] px-3 py-2 text-sm text-[#24493f]">
+        Total stock value: <strong>{formatCurrency(totalValue)}</strong>
+      </div>
+      <div className="grid gap-2">
+        {holdings.length ? (
+          holdings.map((holding) => {
+            const quote = quotes.find((item) => item.ticker === holding.ticker);
+            const marketValue =
+              holding.quantity * (quote?.price ?? holding.averageCost);
+            const gainLoss =
+              quote && holding.averageCost > 0
+                ? ((quote.price - holding.averageCost) / holding.averageCost) * 100
+                : 0;
+
+            return (
+              <div
+                key={holding.ticker}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold">{holding.ticker}</span>
+                  <span>{formatCurrency(marketValue)}</span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-muted-foreground">
+                  <span>
+                    {holding.quantity} shares at {formatCurrency(quote?.price ?? holding.averageCost)}
+                  </span>
+                  <span
+                    className={
+                      gainLoss >= 0 ? "font-medium text-[#28666e]" : "font-medium text-[#c44536]"
+                    }
+                  >
+                    {formatSignedPercent(gainLoss)}
+                  </span>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No stock holdings yet. Buy a simulated share from the Market page.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminQuestDetailsDialog({ quest }: { quest: TeacherQuest }) {
   const totalPoints = quest.criteria.reduce(
     (total, criterion) => total + criterion.points,
@@ -5411,6 +6074,8 @@ function UserProfilePage({
   activity,
   inboxConversations,
   latestValue,
+  marketQuotes,
+  stockHoldings,
   totalGrowth,
   quests,
   onBack,
@@ -5422,6 +6087,8 @@ function UserProfilePage({
   activity: PortfolioActivity[];
   inboxConversations: Conversation[];
   latestValue: number;
+  marketQuotes: MarketQuote[];
+  stockHoldings: StockHolding[];
   totalGrowth: number;
   quests: TeacherQuest[];
   onBack: () => void;
@@ -5500,6 +6167,7 @@ function UserProfilePage({
           </div>
         </div>
       </section>
+      <StocksInfoBox holdings={stockHoldings} quotes={marketQuotes} />
       <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
         <h3 className="text-lg font-semibold">Recent portfolio changes</h3>
         <div className="mt-4 grid gap-3">
@@ -9139,6 +9807,29 @@ function QuestMonitorMetric({
 
 function formatSignedPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function formatCurrency(value: number) {
+  return `$${value.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  })}`;
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function applyQuoteMove(quote: MarketQuote, changePercent: number) {
+  const nextPrice = roundMoney(quote.price * (1 + changePercent / 100));
+
+  return {
+    ...quote,
+    changePercent: roundMoney(changePercent),
+    dayHigh: Math.max(quote.dayHigh, nextPrice),
+    dayLow: Math.min(quote.dayLow, nextPrice),
+    price: nextPrice,
+  };
 }
 
 function downloadIntegrationLogsZip(integration: IntegrationHealthMetric) {

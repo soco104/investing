@@ -1,6 +1,29 @@
 # FutureFund Classroom Patch Notes
 
-## 2026-09-14
+Newest updates are at the top. Each entry is headed with its version and date.
+
+## v0.2.0 — 2026-11-12
+
+### Demo Login
+
+- Added a demo super user, `demo-user@demo.edu`, with every Admin permission.
+  Use **Assume role** after signing in to switch between the Student, Teacher,
+  and Admin views.
+- The login page's email field now has a dropdown that fills in the demo
+  login. The separate "Demo accounts" box was removed.
+- Demo accounts must answer a security question after their password. The
+  answer is checked on the server against the encrypted `DEMO_SECURITY_ANSWER`
+  setting, and five wrong answers lock the account for 15 minutes.
+- Fixed demo logins failing on the live site: the demo emails now match the
+  database, and the demo users are loaded on startup when `DEMO_LOGINS=true`.
+
+### Versioning
+
+- The app now has version numbers. The current version shows in small text at
+  the bottom of every page.
+- Added `CHANGELOG.md` and an automatic GitHub release for each new version.
+
+## v0.1.0 — 2026-09-14
 
 ### Admin User Management
 

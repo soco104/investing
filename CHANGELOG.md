@@ -16,8 +16,9 @@ All notable changes to FutureFund Classroom. Versions follow
   `docs/patch-notes.md`.
 
 ### Changed
-- Every change now gets a version and patch notes, including small docs and
-  process updates.
+- Every change now gets a version and patch notes, including small process
+  and config updates. Documentation-only changes are the exception, except
+  changes to the User Manual or Admin Guide, which always get a version.
 - Pull requests are always reviewed and merged by the owner.
 
 ## [0.2.0] - 2026-11-12

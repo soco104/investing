@@ -20,8 +20,10 @@ bottom of each page now reads v0.2.1.
 
 ### Release Process
 
-- Every update, however small, now gets a version number and an entry here,
-  newest at the top.
+- Every update now gets a version number and an entry here, newest at the
+  top, including small fixes and process changes.
+- The only exception is documentation-only edits (like the roadmap). Changes
+  to the **User Manual** or **Admin Guide** always get a version and notes.
 - Plans for upcoming changes include a draft of their patch notes, so what
   users will be told is agreed before work starts.
 

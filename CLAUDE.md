@@ -6,11 +6,15 @@ deployed on DigitalOcean App Platform).
 ## Versioning (required for every change)
 
 Every change gets a version bump and patch notes, **including small ones**
-(docs, roadmap, process, config). Nothing merges untracked. Semantic versioning:
+(process, config, workflow, `CLAUDE.md` changes). Semantic versioning:
 
 - **Minor** (0.2.0 → 0.3.0): a new feature or noticeable change.
-- **Patch** (0.2.0 → 0.2.1): a bug fix, small tweak, or docs/process/roadmap
-  update.
+- **Patch** (0.2.0 → 0.2.1): a bug fix, small tweak, or process/config update.
+
+**The one exception: documentation-only changes** (e.g. `README.md`,
+`docs/roadmap.md`, deployment runbooks) don't need a version bump or patch
+notes. **But changes to `docs/user-manual.md` or `docs/admin-guide.md` always
+do** (patch bump), because teachers and admins rely on them.
 - **Major** (→ 1.0.0): only when the owner says so (e.g. launching with real
   schools).
 

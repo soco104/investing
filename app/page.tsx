@@ -34,7 +34,6 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  Send,
   Target,
   TrendingUp,
   TriangleAlert,
@@ -90,6 +89,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { AdminMessagingPage, FlaggedMessagesPanel, MessagesPanel, ParentContactRequestPanel } from "./messages-ui";
 import { APP_VERSION } from "@/lib/version";
 
 const allocation = [
@@ -634,24 +634,6 @@ async function fetchQuests(scope: "mine" | "library") {
   return result.quests.map(toTeacherQuest);
 }
 
-type ConversationMessage = {
-  id: string;
-  sender: string;
-  role: "Student" | "Teacher";
-  body: string;
-  sentAt: string;
-  flagged?: boolean;
-};
-
-type Conversation = {
-  id: string;
-  title: string;
-  participants: string;
-  kind: "Teacher" | "Classmate" | "Discussion";
-  unread: number;
-  messages: ConversationMessage[];
-};
-
 type MarketQuote = {
   changePercent: number;
   dayLow: number;
@@ -817,6 +799,7 @@ type AdminPage =
   | "permissions"
   | "support"
   | "monitoring"
+  | "messaging"
   | "portfolio-corrections";
 
 type AdminUser = {
@@ -1419,117 +1402,6 @@ const privacyPostures = [
   },
 ];
 
-const initialInboxConversations: Conversation[] = [
-  {
-    id: "teacher-risk-feedback",
-    title: "Ms. Rivera",
-    participants: "Avery and Ms. Rivera",
-    kind: "Teacher",
-    unread: 1,
-    messages: [
-      {
-        id: "msg-1",
-        sender: "Ms. Rivera",
-        role: "Teacher",
-        body: "Your market-drop reflection is on the right track. Add one sentence about why bonds moved less than growth stocks.",
-        sentAt: "9:12 AM",
-      },
-      {
-        id: "msg-2",
-        sender: "Avery",
-        role: "Student",
-        body: "Got it. I can add that before I submit the quest.",
-        sentAt: "9:18 AM",
-      },
-    ],
-  },
-  {
-    id: "teacher-roth-lab",
-    title: "Roth IRA Lab Help",
-    participants: "Avery and Mr. Chen",
-    kind: "Teacher",
-    unread: 0,
-    messages: [
-      {
-        id: "msg-5",
-        sender: "Mr. Chen",
-        role: "Teacher",
-        body: "Remember that the Roth IRA lab uses earned income from the scenario. The app is not opening a real account.",
-        sentAt: "Mon",
-      },
-    ],
-  },
-];
-
-const initialDiscussionRooms: Conversation[] = [
-  {
-    id: "class-budget-team",
-    title: "Budget Quest Team",
-    participants: "Avery, Jordan, Maya",
-    kind: "Discussion",
-    unread: 0,
-    messages: [
-      {
-        id: "msg-3",
-        sender: "Maya",
-        role: "Student",
-        body: "I put 20% in savings first, then split the rest between food and the concert goal.",
-        sentAt: "Yesterday",
-      },
-      {
-        id: "msg-4",
-        sender: "Jordan",
-        role: "Student",
-        body: "That helped me see why the emergency fund comes before extra investing.",
-        sentAt: "Yesterday",
-      },
-    ],
-  },
-  {
-    id: "market-drop-room",
-    title: "Market Drop Discussion",
-    participants: "Grade 7 Finance",
-    kind: "Discussion",
-    unread: 2,
-    messages: [
-      {
-        id: "msg-6",
-        sender: "Ms. Rivera",
-        role: "Teacher",
-        body: "What did you notice about the portfolio that held bonds during the market drop?",
-        sentAt: "8:55 AM",
-      },
-      {
-        id: "msg-7",
-        sender: "Leo",
-        role: "Student",
-        body: "It did not grow as fast before, but it lost less when growth stocks dropped.",
-        sentAt: "9:03 AM",
-      },
-    ],
-  },
-];
-
-const blockedTerms = [
-  "asshole",
-  "bitch",
-  "crap",
-  "damn",
-  "fuck",
-  "hell",
-  "shit",
-];
-
-function containsProfanity(message: string) {
-  const normalized = message.toLowerCase().replace(/[^a-z0-9\s]/g, " ");
-
-  return blockedTerms.some((term) =>
-    new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(
-      normalized
-    )
-  );
-}
-
 const implementation = [
   "Single student profile across web, iOS, and Android",
   "Teacher roster, assignments, and concept mastery reports",
@@ -1639,6 +1511,12 @@ const adminModules = [
     status: "Audit required",
     icon: WalletCards,
   },
+  {
+    title: "Messaging",
+    detail: "Review flagged messages, set allowed email domains, and manage parent contacts.",
+    status: "90-day cleanup",
+    icon: MessageCircle,
+  },
 ];
 
 export default function Home() {
@@ -1698,22 +1576,9 @@ export default function Home() {
     useState<TeacherQuest | null>(null);
   const [adminQuestDetailsOpen, setAdminQuestDetailsOpen] = useState(false);
   const [draftQuest, setDraftQuest] = useState<TeacherQuest>(newQuestDraft);
-  const [inboxConversations, setInboxConversations] = useState<Conversation[]>(
-    initialInboxConversations
-  );
-  const [discussionRooms, setDiscussionRooms] = useState<Conversation[]>(
-    initialDiscussionRooms
-  );
-  const [selectedInboxId, setSelectedInboxId] = useState(
-    initialInboxConversations[0].id
-  );
-  const [selectedDiscussionId, setSelectedDiscussionId] = useState(
-    initialDiscussionRooms[0].id
-  );
-  const [inboxDraft, setInboxDraft] = useState("");
-  const [discussionDraft, setDiscussionDraft] = useState("");
-  const [inboxWarning, setInboxWarning] = useState("");
-  const [discussionWarning, setDiscussionWarning] = useState("");
+  const [inboxUnread, setInboxUnread] = useState(0);
+  const [discussionUnread, setDiscussionUnread] = useState(0);
+  const [pendingMessageEmail, setPendingMessageEmail] = useState("");
   const [activeAdminPage, setActiveAdminPage] =
     useState<AdminPage>("overview");
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>(initialAdminUsers);
@@ -1827,12 +1692,6 @@ export default function Home() {
     (total, criterion) => total + criterion.points,
     0
   );
-  const selectedInboxConversation =
-    inboxConversations.find((conversation) => conversation.id === selectedInboxId) ??
-    inboxConversations[0];
-  const selectedDiscussionRoom =
-    discussionRooms.find((room) => room.id === selectedDiscussionId) ??
-    discussionRooms[0];
   const availableRoleOptions = authenticatedUser
     ? roleOptions.filter((role) => canUseRole(role.value, authenticatedUser))
     : roleOptions;
@@ -1840,14 +1699,6 @@ export default function Home() {
     availableRoleOptions.find((role) => role.value === activeTab) ??
     availableRoleOptions[0] ??
     roleOptions[0];
-  const inboxUnread = inboxConversations.reduce(
-    (total, conversation) => total + conversation.unread,
-    0
-  );
-  const discussionUnread = discussionRooms.reduce(
-    (total, room) => total + room.unread,
-    0
-  );
   const selectedPrivacyPosture =
     privacyPostures.find((posture) => posture.value === privacyPosture) ??
     privacyPostures[0];
@@ -2423,38 +2274,9 @@ export default function Home() {
       return;
     }
 
-    const title = `${user.firstName} ${user.lastName}`;
-    const existingConversation = inboxConversations.find(
-      (conversation) => conversation.title === title
-    );
-
-    if (existingConversation) {
-      setSelectedInboxId(existingConversation.id);
-    } else {
-      const conversationId = `conversation-${Date.now()}`;
-
-      setInboxConversations((currentConversations) => [
-        {
-          id: conversationId,
-          title,
-          participants: `Avery and ${user.alias}`,
-          kind: user.role === "Teacher" ? "Teacher" : "Classmate",
-          unread: 0,
-          messages: [
-            {
-              id: `msg-${Date.now()}`,
-              sender: "System",
-              role: "Teacher",
-              body: `New text-only message thread opened with ${user.alias}.`,
-              sentAt: "Just now",
-            },
-          ],
-        },
-        ...currentConversations,
-      ]);
-      setSelectedInboxId(conversationId);
-    }
-
+    // The Inbox starts (or reopens) the conversation; the server checks that
+    // you're allowed to message this person.
+    setPendingMessageEmail(user.email);
     setActiveTab("inbox");
     setActiveStudentPage("dashboard");
   }
@@ -2797,80 +2619,6 @@ export default function Home() {
     } catch (error) {
       setResetNotice((error as Error).message);
     }
-  }
-
-  function sendInboxMessage() {
-    const trimmedMessage = inboxDraft.trim();
-
-    if (!trimmedMessage) {
-      return;
-    }
-
-    if (containsProfanity(trimmedMessage)) {
-      setInboxWarning(
-        "Message blocked. Rewrite it using respectful classroom language."
-      );
-      return;
-    }
-
-    setInboxConversations((currentConversations) =>
-      currentConversations.map((conversation) =>
-        conversation.id === selectedInboxId
-          ? {
-              ...conversation,
-              messages: [
-                ...conversation.messages,
-                {
-                  id: `msg-${Date.now()}`,
-                  sender: "Avery",
-                  role: "Student",
-                  body: trimmedMessage,
-                  sentAt: "Just now",
-                },
-              ],
-            }
-          : conversation
-      )
-    );
-    setInboxDraft("");
-    setInboxWarning("");
-  }
-
-  function sendDiscussionMessage() {
-    const trimmedMessage = discussionDraft.trim();
-
-    if (!trimmedMessage) {
-      return;
-    }
-
-    if (containsProfanity(trimmedMessage)) {
-      setDiscussionWarning(
-        "Message blocked. Rewrite it using respectful classroom language."
-      );
-      return;
-    }
-
-    setDiscussionRooms((currentRooms) =>
-      currentRooms.map((room) =>
-        room.id === selectedDiscussionId
-          ? {
-              ...room,
-              messages: [
-                ...room.messages,
-                {
-                  id: `msg-${Date.now()}`,
-                  sender: "Avery",
-                  role: "Student",
-                  body: trimmedMessage,
-                  sentAt: "Just now",
-                },
-              ],
-            }
-          : room
-      )
-    );
-    setDiscussionDraft("");
-    setDiscussionWarning("");
   }
 
   async function addSchool() {
@@ -3276,6 +3024,7 @@ export default function Home() {
       "Market Simulator": "market-engine",
       "Credential Vault": "credentials",
       "Portfolio corrections": "portfolio-corrections",
+      Messaging: "messaging",
     };
 
     const target = targets[title];
@@ -3634,7 +3383,6 @@ export default function Home() {
                   <UserProfilePage
                     activity={portfolioActivity}
                     allocationTargets={allocationTargets}
-                    inboxConversations={inboxConversations}
                     latestValue={latestValue}
                     marketQuotes={marketQuotes}
                     onBack={() => setActiveStudentPage("dashboard")}
@@ -3829,92 +3577,26 @@ export default function Home() {
           </TabsContent>
 
           <TabsContent value="inbox" className="mt-6 space-y-6">
-            {activeTab === "inbox" ? (
-              <>
-                <section className="grid gap-4 md:grid-cols-3">
-                  <SummaryCard
-                    icon={<Mail className="size-5" />}
-                    label="Inbox"
-                    value={`${inboxConversations.reduce(
-                      (total, conversation) => total + conversation.unread,
-                      0
-                    )} unread`}
-                    detail="Messages for Avery Johnson"
-                  />
-                  <SummaryCard
-                    icon={<ShieldCheck className="size-5" />}
-                    label="Safety filter"
-                    value="On"
-                    detail="Text-only messages"
-                  />
-                  <SummaryCard
-                    icon={<MessageCircle className="size-5" />}
-                    label="Direct threads"
-                    value={`${inboxConversations.length}`}
-                    detail="Teacher and approved peer chats"
-                  />
-                </section>
-
-                <MessageWorkspace
-                  conversations={inboxConversations}
-                  draft={inboxDraft}
-                  listDescription="Direct messages tied to this user profile."
-                  listTitle="Profile inbox"
-                  onClearWarning={() => setInboxWarning("")}
-                  onDraftChange={setInboxDraft}
-                  onSelectConversation={setSelectedInboxId}
-                  onSend={sendInboxMessage}
-                  selectedConversation={selectedInboxConversation}
-                  selectedConversationId={selectedInboxId}
-                  threadBadge="User profile"
-                  warning={inboxWarning}
-                />
-              </>
+            {activeTab === "inbox" && authenticatedUser ? (
+              <MessagesPanel
+                classNames={authenticatedUser.classNames ?? []}
+                kind="direct"
+                onStartHandled={() => setPendingMessageEmail("")}
+                onUnread={setInboxUnread}
+                role={authenticatedUser.role}
+                startWithEmail={pendingMessageEmail}
+              />
             ) : null}
           </TabsContent>
 
           <TabsContent value="discussion" className="mt-6 space-y-6">
-            {activeTab === "discussion" ? (
-              <>
-                <section className="grid gap-4 md:grid-cols-3">
-                  <SummaryCard
-                    icon={<UsersRound className="size-5" />}
-                    label="Discussion board"
-                    value={`${discussionRooms.length} rooms`}
-                    detail="Shared classroom spaces"
-                  />
-                  <SummaryCard
-                    icon={<Mail className="size-5" />}
-                    label="New posts"
-                    value={`${discussionRooms.reduce(
-                      (total, room) => total + room.unread,
-                      0
-                    )} unread`}
-                    detail="Across Avery's classes"
-                  />
-                  <SummaryCard
-                    icon={<ShieldCheck className="size-5" />}
-                    label="Safety filter"
-                    value="On"
-                    detail="Text-only posts"
-                  />
-                </section>
-
-                <MessageWorkspace
-                  conversations={discussionRooms}
-                  draft={discussionDraft}
-                  listDescription="Shared classroom rooms for quest discussion."
-                  listTitle="Discussion rooms"
-                  onClearWarning={() => setDiscussionWarning("")}
-                  onDraftChange={setDiscussionDraft}
-                  onSelectConversation={setSelectedDiscussionId}
-                  onSend={sendDiscussionMessage}
-                  selectedConversation={selectedDiscussionRoom}
-                  selectedConversationId={selectedDiscussionId}
-                  threadBadge="Classroom room"
-                  warning={discussionWarning}
-                />
-              </>
+            {activeTab === "discussion" && authenticatedUser ? (
+              <MessagesPanel
+                classNames={authenticatedUser.classNames ?? []}
+                kind="room"
+                onUnread={setDiscussionUnread}
+                role={authenticatedUser.role}
+              />
             ) : null}
           </TabsContent>
 
@@ -3947,6 +3629,8 @@ export default function Home() {
                 ) : (
                   <>
                     <TeacherPortfolioResets />
+                    <FlaggedMessagesPanel role="Teacher" />
+                    <ParentContactRequestPanel />
                     <section className="grid gap-4 md:grid-cols-3">
                       <SummaryCard
                         icon={<UsersRound className="size-5" />}
@@ -6982,7 +6666,6 @@ function UserProfilePage({
   portfolio,
   allocationTargets,
   activity,
-  inboxConversations,
   latestValue,
   marketQuotes,
   stockHoldings,
@@ -6995,7 +6678,6 @@ function UserProfilePage({
   portfolio: typeof basePortfolio;
   allocationTargets: typeof allocation;
   activity: PortfolioActivity[];
-  inboxConversations: Conversation[];
   latestValue: number;
   marketQuotes: MarketQuote[];
   stockHoldings: StockHolding[];
@@ -7008,7 +6690,6 @@ function UserProfilePage({
     return (
       <TeacherProfilePage
         onBack={onBack}
-        inboxConversations={inboxConversations}
         onMessage={onMessage}
         quests={quests}
         user={user}
@@ -7101,23 +6782,14 @@ function UserProfilePage({
 function TeacherProfilePage({
   user,
   quests,
-  inboxConversations,
   onBack,
   onMessage,
 }: {
   user: AdminUser;
   quests: TeacherQuest[];
-  inboxConversations: Conversation[];
   onBack: () => void;
   onMessage: (userId: string) => void;
 }) {
-  const teacherInbox = inboxConversations.filter(
-    (conversation) =>
-      conversation.kind === "Teacher" ||
-      conversation.participants.toLowerCase().includes(user.alias.toLowerCase()) ||
-      conversation.title.toLowerCase().includes(user.lastName.toLowerCase())
-  );
-
   return (
     <section className="space-y-6">
       <ProfileHeader onBack={onBack} onMessage={onMessage} user={user} />
@@ -7185,58 +6857,6 @@ function TeacherProfilePage({
         </div>
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">Inbox</h3>
-            <p className="text-sm text-muted-foreground">
-              Recent text-only conversations connected to this teacher.
-            </p>
-          </div>
-          <Badge variant="outline" className="w-fit rounded-md bg-background">
-            {teacherInbox.reduce(
-              (total, conversation) => total + conversation.unread,
-              0
-            )} unread
-          </Badge>
-        </div>
-        <div className="grid gap-3">
-          {teacherInbox.map((conversation) => {
-            const latestMessage =
-              conversation.messages[conversation.messages.length - 1];
-
-            return (
-              <div
-                key={conversation.id}
-                className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{conversation.title}</p>
-                    <Badge variant="outline" className="rounded-md bg-card">
-                      {conversation.unread} unread
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {conversation.participants}
-                  </p>
-                  <p className="mt-2 text-sm leading-6">
-                    {latestMessage?.body ?? "No messages yet."}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onMessage(user.id)}
-                >
-                  <MessageCircle className="size-4" aria-hidden="true" />
-                  Message
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
     </section>
   );
 }
@@ -7597,7 +7217,9 @@ function AdminDrilldown({
                     ? "Support"
                     : activePage === "monitoring"
                       ? "Monitoring"
-                      : "Portfolio corrections";
+                      : activePage === "messaging"
+                        ? "Messaging"
+                        : "Portfolio corrections";
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -7750,6 +7372,8 @@ function AdminDrilldown({
       ) : null}
 
       {activePage === "monitoring" ? <MonitoringAdminPage /> : null}
+
+      {activePage === "messaging" ? <AdminMessagingPage /> : null}
 
       {activePage === "permissions" ? (
         <LearningQuestTransferPanel
@@ -11105,172 +10729,6 @@ function permissionsForRole(role: AdminUser["role"]): AdminUser["permissions"] {
     questImportExport: false,
     portfolioCorrections: false,
   };
-}
-
-function MessageWorkspace({
-  conversations,
-  selectedConversation,
-  selectedConversationId,
-  listTitle,
-  listDescription,
-  threadBadge,
-  draft,
-  warning,
-  onSelectConversation,
-  onDraftChange,
-  onClearWarning,
-  onSend,
-}: {
-  conversations: Conversation[];
-  selectedConversation: Conversation;
-  selectedConversationId: string;
-  listTitle: string;
-  listDescription: string;
-  threadBadge: string;
-  draft: string;
-  warning: string;
-  onSelectConversation: (conversationId: string) => void;
-  onDraftChange: (message: string) => void;
-  onClearWarning: () => void;
-  onSend: () => void;
-}) {
-  const composerId = `${selectedConversation.id}-message`;
-
-  return (
-    <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-semibold">{listTitle}</h3>
-            <p className="text-sm text-muted-foreground">{listDescription}</p>
-          </div>
-          <MessageCircle className="size-5 text-muted-foreground" />
-        </div>
-
-        <div className="space-y-3">
-          {conversations.map((conversation) => (
-            <button
-              key={conversation.id}
-              type="button"
-              onClick={() => {
-                onSelectConversation(conversation.id);
-                onClearWarning();
-              }}
-              className={`w-full rounded-lg border p-4 text-left transition ${
-                selectedConversationId === conversation.id
-                  ? "border-[#28666e] bg-[#e8f0ed]"
-                  : "border-border bg-background hover:bg-muted/50"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{conversation.title}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {conversation.participants}
-                  </p>
-                </div>
-                <Badge variant="outline" className="shrink-0 rounded-md bg-card">
-                  {conversation.kind}
-                </Badge>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {conversation.messages.at(-1)?.sentAt}
-                </span>
-                {conversation.unread > 0 ? (
-                  <span className="rounded-md bg-[#28666e] px-2 py-1 text-xs font-semibold text-white">
-                    {conversation.unread} new
-                  </span>
-                ) : null}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-border bg-card shadow-sm">
-        <div className="border-b border-border p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <MessageCircle className="size-5 text-[#28666e]" />
-                <h3 className="text-lg font-semibold">
-                  {selectedConversation.title}
-                </h3>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {selectedConversation.participants}
-              </p>
-            </div>
-            <Badge className="rounded-md bg-[#fff3da] text-[#7a4b00] hover:bg-[#fff3da]">
-              {threadBadge}
-            </Badge>
-          </div>
-        </div>
-
-        <div className="max-h-[430px] space-y-4 overflow-y-auto p-4 sm:p-5">
-          {selectedConversation.messages.map((message) => (
-            <article
-              key={message.id}
-              className={`max-w-[82%] rounded-lg border p-4 ${
-                message.sender === "Avery"
-                  ? "ml-auto border-[#28666e]/20 bg-[#e8f0ed]"
-                  : "border-border bg-background"
-              }`}
-            >
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{message.sender}</span>
-                <Badge variant="outline" className="rounded-md bg-card">
-                  {message.role}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {message.sentAt}
-                </span>
-              </div>
-              <p className="text-sm leading-6">{message.body}</p>
-            </article>
-          ))}
-        </div>
-
-        <div className="border-t border-border p-4 sm:p-5">
-          {warning ? (
-            <div className="mb-3 flex items-start gap-2 rounded-lg border border-[#c44536]/30 bg-[#fff0ed] p-3 text-sm text-[#8a3025]">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-              <span>{warning}</span>
-            </div>
-          ) : null}
-
-          <Label htmlFor={composerId}>Message</Label>
-          <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <Textarea
-              id={composerId}
-              value={draft}
-              onChange={(event) => {
-                onDraftChange(event.target.value);
-                if (warning) {
-                  onClearWarning();
-                }
-              }}
-              placeholder="Write a respectful classroom message..."
-              className="min-h-20 resize-none"
-            />
-            <Button
-              type="button"
-              onClick={onSend}
-              className="h-full min-h-11 bg-[#28666e] text-white hover:bg-[#22565d]"
-            >
-              <Send className="size-4" aria-hidden="true" />
-              Send
-            </Button>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <ShieldCheck className="size-4" aria-hidden="true" />
-            Messages are limited to text and checked before sending.
-          </div>
-        </div>
-      </div>
-    </section>
-  );
 }
 
 function PortfolioChart({

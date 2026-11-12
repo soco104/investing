@@ -7,6 +7,42 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.10] - 2026-11-12
+
+### Added
+- **Saved messages.** The Inbox and Discussion rooms now save to the server,
+  so messages are still there after a refresh or sign-out. Start a one-to-one
+  conversation with **New message**; teachers create discussion rooms for
+  their classes.
+- **Who can message whom** is enforced on the server: students can message
+  classmates and their teachers; teachers can message their students, other
+  teachers and admins; admins can message everyone.
+- **Teachers and admins can read student conversations** (read-only, under
+  **Student conversations**). Students are told this in the Inbox.
+- **Keep checkbox** on every message. Messages are deleted after 90 days
+  unless someone in the conversation ticked Keep, or the message has an open
+  flag. A cleanup runs once a day, and an admin can run it from the Messaging
+  page.
+- **Flagged messages.** Anyone can flag a message. Messages from students that
+  share a phone number, email, address or social account, mention safety
+  concerns, or look like bullying are sent but flagged to the teacher
+  automatically. Teachers resolve a flag or **forward** it to the admins, to
+  an email address on the allowed-domain list, or to a parent on file.
+- **Parent or guardian email:** a teacher sends it to the admins, who approve
+  it to add it to the student's profile as an alternate contact (or add one
+  directly).
+- **Admin Messaging page:** flags forwarded to admins, allowed email domains,
+  contact requests, contacts on file, and a Run cleanup now button.
+- Audit entries for flags, forwards, Keep, allowed domains, alternate
+  contacts, and cleanups; messages sent while an admin is viewing as a student
+  are marked as sent by the admin.
+
+### Changed
+- **Stronger profanity filter,** now checked on the server so it can't be
+  bypassed. It catches symbol and number swaps (sh1t, f*ck), spaced-out and
+  stretched letters, and common word endings.
+- The sample inbox and discussion messages were removed.
+
 ## [0.2.9] - 2026-11-12
 
 ### Added
@@ -217,6 +253,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.10]: https://github.com/soco104/investing/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/soco104/investing/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/soco104/investing/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/soco104/investing/compare/v0.2.6...v0.2.7

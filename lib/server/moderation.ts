@@ -1,3 +1,5 @@
+import { filterMessage } from "@/lib/message-rules";
+
 export type ModerationStatus = "allowed" | "blocked" | "pending_review" | "resolved";
 
 export type ModerationReview = {
@@ -6,18 +8,19 @@ export type ModerationReview = {
   note: string;
 };
 
-const blockedTerms = ["damn", "hell"];
-
+/**
+ * Checks text with the shared safety filter (lib/message-rules.ts): "blocked"
+ * for language that isn't allowed, "allowed" otherwise. (Messages also use the
+ * filter's "review" result to flag personal information to the teacher.)
+ */
 export function moderateTextMessage(body: string) {
-  const normalized = body.toLowerCase();
-  const matchedTerms = blockedTerms.filter((term) =>
-    normalized.split(/\W+/).includes(term)
-  );
+  const result = filterMessage(body);
+  const matchedTerms = result.status === "blocked" ? result.reasons : [];
 
   return {
     matchedTerms,
-    profanityDetected: matchedTerms.length > 0,
-    status: matchedTerms.length > 0 ? ("blocked" as const) : ("allowed" as const),
+    profanityDetected: result.status === "blocked",
+    status: result.status === "blocked" ? ("blocked" as const) : ("allowed" as const),
   };
 }
 

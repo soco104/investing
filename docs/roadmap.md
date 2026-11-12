@@ -216,18 +216,21 @@ milestone the owner chooses.
 
   | From | Can message |
   |---|---|
-  | Student | Other students, and their teachers |
+  | Student | Other students in their classes, and their teachers |
   | Teacher | All students in their classes, other teachers, and admins |
   | Admin | Everyone |
 
 - **Teachers can see student conversations** for students in their classes,
   and students are told this.
 - **Messages are kept for 90 days**, then deleted, unless a message is marked
-  to keep longer with a **Keep** checkbox on the message.
+  to keep longer with a **Keep** checkbox on the message. **Any user** in the
+  conversation can check Keep: students may want to keep a conversation for
+  later reference, and teachers and admins for troubleshooting or auditing.
 - **Admin "view as student":** when an issue is reported (e.g. a teacher says a
   student's messages aren't sending and gives their email), an admin can enter
   that student's email and view the app as that student, with access to their
-  profile, to troubleshoot.
+  profile, to troubleshoot. The admin has **full control**: every feature the
+  student has (trading, messaging, quests, and so on).
 - **Teacher market changes** can be applied to the whole class, all classes
   the teacher is assigned, a group of students, or one student.
 
@@ -245,7 +248,11 @@ milestone the owner chooses.
 ### Notes
 
 - **View as student** is audited (who, which student, when, why) and shows a
-  clear "Viewing as <student>" banner with an exit button.
+  clear "Viewing as <student>" banner with an exit button. Every action taken
+  while viewing as a student (a trade, a message) is recorded as done by the
+  admin on the student's behalf, so it's always possible to tell what the
+  student did versus what the admin did. Messages sent this way show the
+  student and the teacher that an admin sent them.
 - **Per-student market changes** mean students in the same class can see
   different prices for the same symbol. That's fine for a simulation, but
   class leaderboards and comparisons should account for it. It also lays the

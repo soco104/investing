@@ -8,8 +8,9 @@ deployed on DigitalOcean App Platform).
 Every change gets a version bump and patch notes, **including small ones**
 (process, config, workflow, `CLAUDE.md` changes). Semantic versioning:
 
-- **Minor** (0.2.0 → 0.3.0): a new feature or noticeable change.
-- **Patch** (0.2.0 → 0.2.1): a bug fix, small tweak, or process/config update.
+- **Patch** (0.2.3 → 0.2.4): every update during the 0.2 series, including
+  new features, fixes, tweaks, and process/config updates.
+- **Minor** (0.2.x → 0.3.0): only when the owner declares a milestone.
 - **Major** (→ 1.0.0): only when the owner says so (e.g. launching with real
   schools).
 

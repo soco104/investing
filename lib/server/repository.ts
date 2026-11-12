@@ -1028,6 +1028,95 @@ export async function createPasswordReset(input: {
   return target.id;
 }
 
+export type EmailDeliveryRecord = {
+  createdAt: string;
+  error: string | null;
+  id: string;
+  kind: string;
+  provider: string;
+  providerMessageId: string | null;
+  recipient: string;
+  requestedByUserId: string | null;
+  status: string;
+  subject: string;
+};
+
+// Used when there is no database (local development), so the Admin email
+// panel still shows recent sends.
+const memoryEmailDeliveries: EmailDeliveryRecord[] = [];
+
+export async function recordEmailDelivery(
+  input: Omit<EmailDeliveryRecord, "createdAt" | "id">
+) {
+  const record: EmailDeliveryRecord = {
+    ...input,
+    createdAt: new Date().toISOString(),
+    id: id("email"),
+  };
+
+  if (!hasProductionDatabase()) {
+    memoryEmailDeliveries.unshift(record);
+    memoryEmailDeliveries.splice(50);
+    return record;
+  }
+
+  await getSql()`
+    insert into email_deliveries (
+      id, kind, recipient, subject, status, provider, provider_message_id,
+      error, requested_by_user_id, created_at
+    )
+    values (
+      ${record.id}, ${record.kind}, ${record.recipient}, ${record.subject},
+      ${record.status}, ${record.provider}, ${record.providerMessageId},
+      ${record.error}, ${record.requestedByUserId}, ${new Date(record.createdAt)}
+    )
+  `;
+
+  return record;
+}
+
+export async function listEmailDeliveries(limit = 25) {
+  if (!hasProductionDatabase()) {
+    return memoryEmailDeliveries.slice(0, limit);
+  }
+
+  const rows = await getSql()<
+    Array<{
+      created_at: Date;
+      error: string | null;
+      id: string;
+      kind: string;
+      provider: string;
+      provider_message_id: string | null;
+      recipient: string;
+      requested_by_user_id: string | null;
+      status: string;
+      subject: string;
+    }>
+  >`
+    select id, kind, recipient, subject, status, provider, provider_message_id,
+      error, requested_by_user_id, created_at
+    from email_deliveries
+    order by created_at desc
+    limit ${limit}
+  `;
+
+  return rows.map(
+    (row): EmailDeliveryRecord => ({
+      createdAt: new Date(row.created_at).toISOString(),
+      error: row.error,
+      id: row.id,
+      kind: row.kind,
+      provider: row.provider,
+      providerMessageId: row.provider_message_id,
+      recipient: row.recipient,
+      requestedByUserId: row.requested_by_user_id,
+      status: row.status,
+      subject: row.subject,
+    })
+  );
+}
+
 export async function completePasswordReset(input: {
   newPassword: string;
   tokenHash: string;

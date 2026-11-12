@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.2; the version you are using is shown
+district admins. It describes version 0.2.3; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -14,8 +14,9 @@ yet. Know which is which before using it with a class:
 - Signing in.
 - Everything in the Admin portal: users, permissions, schools, market
   integrations, the Market Simulator's class settings, the Credential Vault,
-  support cases, password resets, portfolio corrections, and quest
-  import/export.
+  support cases, password resets, email, and portfolio corrections. (Quest
+  import/export records an audit entry, but the quests themselves are not
+  stored yet.)
 
 **Not saved yet** (lost when the page is refreshed or you sign out):
 
@@ -60,6 +61,18 @@ has permission to use.
 
 Note: when an Admin views the Student portal, the screens show sample student
 data, not a specific student's account.
+
+### Forgot Your Password?
+
+Ask your teacher or district admin to reset it. You'll get an email titled
+**Reset your FutureFund Classroom password** with a link:
+
+1. Open the link within **30 minutes**. It works only once.
+2. Enter a new password of at least 10 characters, twice, and click **Set new
+   password**.
+3. Click **Go to sign in** and sign in with the new password.
+
+If the link has expired or was already used, ask for a new reset.
 
 ### Signing Out
 
@@ -185,8 +198,9 @@ Quest Studio lets teachers create learning quests with:
 Teachers should review hidden scoring rules before assigning a quest.
 
 In this version, quests created or edited in Quest Studio are not saved: they
-reset when the page is refreshed. Admins can save quests using quest
-import/export in the Admin portal.
+reset when the page is refreshed. Quest export downloads a copy you can keep
+and import again later, but imported quests are also not saved on the server
+yet.
 
 ### Teacher Class Market Controls
 

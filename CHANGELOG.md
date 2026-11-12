@@ -3,9 +3,32 @@
 All notable changes to FutureFund Classroom. Versions follow
 [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH.
 
-- **Minor** (0.2.0 → 0.3.0): a new feature or noticeable change.
-- **Patch** (0.2.0 → 0.2.1): a bug fix or small tweak.
+- **Patch** (0.2.3 → 0.2.4): every update during the 0.2 series.
+- **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
+
+## [0.2.3] - 2026-11-12
+
+### Added
+- Email sending through Resend (HTTPS API, since DigitalOcean blocks SMTP),
+  configured with `RESEND_API_KEY`, `EMAIL_FROM`, and optional `APP_BASE_URL`.
+- Admin portal **Email** page: setup status, send a test email, and a log of
+  recent emails (recipient, type, status; never message contents).
+- **Set a new password** page (`/reset-password`).
+
+### Changed
+- Password resets now email the user a 30-minute, single-use link, and the
+  admin popup says whether the email was sent. Resets for unknown emails show
+  a clear message instead of an error.
+- Versioning: every update in the 0.2 series is a patch bump; minor versions
+  are reserved for milestones the owner chooses.
+
+### Fixed
+- The demo student `maya.patel@example.edu` could sign in without the demo
+  security question (the list had the wrong email). A test now checks the list
+  against the demo seed.
+- Guides no longer say quest import/export saves quests (it records an audit
+  entry only).
 
 ## [0.2.2] - 2026-11-12
 
@@ -56,6 +79,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.3]: https://github.com/soco104/investing/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/soco104/investing/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/soco104/investing/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/soco104/investing/compare/v0.1.0...v0.2.0

@@ -1573,6 +1573,12 @@ const adminModules = [
     icon: KeyRound,
   },
   {
+    title: "Email",
+    detail: "Check email setup, send a test email, and review recent deliveries.",
+    status: "Resend",
+    icon: Mail,
+  },
+  {
     title: "Password resets",
     detail: "Reset credentials, review SSO status, and clear locked accounts.",
     status: "2 pending",
@@ -2661,11 +2667,26 @@ export default function Home() {
     }
 
     try {
-      await postAdminMutation("/api/admin/password-resets", {
+      const result = await postAdminMutation<{
+        delivery?: "sent" | "failed" | "logged" | "not_configured";
+        deliveryError?: string;
+      }>("/api/admin/password-resets", {
         email: trimmedEmail,
         reason: "Admin password reset",
       });
-      setResetNotice(`Password reset requested for ${trimmedEmail}.`);
+      const deliveryNotices = {
+        failed: `Reset created for ${trimmedEmail}, but the email could not be sent: ${
+          result.deliveryError ?? "unknown error"
+        }`,
+        logged: `Reset created for ${trimmedEmail}. Email isn't set up, so the link was written to the server log (development only).`,
+        not_configured: `Reset created for ${trimmedEmail}, but email isn't set up yet, so no email was sent. See Email settings.`,
+        sent: `Password reset email sent to ${trimmedEmail}. The link works for 30 minutes.`,
+      } as const;
+      setResetNotice(
+        result.delivery
+          ? deliveryNotices[result.delivery]
+          : `Password reset requested for ${trimmedEmail}.`
+      );
       setResetEmail("");
     } catch (error) {
       setResetNotice((error as Error).message);
@@ -4403,7 +4424,20 @@ export default function Home() {
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {adminModules.map((module) => (
-                  module.title === "Password resets" ? (
+                  module.title === "Email" ? (
+                    <EmailSettingsDialog
+                      key={module.title}
+                      defaultRecipient={authenticatedUser.email}
+                      trigger={
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border bg-background p-4 text-left transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          <AdminModuleCardContent module={module} />
+                        </button>
+                      }
+                    />
+                  ) : module.title === "Password resets" ? (
                     <Dialog key={module.title}>
                       <DialogTrigger asChild>
                         <button
@@ -4417,8 +4451,9 @@ export default function Home() {
                         <DialogHeader>
                           <DialogTitle>Password reset</DialogTitle>
                           <DialogDescription>
-                            Trigger a reset email for a user. SSO reset routing
-                            will be added later.
+                            Email the user a link to set a new password. The
+                            link works for 30 minutes. SSO reset routing will be
+                            added later.
                           </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-2">
@@ -9115,6 +9150,225 @@ function PortfolioCorrectionsAdminPage({
         ) : null}
       </div>
     </div>
+  );
+}
+
+type EmailDelivery = {
+  createdAt: string;
+  error: string | null;
+  id: string;
+  kind: string;
+  recipient: string;
+  status: string;
+  subject: string;
+};
+
+type EmailStatus = {
+  configured: boolean;
+  from: string | null;
+  missing: string[];
+  provider: "resend" | "log";
+};
+
+const emailKindLabels: Record<string, string> = {
+  flagged_message_forward: "Flagged message",
+  password_reset: "Password reset",
+  test: "Test",
+};
+
+const emailStatusLabels: Record<string, string> = {
+  failed: "Failed",
+  logged: "Logged (not sent)",
+  not_configured: "Not sent: email not set up",
+  sent: "Sent",
+};
+
+function EmailSettingsDialog({
+  defaultRecipient,
+  trigger,
+}: {
+  defaultRecipient: string;
+  trigger: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [status, setStatus] = useState<EmailStatus | null>(null);
+  const [deliveries, setDeliveries] = useState<EmailDelivery[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [testRecipient, setTestRecipient] = useState(defaultRecipient);
+  const [testNotice, setTestNotice] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function load() {
+    setLoadError("");
+
+    try {
+      const response = await fetch("/api/admin/email", {
+        credentials: "same-origin",
+      });
+      const result = (await response.json()) as {
+        deliveries?: EmailDelivery[];
+        message?: string;
+        status?: EmailStatus;
+      };
+
+      if (!response.ok || !result.status) {
+        setLoadError(result.message ?? "Email settings could not be loaded.");
+        return;
+      }
+
+      setStatus(result.status);
+      setDeliveries(result.deliveries ?? []);
+    } catch {
+      setLoadError("Email settings could not be loaded.");
+    }
+  }
+
+  async function sendTest() {
+    setSending(true);
+    setTestNotice("");
+
+    try {
+      const response = await fetch("/api/admin/email", {
+        body: JSON.stringify({ to: testRecipient }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        delivery?: string;
+        deliveryError?: string;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        setTestNotice(result.message ?? "The test email could not be sent.");
+      } else if (result.delivery === "sent") {
+        setTestNotice(`Test email sent to ${testRecipient.trim()}. Check that inbox.`);
+      } else if (result.delivery === "logged") {
+        setTestNotice(
+          "Email isn't set up, so the test was written to the server log instead (development only)."
+        );
+      } else {
+        setTestNotice(
+          `The test email was not sent: ${result.deliveryError ?? "unknown error"}`
+        );
+      }
+
+      await load();
+    } catch {
+      setTestNotice("The test email could not be sent.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) {
+          setTestNotice("");
+          void load();
+        }
+      }}
+    >
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Email</DialogTitle>
+          <DialogDescription>
+            FutureFund sends email through Resend. Message contents are never
+            stored; the log below shows only who, what, and whether it was sent.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loadError ? (
+          <p className="rounded-md bg-accent p-3 text-sm">{loadError}</p>
+        ) : !status ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <div className="space-y-5">
+            <div className="rounded-md border border-border p-3 text-sm">
+              {status.configured ? (
+                <p>
+                  <span className="font-medium">Email is set up.</span> Sending
+                  from <span className="font-mono">{status.from}</span>.
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  <p className="font-medium">Email is not set up yet.</p>
+                  <p className="text-muted-foreground">
+                    Add these settings in DigitalOcean (App → Settings → web →
+                    Environment Variables):{" "}
+                    <span className="font-mono">{status.missing.join(", ")}</span>.
+                    Until then, no emails are sent.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email-test-recipient">Send a test email to</Label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  id="email-test-recipient"
+                  type="email"
+                  value={testRecipient}
+                  onChange={(event) => setTestRecipient(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  disabled={sending}
+                  onClick={() => void sendTest()}
+                  className="bg-[#28666e] text-white hover:bg-[#22565d]"
+                >
+                  <Mail className="size-4" aria-hidden="true" />
+                  {sending ? "Sending…" : "Send test"}
+                </Button>
+              </div>
+              {testNotice ? (
+                <p className="text-sm text-muted-foreground">{testNotice}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold">Recent emails</h4>
+              {deliveries.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No emails yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>When</TableHead>
+                      <TableHead>To</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {deliveries.map((delivery) => (
+                      <TableRow key={delivery.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {new Date(delivery.createdAt).toLocaleString()}
+                        </TableCell>
+                        <TableCell>{delivery.recipient}</TableCell>
+                        <TableCell>
+                          {emailKindLabels[delivery.kind] ?? delivery.kind}
+                        </TableCell>
+                        <TableCell title={delivery.error ?? undefined}>
+                          {emailStatusLabels[delivery.status] ?? delivery.status}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

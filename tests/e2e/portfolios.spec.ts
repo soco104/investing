@@ -260,6 +260,8 @@ test.describe("School year setting", () => {
 
     await page.getByRole("heading", { name: "School year", exact: true }).first().click();
     const dialog = page.getByRole("dialog");
+    // Save is enabled once the saved dates have loaded.
+    await expect(dialog.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
     await expect(dialog.getByLabel("First day month")).toHaveValue("08");
     await expect(dialog.getByLabel("First day day")).toHaveValue("28");
     await expect(dialog.getByLabel("Last day month")).toHaveValue("06");
@@ -267,6 +269,10 @@ test.describe("School year setting", () => {
     await dialog.getByLabel("First day day").selectOption("20");
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await expect(dialog.getByText("Saved. The change is recorded in the audit log.")).toBeVisible();
+
+    // Regression: issue #19. The server has exactly what the admin picked.
+    const saved = await page.request.get("/api/admin/school-year");
+    expect((await saved.json()).settings).toEqual({ end: "06-01", start: "08-20" });
 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);

@@ -37,6 +37,10 @@ All notable changes to FutureFund Classroom. Versions follow
 - The sample $525 portfolio, sample trades, and sample chart for students
   (replaced by each student's saved portfolio).
 
+### Fixed
+- School year dialog: a slow load could overwrite dates the admin had just
+  changed (issue #19, caught by CI before release).
+
 ## [0.2.5] - 2026-11-12
 
 ### Added

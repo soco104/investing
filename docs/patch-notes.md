@@ -45,6 +45,12 @@ Newest updates are at the top. Each entry is headed with its version and date.
 - **Portfolio reset requests** from teachers appear on the Portfolio
   corrections page to approve or deny.
 
+### Fixes
+
+- The new School year window waits until the saved dates have loaded before
+  you can save, so a slow connection can't overwrite your changes (issue #19,
+  caught by automatic testing before release).
+
 ## v0.2.5 — 2026-11-12
 
 No changes to how the app works in this update. This update adds automatic

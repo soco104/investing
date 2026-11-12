@@ -45,7 +45,7 @@ import {
   WalletCards,
   Wrench,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10197,8 +10197,18 @@ function SchoolYearDialog({ trigger }: { trigger: React.ReactNode }) {
   const [current, setCurrent] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  // Regression: issue #19. A slow load must not overwrite newer data or the
+  // admin's own changes: only the latest load counts, and only until the
+  // admin edits a date.
+  const loadSequence = useRef(0);
+  const edited = useRef(false);
 
   async function load() {
+    const sequence = ++loadSequence.current;
+    edited.current = false;
+    setLoaded(false);
+
     try {
       const response = await fetch("/api/admin/school-year", { credentials: "same-origin" });
       const result = (await response.json()) as {
@@ -10207,16 +10217,33 @@ function SchoolYearDialog({ trigger }: { trigger: React.ReactNode }) {
         settings?: { end: string; start: string };
       };
 
+      if (sequence !== loadSequence.current) return;
+
       if (response.ok && result.settings) {
-        setStart(result.settings.start);
-        setEnd(result.settings.end);
+        if (!edited.current) {
+          setStart(result.settings.start);
+          setEnd(result.settings.end);
+        }
         setCurrent(result.current ?? "");
+        setLoaded(true);
       } else {
         setNotice(result.message ?? "The school year couldn't be loaded.");
       }
     } catch {
-      setNotice("The school year couldn't be loaded.");
+      if (sequence === loadSequence.current) {
+        setNotice("The school year couldn't be loaded.");
+      }
     }
+  }
+
+  function editStart(value: string) {
+    edited.current = true;
+    setStart(value);
+  }
+
+  function editEnd(value: string) {
+    edited.current = true;
+    setEnd(value);
   }
 
   async function save() {
@@ -10267,8 +10294,8 @@ function SchoolYearDialog({ trigger }: { trigger: React.ReactNode }) {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <MonthDayPicker id="school-year-start" label="First day" value={start} onChange={setStart} />
-          <MonthDayPicker id="school-year-end" label="Last day" value={end} onChange={setEnd} />
+          <MonthDayPicker id="school-year-start" label="First day" value={start} onChange={editStart} />
+          <MonthDayPicker id="school-year-end" label="Last day" value={end} onChange={editEnd} />
           {current ? (
             <p className="text-sm text-muted-foreground">
               Current school year: <span className="font-medium">{current.replace("-", "–")}</span>
@@ -10281,15 +10308,15 @@ function SchoolYearDialog({ trigger }: { trigger: React.ReactNode }) {
             type="button"
             variant="outline"
             onClick={() => {
-              setStart("08-28");
-              setEnd("06-01");
+              editStart("08-28");
+              editEnd("06-01");
             }}
           >
             Use default (Aug 28 – Jun 1)
           </Button>
           <Button
             type="button"
-            disabled={saving}
+            disabled={saving || !loaded}
             onClick={() => void save()}
             className="bg-[#28666e] text-white hover:bg-[#22565d]"
           >

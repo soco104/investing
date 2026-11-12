@@ -61,9 +61,32 @@ scandal, rate cut.
 **5. Combo events.** Pair a market event with a life event (a recession *and*
 hours cut) for the hardest test.
 
-**6. Debrief.** After an event, show the teacher how each student fared: who
-had a cash buffer, who sold at a loss, who borrowed. Optionally add a
-reflection prompt for students.
+**6. Debrief → student report → teacher grade.** Every event turns into a
+short graded assignment, so the lesson doesn't end when the money moves.
+
+- **Auto-generated debrief message.** When an event hits a student, the app
+  sends a message to that student's **Inbox** explaining what happened *to
+  them specifically*: the event, the cost, and how their portfolio responded
+  (e.g. "Your car repair cost $400. You had $150 in cash, so $250 of BND was
+  sold. Your portfolio is down 6% this week.").
+- **Report prompt.** The message includes questions for the student to answer
+  in a short written report, e.g. what happened, what they would do
+  differently, and how they'll prepare for the next surprise. Questions adjust
+  to grade level.
+- **Submit to the teacher.** The student writes and submits the report from
+  the message. It lands in the teacher's review queue next to the debrief
+  facts, so the teacher can compare what the student wrote with what actually
+  happened.
+- **Grade with a rubric.** Teachers grade using a short default rubric they
+  can edit (e.g. explains the impact, uses portfolio evidence, makes a
+  realistic plan), with scores and a comment sent back to the student.
+- **Class view.** The teacher also sees a summary across students: who had a
+  cash buffer, who sold at a loss, who borrowed, and who has submitted.
+
+This should reuse what already exists: the student **Inbox** and the quest
+system's scoring rubrics, required reflections, and "Review" status. Note that
+both currently run on sample data in the browser (`app/page.tsx`), so saving
+messages, reports, and grades needs server-side storage first.
 
 ### Keeping it simple for teachers
 
@@ -91,6 +114,10 @@ reflection prompt for students.
   measured (cash buffer, drawdown, diversification)?
 - Should students get advance warning ("hurricane season is coming") so
   preparing is part of the skill?
+- Is the debrief report always required, or does the teacher choose per
+  event? Is there a due date?
+- Does the report grade count toward the student's quest score, or is it
+  separate?
 - The Hormuz scenario and price raise/lower currently live in the browser
   (`app/page.tsx`). Do new events need to move into the server-side engine so
   they persist and apply to every student?

@@ -2,6 +2,49 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.6 — 2026-11-12
+
+### Student Profiles and Portfolios
+
+- Each student now has **one profile that keeps a portfolio for every class
+  they're assigned to, by school year**. Past years stay as **read-only
+  records** students can look back on, building a multi-year record.
+- Portfolios are **saved**: cash, stocks, trades, and allocation targets stay
+  after a refresh or sign-out. A new class portfolio starts with the class's
+  starting cash.
+- The Portfolio page shows the real portfolio value and history, and a new
+  **Your portfolios** table lists every portfolio by school year with its
+  value, gain or loss, and trades. Click **View** to open an older one.
+- Teachers and admins see a **Practice** portfolio in the Student view.
+
+### Trading
+
+- On the Market page, use **−** and **+** to change the number of shares by
+  one, or type an amount, then click **Buy** or **Sell**. The trade controls
+  now sit next to the price.
+- Prices are the class's simulated market prices, and every trade is checked:
+  you can't spend more cash than you have or sell shares you don't own.
+- Classes for **grade 10 and above** can trade **fractional shares** (up to 4
+  decimal places). Younger grades trade whole shares.
+
+### For Teachers
+
+- **Request portfolio reset** (Teacher dashboard → Portfolio resets): choose a
+  student in your class and give a reason. An admin approves or denies it, and
+  you get an email with the outcome.
+
+### For Admins
+
+- **School year** (Admin portal): set the first and last day of the school
+  year. Default: August 28 – June 1.
+- **Grade level** (Market Simulator page): set each class's grade. It's read
+  from names like "7th Grade Finance A" automatically; set it for classes like
+  "High School Personal Finance". Grade 10+ allows fractional shares.
+- **Portfolio corrections** now apply to a chosen student by email, showing
+  the cash before and after.
+- **Portfolio reset requests** from teachers appear on the Portfolio
+  corrections page to approve or deny.
+
 ## v0.2.5 — 2026-11-12
 
 No changes to how the app works in this update. This update adds automatic

@@ -1,6 +1,7 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { userFromRequest } from "@/lib/server/auth";
 import { normalizeClassMarketConfig } from "@/lib/server/market-engine";
+import { portfolioErrorResponse, saveClassGradeLevel } from "@/lib/server/portfolios";
 import {
   getClassMarketState,
   upsertClassMarketConfig,
@@ -11,6 +12,9 @@ type ClassMarketMutationRequest = {
   allowedSymbols?: string[] | string;
   className?: string;
   eventScenario?: string;
+  // Grade 1–12, or null to clear (then it's read from the class name).
+  // Grade 10+ classes can trade fractional shares.
+  gradeLevel?: number | null;
   reason?: string;
   simulationMode?: string;
   startingCashCents?: number;
@@ -93,6 +97,7 @@ export async function POST(request: Request) {
       startingCashCents: config.startingCashCents,
       teacherControlsEnabled: config.teacherControlsEnabled,
       volatilityMultiplier: config.volatilityMultiplier,
+      ...("gradeLevel" in body ? { gradeLevel: body.gradeLevel ?? null } : {}),
     },
     reason: body.reason ?? "Class market configuration update",
     targetId: className,
@@ -100,6 +105,14 @@ export async function POST(request: Request) {
   });
 
   await upsertClassMarketConfig({ actor: user, config });
+
+  if ("gradeLevel" in body) {
+    try {
+      await saveClassGradeLevel(className, body.gradeLevel ?? null);
+    } catch (error) {
+      return portfolioErrorResponse(error);
+    }
+  }
 
   return Response.json(
     {

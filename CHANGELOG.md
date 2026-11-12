@@ -7,6 +7,36 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.6] - 2026-11-12
+
+### Added
+- **Student profiles with saved class portfolios.** Each student has one
+  long-term profile with a portfolio per assigned class per school year
+  (cash, holdings, trades, allocation targets, value history). Past school
+  years become read-only records. "Your portfolios" on the Portfolio page lists
+  them all.
+- **Server-checked trading** at the class's simulated prices, with − / + and an
+  amount box on the Market page. Fractional shares (up to 4 decimals) for
+  grade 10+ classes; whole shares otherwise.
+- **School year setting** (Admin portal, default Aug 28 – Jun 1), and a
+  **grade level** per class on the Market Simulator page.
+- **Portfolio reset requests:** teachers request, admins approve or deny,
+  teachers are emailed the outcome; history is kept.
+- **Practice portfolio** for staff in the Student view.
+- 11 browser tests and 18 unit tests for portfolios, trading rules, and school
+  years.
+
+### Changed
+- The Market page shows the class's simulated prices from the server.
+- Admin portfolio corrections now apply to a chosen student's current class
+  portfolio (by email), with before and after cash recorded.
+- Browser test setup clears saved portfolios before each run; lint ignores
+  generated test reports.
+
+### Removed
+- The sample $525 portfolio, sample trades, and sample chart for students
+  (replaced by each student's saved portfolio).
+
 ## [0.2.5] - 2026-11-12
 
 ### Added
@@ -114,6 +144,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.6]: https://github.com/soco104/investing/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/soco104/investing/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/soco104/investing/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/soco104/investing/compare/v0.2.2...v0.2.3

@@ -5,6 +5,7 @@ import {
   BookOpenCheck,
   Building2,
   CalendarClock,
+  CalendarDays,
   ChartNoAxesCombined,
   CircleDollarSign,
   ClipboardList,
@@ -695,6 +696,139 @@ type StockHolding = {
   ticker: string;
 };
 
+// A saved portfolio from /api/portfolios (see lib/server/portfolios.ts).
+type ServerPortfolio = {
+  activity: Array<{
+    amountCents: number | null;
+    byOwner: boolean;
+    cashAfterCents: number | null;
+    createdAt: string;
+    id: string;
+    kind: string;
+    note: string;
+    priceCents: number | null;
+    quantityUnits: number | null;
+    ticker: string | null;
+  }>;
+  allocation: Array<{ name: string; value: number }>;
+  allowFractional: boolean;
+  cashCents: number;
+  className: string;
+  gradeLevel: number | null;
+  history: Array<{ recordedAt: string; valueCents: number }>;
+  holdings: Array<{
+    averageCostCents: number;
+    name: string;
+    priceCents: number;
+    quantityUnits: number;
+    ticker: string;
+    valueCents: number;
+  }>;
+  id: string;
+  kind: "class" | "practice";
+  market: {
+    scenarioLabel: string;
+    simulationMode: string;
+    symbols: Array<{ changePercent: number; name: string; priceCents: number; ticker: string }>;
+  };
+  readOnly: boolean;
+  resetCount: number;
+  schoolYear: string;
+  startingCashCents: number;
+  valueCents: number;
+};
+
+const activityLabels: Record<string, string> = {
+  allocation: "Allocation",
+  buy: "Buy",
+  correction: "Correction",
+  opened: "Opened",
+  reset: "Reset",
+  sell: "Sell",
+};
+
+function shortDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function formatShares(units: number) {
+  return (units / 10_000).toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
+function portfolioLabel(portfolio: ServerPortfolio) {
+  return portfolio.kind === "practice"
+    ? `Practice portfolio · ${portfolio.schoolYear.replace("-", "–")}`
+    : `${portfolio.className} · ${portfolio.schoolYear.replace("-", "–")}`;
+}
+
+/** Turns a saved portfolio into the shapes the existing screens use. */
+function portfolioToScreens(portfolio: ServerPortfolio) {
+  const sampleByTicker = new Map(initialMarketQuotes.map((quote) => [quote.ticker, quote]));
+
+  return {
+    activity: portfolio.activity.map(
+      (item): PortfolioActivity => ({
+        action: activityLabels[item.kind] ?? item.kind,
+        amount:
+          item.amountCents === null
+            ? item.kind === "allocation"
+              ? "Targets"
+              : formatCurrency((item.cashAfterCents ?? 0) / 100)
+            : `${item.amountCents < 0 ? "-" : ""}${formatCurrency(Math.abs(item.amountCents) / 100)}`,
+        date: shortDate(item.createdAt),
+        id: item.id,
+        note:
+          item.note ||
+          (item.ticker && item.quantityUnits !== null && item.priceCents !== null
+            ? `${formatShares(item.quantityUnits)} ${item.ticker} at ${formatCurrency(item.priceCents / 100)}`
+            : ""),
+        vehicle: item.ticker ?? "Portfolio",
+      })
+    ),
+    allocation: allocation.map((category) => ({
+      ...category,
+      value:
+        portfolio.allocation.find((target) => target.name === category.name)?.value ??
+        category.value,
+    })),
+    cash: portfolio.cashCents / 100,
+    // The chart: the last value of each day, starting from the opening cash.
+    chart: (() => {
+      const byDay = new Map<string, number>();
+      for (const point of portfolio.history) {
+        byDay.set(shortDate(point.recordedAt), point.valueCents / 100);
+      }
+      const points = [...byDay.entries()].map(([month, value]) => ({ month, value }));
+      return points.length > 1
+        ? points
+        : [{ month: "Start", value: portfolio.startingCashCents / 100 }, ...points];
+    })(),
+    holdings: portfolio.holdings.map(
+      (holding): StockHolding => ({
+        averageCost: holding.averageCostCents / 100,
+        name: holding.name,
+        quantity: holding.quantityUnits / 10_000,
+        ticker: holding.ticker,
+      })
+    ),
+    // Server prices, with descriptive text from the classroom sample feed.
+    quotes: portfolio.market.symbols.map((symbol): MarketQuote => {
+      const sample = sampleByTicker.get(symbol.ticker);
+      const price = symbol.priceCents / 100;
+      return {
+        changePercent: symbol.changePercent,
+        dayHigh: roundMoney(Math.max(price, price * (1 + Math.abs(symbol.changePercent) / 200))),
+        dayLow: roundMoney(Math.min(price, price * (1 - Math.abs(symbol.changePercent) / 200))),
+        name: symbol.name,
+        news: sample?.news ?? "Classroom simulation market input.",
+        price,
+        sector: sample?.sector ?? "Class market",
+        ticker: symbol.ticker,
+      };
+    }),
+  };
+}
+
 type AdminPage =
   | "overview"
   | "schools"
@@ -826,6 +960,9 @@ type ClassMarketConfig = {
   startingCashCents: number;
   teacherControlsEnabled: boolean;
   volatilityMultiplier: number;
+  // Set by admins; null = read from the class name. Grade 10+ can trade
+  // fractional shares.
+  gradeLevel?: number | null;
 };
 
 type TeacherScenarioDraft = {
@@ -1573,6 +1710,12 @@ const adminModules = [
     icon: KeyRound,
   },
   {
+    title: "School year",
+    detail: "Set the first and last day of the school year for portfolio records.",
+    status: "Aug 28 – Jun 1",
+    icon: CalendarDays,
+  },
+  {
     title: "Email",
     detail: "Check email setup, send a test email, and review recent deliveries.",
     status: "Resend",
@@ -1631,17 +1774,18 @@ export default function Home() {
   const [marketQuotes, setMarketQuotes] =
     useState<MarketQuote[]>(initialMarketQuotes);
   const [marketNotice, setMarketNotice] = useState("");
+  // Saved portfolios (all classes, all school years) from /api/portfolios.
+  const [profilePortfolios, setProfilePortfolios] = useState<ServerPortfolio[] | null>(null);
+  const [activePortfolioId, setActivePortfolioId] = useState<string | null>(null);
+  const [portfolioLoadError, setPortfolioLoadError] = useState("");
+  const activePortfolio =
+    profilePortfolios?.find((item) => item.id === activePortfolioId) ?? null;
   const [teacherScenarioDraft, setTeacherScenarioDraft] =
     useState<TeacherScenarioDraft>({
       affectedSymbols: "XLE,OIH,JETS",
       oilSpikePercent: 18,
       selectedClass: classOptions[0],
     });
-  const [portfolioAdjustment, setPortfolioAdjustment] = useState("25");
-  const [portfolioCorrectionReason, setPortfolioCorrectionReason] = useState(
-    "Teacher-approved correction"
-  );
-  const [portfolioCorrectionNotice, setPortfolioCorrectionNotice] = useState("");
   const [teacherQuests, setTeacherQuests] =
     useState<TeacherQuest[]>(initialTeacherQuests);
   const [selectedQuestId, setSelectedQuestId] = useState(
@@ -1736,7 +1880,11 @@ export default function Home() {
     "privacy@lincolnusd.edu"
   );
 
-  const portfolio = useMemo(
+  const savedChart = useMemo(
+    () => (activePortfolio ? portfolioToScreens(activePortfolio).chart : null),
+    [activePortfolio]
+  );
+  const samplePortfolio = useMemo(
     () =>
       basePortfolio.map((point, index) => ({
         ...point,
@@ -1747,6 +1895,7 @@ export default function Home() {
       })),
     [goalBoost, scenarioDay]
   );
+  const portfolio = savedChart ?? samplePortfolio;
 
   const latestValue = portfolio[portfolio.length - 1].value;
   const totalGrowth = Math.round(
@@ -1898,6 +2047,54 @@ export default function Home() {
     };
   }, []);
 
+  // Load the signed-in user's saved portfolios. The active one is this
+  // school year's first class portfolio (or the staff practice portfolio).
+  useEffect(() => {
+    if (!authenticatedUser) {
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch("/api/portfolios", { credentials: "same-origin" })
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          message?: string;
+          portfolios?: ServerPortfolio[];
+        };
+
+        if (cancelled) return;
+
+        if (!response.ok || !result.portfolios) {
+          setPortfolioLoadError(result.message ?? "Your portfolio couldn't be loaded.");
+          return;
+        }
+
+        const current =
+          result.portfolios.find((item) => !item.readOnly) ?? result.portfolios[0];
+
+        setPortfolioLoadError("");
+        setProfilePortfolios(result.portfolios);
+
+        if (current) {
+          const screens = portfolioToScreens(current);
+          setActivePortfolioId(current.id);
+          setStudentCash(screens.cash);
+          setStudentHoldings(screens.holdings);
+          setPortfolioActivity(screens.activity);
+          setAllocationTargets(screens.allocation);
+          setMarketQuotes(screens.quotes);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPortfolioLoadError("Your portfolio couldn't be loaded.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticatedUser]);
+
   useEffect(() => {
     if (authenticatedUser?.role !== "Admin") {
       return;
@@ -1974,6 +2171,7 @@ export default function Home() {
               simulation_mode: ClassMarketConfig["simulationMode"];
               starting_cash_cents: number;
               teacher_controls_enabled: boolean;
+              grade_level?: number | null;
               volatility_multiplier: number;
             }>;
           };
@@ -2090,6 +2288,7 @@ export default function Home() {
               startingCashCents: config.starting_cash_cents,
               teacherControlsEnabled: config.teacher_controls_enabled,
               volatilityMultiplier: Number(config.volatility_multiplier),
+              gradeLevel: config.grade_level ?? null,
             }))
           );
         }
@@ -2224,92 +2423,73 @@ export default function Home() {
     );
   }
 
-  function tradeStock(ticker: string, action: "buy" | "sell") {
-    const quote = marketQuotes.find((item) => item.ticker === ticker);
+  /** Shows a saved portfolio on every student screen. */
+  function applyPortfolio(updated: ServerPortfolio) {
+    const screens = portfolioToScreens(updated);
 
-    if (!quote) {
+    setProfilePortfolios((current) =>
+      current?.some((item) => item.id === updated.id)
+        ? current.map((item) => (item.id === updated.id ? updated : item))
+        : [...(current ?? []), updated]
+    );
+    setActivePortfolioId(updated.id);
+    setStudentCash(screens.cash);
+    setStudentHoldings(screens.holdings);
+    setPortfolioActivity(screens.activity);
+    setAllocationTargets(screens.allocation);
+    setMarketQuotes(screens.quotes);
+  }
+
+  function selectPortfolio(portfolioId: string) {
+    const selected = profilePortfolios?.find((item) => item.id === portfolioId);
+
+    if (selected) {
+      applyPortfolio(selected);
+    }
+  }
+
+  // Trades go to the server, which prices them from the class market and
+  // checks cash, shares owned, whole vs fractional shares, and read-only years.
+  async function tradeStock(ticker: string, action: "buy" | "sell", shares = 1) {
+    if (!activePortfolio) {
+      setMarketNotice("Your portfolio isn't available right now.");
       return;
     }
 
-    const existingHolding = studentHoldings.find(
-      (holding) => holding.ticker === ticker
-    );
+    setMarketNotice("");
 
-    if (action === "buy") {
-      if (studentCash < quote.price) {
-        setMarketNotice(`Not enough portfolio cash to buy ${ticker}.`);
+    try {
+      const response = await fetch("/api/portfolios/trade", {
+        body: JSON.stringify({
+          portfolioId: activePortfolio.id,
+          shares,
+          side: action,
+          ticker,
+        }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        message?: string;
+        portfolio?: ServerPortfolio;
+      };
+
+      if (!response.ok || !result.portfolio) {
+        setMarketNotice(result.message ?? "The trade could not be completed.");
         return;
       }
 
-      setStudentCash((cash) => roundMoney(cash - quote.price));
-      setStudentHoldings((holdings) => {
-        if (!existingHolding) {
-          return [
-            ...holdings,
-            {
-              averageCost: quote.price,
-              name: quote.name,
-              quantity: 1,
-              ticker,
-            },
-          ];
-        }
-
-        return holdings.map((holding) =>
-          holding.ticker === ticker
-            ? {
-                ...holding,
-                averageCost: roundMoney(
-                  (holding.averageCost * holding.quantity + quote.price) /
-                    (holding.quantity + 1)
-                ),
-                quantity: holding.quantity + 1,
-              }
-            : holding
-        );
-      });
-      setPortfolioActivity((activity) => [
-        {
-          id: `trade-buy-${ticker}-${Date.now()}`,
-          action: "Buy",
-          amount: `$${quote.price.toFixed(2)}`,
-          date: "Today",
-          note: `Purchased 1 share of ${ticker} from Market page.`,
-          vehicle: "Stocks",
-        },
-        ...activity,
-      ]);
-      setMarketNotice(`Bought 1 share of ${ticker}.`);
-      return;
+      applyPortfolio(result.portfolio);
+      const shareText = `${shares.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${
+        shares === 1 ? "share" : "shares"
+      }`;
+      setMarketNotice(
+        action === "buy" ? `Bought ${shareText} of ${ticker}.` : `Sold ${shareText} of ${ticker}.`
+      );
+    } catch {
+      setMarketNotice("The trade could not be completed. Try again in a moment.");
     }
-
-    if (!existingHolding || existingHolding.quantity < 1) {
-      setMarketNotice(`No ${ticker} shares available to sell.`);
-      return;
-    }
-
-    setStudentCash((cash) => roundMoney(cash + quote.price));
-    setStudentHoldings((holdings) =>
-      holdings
-        .map((holding) =>
-          holding.ticker === ticker
-            ? { ...holding, quantity: holding.quantity - 1 }
-            : holding
-        )
-        .filter((holding) => holding.quantity > 0)
-    );
-    setPortfolioActivity((activity) => [
-      {
-        id: `trade-sell-${ticker}-${Date.now()}`,
-        action: "Sell",
-        amount: `$${quote.price.toFixed(2)}`,
-        date: "Today",
-        note: `Sold 1 share of ${ticker} from Market page.`,
-        vehicle: "Stocks",
-      },
-      ...activity,
-    ]);
-    setMarketNotice(`Sold 1 share of ${ticker}.`);
   }
 
   function adjustMarketPrice(ticker: string, direction: "up" | "down") {
@@ -3184,57 +3364,36 @@ export default function Home() {
     );
   }
 
-  function saveAllocationChange() {
-    setPortfolioActivity((currentActivity) => [
-      {
-        id: `activity-${Date.now()}`,
-        date: "Today",
-        action: "Allocation",
-        vehicle: "Portfolio",
-        amount: `${allocationTotal}%`,
-        note:
-          allocationTotal === 100
-            ? "Saved a balanced target mix"
-            : "Saved draft targets for teacher review",
-      },
-      ...currentActivity,
-    ]);
-  }
-
-  async function applyPortfolioCorrection() {
-    const adjustment = Number.parseFloat(portfolioAdjustment);
-
-    if (Number.isNaN(adjustment) || !portfolioCorrectionReason.trim()) {
-      setPortfolioCorrectionNotice("Enter an adjustment and audit reason.");
+  async function saveAllocationChange() {
+    if (!activePortfolio) {
+      setMarketNotice("Your portfolio isn't available right now.");
       return;
     }
 
     try {
-      await postAdminMutation("/api/admin/portfolio-corrections", {
-        adjustmentCents: Math.round(adjustment * 100),
-        afterSnapshot: { simulatedGoalBoost: goalBoost + Math.round(adjustment / 5) },
-        beforeSnapshot: { simulatedGoalBoost: goalBoost },
-        portfolioId: "portfolio-avery",
-        reason: portfolioCorrectionReason.trim(),
+      const response = await fetch("/api/portfolios/allocation", {
+        body: JSON.stringify({
+          portfolioId: activePortfolio.id,
+          targets: allocationTargets.map(({ name, value }) => ({ name, value })),
+        }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
       });
-    } catch (error) {
-      setPortfolioCorrectionNotice((error as Error).message);
-      return;
-    }
+      const result = (await response.json()) as {
+        message?: string;
+        portfolio?: ServerPortfolio;
+      };
 
-    setGoalBoost((value) => Math.max(0, value + Math.round(adjustment / 5)));
-    setPortfolioActivity((currentActivity) => [
-      {
-        id: `correction-${Date.now()}`,
-        date: "Today",
-        action: "Correction",
-        vehicle: "Portfolio",
-        amount: `${adjustment >= 0 ? "+" : "-"}$${Math.abs(adjustment).toFixed(2)}`,
-        note: portfolioCorrectionReason.trim(),
-      },
-      ...currentActivity,
-    ]);
-    setPortfolioCorrectionNotice("Portfolio correction applied and audited.");
+      if (!response.ok || !result.portfolio) {
+        setMarketNotice(result.message ?? "Allocation targets could not be saved.");
+        return;
+      }
+
+      applyPortfolio(result.portfolio);
+    } catch {
+      setMarketNotice("Allocation targets could not be saved.");
+    }
   }
 
   function openAdminModule(title: string) {
@@ -3582,7 +3741,11 @@ export default function Home() {
                     latestValue={latestValue}
                     largestAllocation={largestAllocation}
                     onBack={() => setActiveStudentPage("dashboard")}
-                    onSaveAllocation={saveAllocationChange}
+                    onSaveAllocation={() => void saveAllocationChange()}
+                    activePortfolioId={activePortfolioId}
+                    portfolioError={portfolioLoadError}
+                    portfolios={profilePortfolios ?? []}
+                    onSelectPortfolio={selectPortfolio}
                     onUpdateAllocation={updateAllocationTarget}
                     portfolio={portfolio}
                     totalGrowth={totalGrowth}
@@ -3927,6 +4090,10 @@ export default function Home() {
                 onScenarioDraftChange={setTeacherScenarioDraft}
                 onTrade={tradeStock}
                 onTriggerScenario={triggerHormuzScenario}
+                allowFractional={activePortfolio?.allowFractional ?? false}
+                portfolioError={portfolioLoadError}
+                portfolioTitle={activePortfolio ? portfolioLabel(activePortfolio) : null}
+                readOnly={activePortfolio?.readOnly ?? false}
               />
             ) : null}
           </TabsContent>
@@ -3941,6 +4108,7 @@ export default function Home() {
                   />
                 ) : (
                   <>
+                    <TeacherPortfolioResets />
                     <section className="grid gap-4 md:grid-cols-3">
                       <SummaryCard
                         icon={<UsersRound className="size-5" />}
@@ -4367,7 +4535,6 @@ export default function Home() {
                     newUserLastName={newUserLastName}
                     newUserRole={newUserRole}
                     newUserTemporaryPassword={newUserTemporaryPassword}
-                    onApplyPortfolioCorrection={applyPortfolioCorrection}
                     onAddIntegration={addMarketIntegration}
                     onAddSchool={addSchool}
                     onCredentialLabelChange={setCredentialLabel}
@@ -4406,10 +4573,6 @@ export default function Home() {
                       setNewUserTemporaryPassword
                     }
                     onSavePrivacy={savePrivacyPosture}
-                    onPortfolioAdjustmentChange={setPortfolioAdjustment}
-                    onPortfolioCorrectionReasonChange={
-                      setPortfolioCorrectionReason
-                    }
                     onOpenUserProfile={openUserProfile}
                     onQuestExport={exportLearningQuests}
                     onQuestImport={importLearningQuests}
@@ -4430,9 +4593,6 @@ export default function Home() {
                     onToggleUserEnabled={toggleUserEnabled}
                     privacyContact={privacyContact}
                     privacyPosture={privacyPosture}
-                    portfolioAdjustment={portfolioAdjustment}
-                    portfolioCorrectionNotice={portfolioCorrectionNotice}
-                    portfolioCorrectionReason={portfolioCorrectionReason}
                     questTransferNotice={questTransferNotice}
                     questTransferText={questTransferText}
                     schoolClassCount={schoolClassCount}
@@ -4502,7 +4662,19 @@ export default function Home() {
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {adminModules.map((module) => (
-                  module.title === "Email" ? (
+                  module.title === "School year" ? (
+                    <SchoolYearDialog
+                      key={module.title}
+                      trigger={
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border bg-background p-4 text-left transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          <AdminModuleCardContent module={module} />
+                        </button>
+                      }
+                    />
+                  ) : module.title === "Email" ? (
                     <EmailSettingsDialog
                       key={module.title}
                       defaultRecipient={authenticatedUser.email}
@@ -5091,6 +5263,10 @@ function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
 }
 
 function MarketPage({
+  allowFractional,
+  portfolioError,
+  portfolioTitle,
+  readOnly,
   cash,
   holdings,
   marketNotice,
@@ -5112,10 +5288,33 @@ function MarketPage({
   teacherScenarioDraft: TeacherScenarioDraft;
   onAdjustPrice: (ticker: string, direction: "up" | "down") => void;
   onScenarioDraftChange: (draft: TeacherScenarioDraft) => void;
-  onTrade: (ticker: string, action: "buy" | "sell") => void;
+  onTrade: (ticker: string, action: "buy" | "sell", shares: number) => Promise<void>;
   onTriggerScenario: () => void;
+  allowFractional: boolean;
+  portfolioError: string;
+  portfolioTitle: string | null;
+  readOnly: boolean;
 }) {
   const isTeacher = role === "Teacher";
+  // How many shares each row's Buy/Sell will trade (typed or set with −/+).
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [tradingTicker, setTradingTicker] = useState<string | null>(null);
+  const amountFor = (ticker: string) => amounts[ticker] ?? "1";
+  const step = (ticker: string, delta: number) => {
+    const current = Number.parseFloat(amountFor(ticker));
+    const next = Math.max(1, Math.floor(Number.isFinite(current) ? current : 1) + delta);
+    setAmounts((all) => ({ ...all, [ticker]: String(next) }));
+  };
+  async function trade(ticker: string, action: "buy" | "sell") {
+    const shares = Number.parseFloat(amountFor(ticker));
+
+    setTradingTicker(ticker);
+    try {
+      await onTrade(ticker, action, shares);
+    } finally {
+      setTradingTicker(null);
+    }
+  }
   const holdingsByTicker = new Map(
     holdings.map((holding) => [holding.ticker, holding])
   );
@@ -5137,9 +5336,25 @@ function MarketPage({
             </p>
           </div>
           <Badge className="w-fit rounded-md bg-[#07130d] px-3 py-1 text-[#8cffb0] hover:bg-[#07130d]">
-            Market classroom
+            {portfolioTitle ?? "Market classroom"}
           </Badge>
         </div>
+        {portfolioTitle ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {allowFractional
+              ? "This class can trade fractional shares (up to 4 decimal places, e.g. 2.5)."
+              : "This class trades whole shares. Use − and + or type a number."}
+          </p>
+        ) : null}
+        {readOnly ? (
+          <p className="mt-3 rounded-md bg-accent px-3 py-2 text-sm">
+            This portfolio is from a school year that has ended. It&apos;s a read-only
+            record, so trading is turned off.
+          </p>
+        ) : null}
+        {portfolioError ? (
+          <p className="mt-3 rounded-md bg-accent px-3 py-2 text-sm">{portfolioError}</p>
+        ) : null}
       </div>
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -5177,9 +5392,9 @@ function MarketPage({
               <TableHead className="text-[#8cffb0]">Name</TableHead>
               <TableHead className="text-right text-[#8cffb0]">Price</TableHead>
               <TableHead className="text-right text-[#8cffb0]">Move</TableHead>
+              <TableHead className="text-[#8cffb0]">Trade</TableHead>
               <TableHead className="text-[#8cffb0]">Range</TableHead>
               <TableHead className="text-[#8cffb0]">Latest news</TableHead>
-              <TableHead className="text-[#8cffb0]">Student action</TableHead>
               {isTeacher ? (
                 <TableHead className="text-[#8cffb0]">Teacher controls</TableHead>
               ) : null}
@@ -5221,32 +5436,73 @@ function MarketPage({
                   >
                     {formatSignedPercent(quote.changePercent)}
                   </TableCell>
+                  <TableCell>
+                    <div className="flex min-w-[220px] flex-col gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          aria-label={`One fewer ${quote.ticker} share`}
+                          disabled={readOnly}
+                          onClick={() => step(quote.ticker, -1)}
+                          className="h-8 w-8 border-[#1f3a2c] bg-transparent px-0 text-[#c7f7d7] hover:bg-[#102c1b]"
+                        >
+                          −
+                        </Button>
+                        <Input
+                          aria-label={`Shares of ${quote.ticker}`}
+                          inputMode="decimal"
+                          type="number"
+                          min={allowFractional ? 0.0001 : 1}
+                          step={allowFractional ? 0.0001 : 1}
+                          disabled={readOnly}
+                          value={amountFor(quote.ticker)}
+                          onChange={(event) =>
+                            setAmounts((all) => ({ ...all, [quote.ticker]: event.target.value }))
+                          }
+                          className="h-8 w-24 border-[#1f3a2c] bg-[#0d1c13] text-right text-white"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          aria-label={`One more ${quote.ticker} share`}
+                          disabled={readOnly}
+                          onClick={() => step(quote.ticker, 1)}
+                          className="h-8 w-8 border-[#1f3a2c] bg-transparent px-0 text-[#c7f7d7] hover:bg-[#102c1b]"
+                        >
+                          +
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={readOnly || tradingTicker !== null}
+                          onClick={() => void trade(quote.ticker, "buy")}
+                          className="bg-[#0fa35a] text-white hover:bg-[#0c874b]"
+                        >
+                          Buy
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={readOnly || tradingTicker !== null}
+                          onClick={() => void trade(quote.ticker, "sell")}
+                          className="border-[#ff6b6b]/60 bg-transparent text-[#ffb0b0] hover:bg-[#351111]"
+                        >
+                          Sell
+                        </Button>
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm text-[#c7f7d7]">
                     {formatCurrency(quote.dayLow)} - {formatCurrency(quote.dayHigh)}
                   </TableCell>
                   <TableCell className="max-w-[320px] text-sm text-[#c7f7d7]">
                     {quote.news}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => onTrade(quote.ticker, "buy")}
-                        className="bg-[#0fa35a] text-white hover:bg-[#0c874b]"
-                      >
-                        Buy
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onTrade(quote.ticker, "sell")}
-                        className="border-[#ff6b6b]/60 bg-transparent text-[#ffb0b0] hover:bg-[#351111]"
-                      >
-                        Sell
-                      </Button>
-                    </div>
                   </TableCell>
                   {isTeacher ? (
                     <TableCell>
@@ -5952,7 +6208,15 @@ function StudentPortfolioPage({
   onBack,
   onSaveAllocation,
   onUpdateAllocation,
+  activePortfolioId,
+  portfolioError,
+  portfolios,
+  onSelectPortfolio,
 }: {
+  activePortfolioId: string | null;
+  portfolioError: string;
+  portfolios: ServerPortfolio[];
+  onSelectPortfolio: (portfolioId: string) => void;
   activity: PortfolioActivity[];
   allocationTargets: typeof allocation;
   allocationTotal: number;
@@ -5965,6 +6229,7 @@ function StudentPortfolioPage({
   onSaveAllocation: () => void;
   onUpdateAllocation: (name: string, value: number) => void;
 }) {
+  const activePortfolio = portfolios.find((item) => item.id === activePortfolioId) ?? null;
   const allocationStatus =
     allocationTotal === 100
       ? "Ready to save"
@@ -5985,9 +6250,18 @@ function StudentPortfolioPage({
               Portfolio
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Simulated holdings, recent changes, and allocation targets for
-              Avery Johnson.
+              {activePortfolio
+                ? portfolioLabel(activePortfolio)
+                : "Simulated holdings, recent changes, and allocation targets."}
             </p>
+            {activePortfolio?.readOnly ? (
+              <p className="mt-2 rounded-md bg-accent px-3 py-2 text-sm">
+                Read-only record: this school year has ended.
+              </p>
+            ) : null}
+            {portfolioError ? (
+              <p className="mt-2 rounded-md bg-accent px-3 py-2 text-sm">{portfolioError}</p>
+            ) : null}
           </div>
           <Badge className="w-fit rounded-md bg-[#fff3da] text-[#7a4b00] hover:bg-[#fff3da]">
             Simulated money only
@@ -6170,6 +6444,7 @@ function StudentPortfolioPage({
             </p>
             <Button
               type="button"
+              disabled={!activePortfolio || activePortfolio.readOnly}
               onClick={onSaveAllocation}
               className="bg-[#28666e] text-white hover:bg-[#22565d]"
             >
@@ -6179,6 +6454,316 @@ function StudentPortfolioPage({
           </div>
         </div>
       </section>
+
+      {portfolios.length > 0 ? (
+        <PortfolioHistory
+          activePortfolioId={activePortfolioId}
+          portfolios={portfolios}
+          onSelectPortfolio={onSelectPortfolio}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+type ResetRequestRow = {
+  className: string;
+  createdAt: string;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  id: string;
+  reason: string;
+  requesterEmail: string;
+  requesterName: string;
+  schoolYear: string;
+  status: string;
+  studentEmail: string;
+  studentName: string;
+};
+
+const resetStatusLabels: Record<string, string> = {
+  approved: "Approved",
+  denied: "Denied",
+  pending: "Waiting for admin",
+};
+
+/**
+ * Teachers ask an admin to reset a student's portfolio to the class's
+ * starting cash. The admin approves or denies it; the teacher is emailed.
+ */
+function TeacherPortfolioResets() {
+  const [open, setOpen] = useState(false);
+  const [students, setStudents] = useState<
+    Array<{ className: string; email: string; name: string }>
+  >([]);
+  const [requests, setRequests] = useState<ResetRequestRow[]>([]);
+  const [selected, setSelected] = useState("");
+  const [reason, setReason] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function load() {
+    try {
+      const response = await fetch("/api/portfolios/reset-requests", {
+        credentials: "same-origin",
+      });
+      const result = (await response.json()) as {
+        message?: string;
+        requests?: ResetRequestRow[];
+        students?: Array<{ className: string; email: string; name: string }>;
+      };
+
+      if (response.ok) {
+        setStudents(result.students ?? []);
+        setRequests(result.requests ?? []);
+      } else {
+        setNotice(result.message ?? "Reset requests couldn't be loaded.");
+      }
+    } catch {
+      setNotice("Reset requests couldn't be loaded.");
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    type Loaded = {
+      requests?: ResetRequestRow[];
+      students?: Array<{ className: string; email: string; name: string }>;
+    };
+
+    fetch("/api/portfolios/reset-requests", { credentials: "same-origin" })
+      .then((response) => (response.ok ? (response.json() as Promise<Loaded>) : null))
+      .then((result) => {
+        if (!cancelled && result) {
+          setStudents(result.students ?? []);
+          setRequests(result.requests ?? []);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function submit() {
+    const [studentEmail, className] = selected.split("|");
+
+    if (!studentEmail || !reason.trim()) {
+      setNotice("Choose a student and give a reason.");
+      return;
+    }
+
+    setPending(true);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/portfolios/reset-requests", {
+        body: JSON.stringify({ className, reason, studentEmail }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        setNotice(result.message ?? "The request couldn't be sent.");
+        return;
+      }
+
+      setNotice("Request sent. An admin will approve or deny it, and you'll get an email.");
+      setReason("");
+      setSelected("");
+      await load();
+    } catch {
+      setNotice("The request couldn't be sent.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Portfolio resets</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ask an admin to reset a student&apos;s portfolio to the class&apos;s
+            starting cash. Its history is kept.
+          </p>
+        </div>
+        <Dialog
+          open={open}
+          onOpenChange={(nextOpen) => {
+            setOpen(nextOpen);
+            setNotice("");
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline">
+              Request portfolio reset
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request a portfolio reset</DialogTitle>
+              <DialogDescription>
+                An admin reviews every request. The student&apos;s current class
+                portfolio goes back to the starting cash; past activity stays in
+                its history.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-student">Student</Label>
+                <Select value={selected} onValueChange={setSelected}>
+                  <SelectTrigger id="reset-student" className="w-full">
+                    <SelectValue placeholder="Choose a student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {students.map((student) => (
+                      <SelectItem
+                        key={`${student.email}|${student.className}`}
+                        value={`${student.email}|${student.className}`}
+                      >
+                        {student.name || student.email} · {student.className}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reset-reason">Reason</Label>
+                <Textarea
+                  id="reset-reason"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  placeholder="e.g. Student traded during the test window"
+                />
+              </div>
+              {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                disabled={pending}
+                onClick={() => void submit()}
+                className="bg-[#28666e] text-white hover:bg-[#22565d]"
+              >
+                {pending ? "Sending…" : "Send request"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      {requests.length > 0 ? (
+        <ul className="mt-4 space-y-2 text-sm">
+          {requests.slice(0, 5).map((request) => (
+            <li
+              key={request.id}
+              className="flex flex-wrap justify-between gap-2 rounded-md border border-border px-3 py-2"
+            >
+              <span>
+                {request.studentName || request.studentEmail} · {request.className}
+              </span>
+              <span className="text-muted-foreground">
+                {resetStatusLabels[request.status] ?? request.status}
+                {request.decisionNote ? ` · ${request.decisionNote}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * Every portfolio on the student's profile, by school year: the multi-year
+ * record students look back on.
+ */
+function PortfolioHistory({
+  activePortfolioId,
+  portfolios,
+  onSelectPortfolio,
+}: {
+  activePortfolioId: string | null;
+  portfolios: ServerPortfolio[];
+  onSelectPortfolio: (portfolioId: string) => void;
+}) {
+  return (
+    <section
+      aria-labelledby="portfolio-history-heading"
+      className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5"
+    >
+      <h3 id="portfolio-history-heading" className="text-lg font-semibold">
+        Your portfolios
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        One portfolio for each class, every school year. Past years are kept as
+        read-only records you can review.
+      </p>
+      <div className="mt-4 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>School year</TableHead>
+              <TableHead>Class</TableHead>
+              <TableHead className="text-right">Value</TableHead>
+              <TableHead className="text-right">Gain / loss</TableHead>
+              <TableHead className="text-right">Trades</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {portfolios.map((item) => {
+              const gain = item.valueCents - item.startingCashCents;
+              const gainPercent = item.startingCashCents
+                ? (gain / item.startingCashCents) * 100
+                : 0;
+              const trades = item.activity.filter(
+                (entry) => entry.kind === "buy" || entry.kind === "sell"
+              ).length;
+              const isActive = item.id === activePortfolioId;
+
+              return (
+                <TableRow key={item.id}>
+                  <TableCell>{item.schoolYear.replace("-", "–")}</TableCell>
+                  <TableCell>
+                    {item.kind === "practice" ? "Practice" : item.className}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(item.valueCents / 100)}
+                  </TableCell>
+                  <TableCell
+                    className={`text-right ${gain < 0 ? "text-[#c44536]" : "text-[#28666e]"}`}
+                  >
+                    {formatCurrency(gain / 100)} ({formatSignedPercent(gainPercent)})
+                  </TableCell>
+                  <TableCell className="text-right">{trades}</TableCell>
+                  <TableCell>{item.readOnly ? "Read-only record" : "Current"}</TableCell>
+                  <TableCell className="text-right">
+                    {isActive ? (
+                      <span className="text-sm text-muted-foreground">Viewing</span>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onSelectPortfolio(item.id)}
+                      >
+                        View
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </section>
   );
 }
@@ -6700,9 +7285,6 @@ function AdminDrilldown({
   supportCases,
   supportSummary,
   supportCategory,
-  portfolioAdjustment,
-  portfolioCorrectionReason,
-  portfolioCorrectionNotice,
   questTransferText,
   questTransferNotice,
   userClassFilter,
@@ -6757,9 +7339,6 @@ function AdminDrilldown({
   onCreateSupportCase,
   onSupportSummaryChange,
   onSupportCategoryChange,
-  onApplyPortfolioCorrection,
-  onPortfolioAdjustmentChange,
-  onPortfolioCorrectionReasonChange,
   onOpenUserProfile,
   onQuestExport,
   onQuestImport,
@@ -6807,9 +7386,6 @@ function AdminDrilldown({
   supportCases: SupportCase[];
   supportSummary: string;
   supportCategory: string;
-  portfolioAdjustment: string;
-  portfolioCorrectionReason: string;
-  portfolioCorrectionNotice: string;
   questTransferText: string;
   questTransferNotice: string;
   userClassFilter: string;
@@ -6873,9 +7449,6 @@ function AdminDrilldown({
   onCreateSupportCase: () => void;
   onSupportSummaryChange: (summary: string) => void;
   onSupportCategoryChange: (category: string) => void;
-  onApplyPortfolioCorrection: () => void;
-  onPortfolioAdjustmentChange: (amount: string) => void;
-  onPortfolioCorrectionReasonChange: (reason: string) => void;
   onOpenUserProfile: (userId: string) => void;
   onQuestExport: () => void;
   onQuestImport: () => void;
@@ -7049,14 +7622,7 @@ function AdminDrilldown({
       ) : null}
 
       {activePage === "portfolio-corrections" ? (
-        <PortfolioCorrectionsAdminPage
-          adjustment={portfolioAdjustment}
-          notice={portfolioCorrectionNotice}
-          onAdjustmentChange={onPortfolioAdjustmentChange}
-          onApplyCorrection={onApplyPortfolioCorrection}
-          onReasonChange={onPortfolioCorrectionReasonChange}
-          reason={portfolioCorrectionReason}
-        />
+        <PortfolioCorrectionsAdminPage />
       ) : null}
 
       {activePage === "monitoring" ? <MonitoringAdminPage /> : null}
@@ -7598,6 +8164,7 @@ function MarketEngineAdminPage({
               <TableHead>Scenario</TableHead>
               <TableHead>Volatility</TableHead>
               <TableHead>Starting cash</TableHead>
+              <TableHead>Grade level</TableHead>
               <TableHead>Teacher controls</TableHead>
               <TableHead>Symbols</TableHead>
               <TableHead>Actions</TableHead>
@@ -7689,6 +8256,26 @@ function MarketEngineAdminPage({
                       })
                     }
                   />
+                </TableCell>
+                <TableCell>
+                  <select
+                    aria-label={`Grade level for ${config.className}`}
+                    className="h-9 w-28 rounded-md border border-input bg-transparent px-2 text-sm"
+                    value={config.gradeLevel == null ? "" : String(config.gradeLevel)}
+                    onChange={(event) =>
+                      updateDraftConfig(config.className, {
+                        gradeLevel: event.target.value ? Number(event.target.value) : null,
+                      })
+                    }
+                  >
+                    <option value="">From name</option>
+                    {Array.from({ length: 7 }, (_, index) => index + 6).map((grade) => (
+                      <option key={grade} value={grade}>
+                        Grade {grade}
+                        {grade >= 10 ? " (fractional)" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </TableCell>
                 <TableCell>
                   <Switch
@@ -9215,69 +9802,305 @@ function SupportAdminPage({
   );
 }
 
-function PortfolioCorrectionsAdminPage({
-  adjustment,
-  reason,
-  notice,
-  onAdjustmentChange,
-  onReasonChange,
-  onApplyCorrection,
-}: {
-  adjustment: string;
-  reason: string;
-  notice: string;
-  onAdjustmentChange: (amount: string) => void;
-  onReasonChange: (reason: string) => void;
-  onApplyCorrection: () => void;
-}) {
+/**
+ * Admin: apply an audited cash correction to a student's current class
+ * portfolio, and approve or deny teachers' reset requests.
+ */
+function PortfolioCorrectionsAdminPage() {
+  const [studentEmail, setStudentEmail] = useState("");
+  const [className, setClassName] = useState("");
+  const [adjustment, setAdjustment] = useState("");
+  const [reason, setReason] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function applyCorrection() {
+    const amount = Number.parseFloat(adjustment);
+
+    if (!studentEmail.trim() || !Number.isFinite(amount) || amount === 0 || !reason.trim()) {
+      setNotice("Enter the student's email, a non-zero amount, and an audit reason.");
+      return;
+    }
+
+    setPending(true);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/admin/portfolio-corrections", {
+        body: JSON.stringify({
+          adjustmentCents: Math.round(amount * 100),
+          className: className.trim() || undefined,
+          reason: reason.trim(),
+          studentEmail: studentEmail.trim(),
+        }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        afterCents?: number;
+        beforeCents?: number;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        setNotice(result.message ?? "The correction couldn't be applied.");
+        return;
+      }
+
+      setNotice(
+        `Correction applied and audited. Cash went from ${formatCurrency(
+          (result.beforeCents ?? 0) / 100
+        )} to ${formatCurrency((result.afterCents ?? 0) / 100)}.`
+      );
+      setAdjustment("");
+      setReason("");
+    } catch {
+      setNotice("The correction couldn't be applied.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="rounded-lg border border-border bg-background p-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Student</Label>
-            <Input value="Avery Johnson" readOnly />
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-lg border border-border bg-background p-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="correction-student">Student email</Label>
+              <Input
+                id="correction-student"
+                type="email"
+                placeholder="student@school.edu"
+                value={studentEmail}
+                onChange={(event) => setStudentEmail(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="correction-class">Class (if the student has more than one)</Label>
+              <Input
+                id="correction-class"
+                placeholder="e.g. 7th Grade Finance A"
+                value={className}
+                onChange={(event) => setClassName(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="correction-amount">Cash adjustment ($, use − to decrease)</Label>
+              <Input
+                id="correction-amount"
+                type="number"
+                step="0.01"
+                placeholder="e.g. 25 or -10"
+                value={adjustment}
+                onChange={(event) => setAdjustment(event.target.value)}
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="correction-amount">Increase/decrease value</Label>
-            <Input
-              id="correction-amount"
-              type="number"
-              value={adjustment}
-              onChange={(event) => onAdjustmentChange(event.target.value)}
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="correction-reason">Audit reason</Label>
+            <Textarea
+              id="correction-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
             />
           </div>
+          <Button
+            type="button"
+            disabled={pending}
+            onClick={() => void applyCorrection()}
+            className="mt-4 bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            <WalletCards className="size-4" aria-hidden="true" />
+            {pending ? "Applying…" : "Apply correction"}
+          </Button>
         </div>
-        <div className="mt-4 space-y-2">
-          <Label htmlFor="correction-reason">Audit reason</Label>
-          <Textarea
-            id="correction-reason"
-            value={reason}
-            onChange={(event) => onReasonChange(event.target.value)}
-          />
-        </div>
-        <Button
-          type="button"
-          onClick={onApplyCorrection}
-          className="mt-4 bg-[#28666e] text-white hover:bg-[#22565d]"
-        >
-          <WalletCards className="size-4" aria-hidden="true" />
-          Apply correction
-        </Button>
-      </div>
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h4 className="font-semibold">Correction guardrails</h4>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Corrections affect simulated value only and should carry an audit
-          reason before they are applied to the student portfolio history.
-        </p>
-        {notice ? (
-          <p className="mt-4 rounded-md bg-[#e8f0ed] p-3 text-sm text-[#24493f]">
-            {notice}
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h4 className="font-semibold">Correction guardrails</h4>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Corrections change the cash in the student&apos;s current class
+            portfolio. Each one needs an audit reason and is recorded in the
+            portfolio&apos;s history and the audit log, with the before and after
+            balance.
           </p>
-        ) : null}
+          {notice ? (
+            <p className="mt-4 rounded-md bg-[#e8f0ed] p-3 text-sm text-[#24493f]">
+              {notice}
+            </p>
+          ) : null}
+        </div>
       </div>
+      <PortfolioResetQueue />
     </div>
+  );
+}
+
+/** Admin: teachers' portfolio reset requests, pending first. */
+function PortfolioResetQueue() {
+  const [requests, setRequests] = useState<ResetRequestRow[] | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      const response = await fetch("/api/admin/portfolio-resets", {
+        credentials: "same-origin",
+      });
+      const result = (await response.json()) as {
+        message?: string;
+        requests?: ResetRequestRow[];
+      };
+
+      if (response.ok) {
+        setRequests(result.requests ?? []);
+      } else {
+        setNotice(result.message ?? "Reset requests couldn't be loaded.");
+        setRequests([]);
+      }
+    } catch {
+      setNotice("Reset requests couldn't be loaded.");
+      setRequests([]);
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/admin/portfolio-resets", { credentials: "same-origin" })
+      .then(
+        (response) =>
+          response.json() as Promise<{ message?: string; requests?: ResetRequestRow[] }>
+      )
+      .then((result) => {
+        if (cancelled) return;
+        setRequests(result.requests ?? []);
+        if (result.message) setNotice(result.message);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRequests([]);
+          setNotice("Reset requests couldn't be loaded.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function decide(requestId: string, decision: "approve" | "deny") {
+    setBusyId(requestId);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/admin/portfolio-resets", {
+        body: JSON.stringify({ decision, note: notes[requestId] ?? "", requestId }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { delivery?: string; message?: string };
+
+      if (!response.ok) {
+        setNotice(result.message ?? "The request couldn't be updated.");
+        return;
+      }
+
+      setNotice(
+        `${decision === "approve" ? "Approved: the portfolio was reset." : "Denied."} ${
+          result.delivery === "sent"
+            ? "The teacher was emailed."
+            : "The teacher couldn't be emailed (email isn't set up)."
+        }`
+      );
+      await load();
+    } catch {
+      setNotice("The request couldn't be updated.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const pendingCount = requests?.filter((request) => request.status === "pending").length ?? 0;
+
+  return (
+    <section
+      aria-labelledby="reset-queue-heading"
+      className="rounded-lg border border-border bg-card p-4"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h4 id="reset-queue-heading" className="font-semibold">
+          Portfolio reset requests
+        </h4>
+        <Badge variant="outline" className="rounded-md">
+          {pendingCount} pending
+        </Badge>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Teachers request resets; approving one resets the student&apos;s current
+        class portfolio to the class&apos;s starting cash and emails the teacher.
+      </p>
+      {notice ? (
+        <p className="mt-3 rounded-md bg-[#e8f0ed] p-3 text-sm text-[#24493f]">{notice}</p>
+      ) : null}
+      {requests === null ? (
+        <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+      ) : requests.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">No reset requests yet.</p>
+      ) : (
+        <ul className="mt-3 space-y-3">
+          {requests.map((request) => (
+            <li key={request.id} className="rounded-md border border-border p-3 text-sm">
+              <div className="flex flex-wrap justify-between gap-2">
+                <span className="font-medium">
+                  {request.studentName || request.studentEmail} · {request.className} ·{" "}
+                  {request.schoolYear.replace("-", "–")}
+                </span>
+                <span className="text-muted-foreground">
+                  {resetStatusLabels[request.status] ?? request.status}
+                </span>
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                Requested by {request.requesterName || request.requesterEmail} on{" "}
+                {shortDate(request.createdAt)}: {request.reason}
+              </p>
+              {request.status === "pending" ? (
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    aria-label="Note to the teacher (optional)"
+                    placeholder="Note to the teacher (optional)"
+                    value={notes[request.id] ?? ""}
+                    onChange={(event) =>
+                      setNotes((all) => ({ ...all, [request.id]: event.target.value }))
+                    }
+                  />
+                  <Button
+                    type="button"
+                    disabled={busyId !== null}
+                    onClick={() => void decide(request.id, "approve")}
+                    className="bg-[#28666e] text-white hover:bg-[#22565d]"
+                  >
+                    Approve reset
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busyId !== null}
+                    onClick={() => void decide(request.id, "deny")}
+                  >
+                    Deny
+                  </Button>
+                </div>
+              ) : request.decisionNote ? (
+                <p className="mt-1 text-muted-foreground">Note: {request.decisionNote}</p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -9310,6 +10133,173 @@ const emailStatusLabels: Record<string, string> = {
   not_configured: "Not sent: email not set up",
   sent: "Sent",
 };
+
+const monthNames = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function MonthDayPicker({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [month, day] = value.split("-");
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={`${id}-month`}>{label}</Label>
+      <div className="flex gap-2">
+        <select
+          id={`${id}-month`}
+          aria-label={`${label} month`}
+          value={month}
+          onChange={(event) => onChange(`${event.target.value}-${day}`)}
+          className="h-9 flex-1 rounded-md border border-input bg-transparent px-2 text-sm"
+        >
+          {monthNames.map((name, index) => (
+            <option key={name} value={String(index + 1).padStart(2, "0")}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <select
+          id={`${id}-day`}
+          aria-label={`${label} day`}
+          value={day}
+          onChange={(event) => onChange(`${month}-${event.target.value}`)}
+          className="h-9 w-20 rounded-md border border-input bg-transparent px-2 text-sm"
+        >
+          {Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, "0")).map(
+            (value) => (
+              <option key={value} value={value}>
+                {Number(value)}
+              </option>
+            )
+          )}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+/** Admin: the district's school year dates (default Aug 28 – Jun 1). */
+function SchoolYearDialog({ trigger }: { trigger: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [start, setStart] = useState("08-28");
+  const [end, setEnd] = useState("06-01");
+  const [current, setCurrent] = useState("");
+  const [notice, setNotice] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    try {
+      const response = await fetch("/api/admin/school-year", { credentials: "same-origin" });
+      const result = (await response.json()) as {
+        current?: string;
+        message?: string;
+        settings?: { end: string; start: string };
+      };
+
+      if (response.ok && result.settings) {
+        setStart(result.settings.start);
+        setEnd(result.settings.end);
+        setCurrent(result.current ?? "");
+      } else {
+        setNotice(result.message ?? "The school year couldn't be loaded.");
+      }
+    } catch {
+      setNotice("The school year couldn't be loaded.");
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/admin/school-year", {
+        body: JSON.stringify({ end, start }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { current?: string; message?: string };
+
+      if (!response.ok) {
+        setNotice(result.message ?? "The school year couldn't be saved.");
+        return;
+      }
+
+      setCurrent(result.current ?? "");
+      setNotice("Saved. The change is recorded in the audit log.");
+    } catch {
+      setNotice("The school year couldn't be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) {
+          setNotice("");
+          void load();
+        }
+      }}
+    >
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>School year</DialogTitle>
+          <DialogDescription>
+            Student portfolios are labeled by school year, and become read-only
+            records after the last day. Summer counts toward the upcoming year.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <MonthDayPicker id="school-year-start" label="First day" value={start} onChange={setStart} />
+          <MonthDayPicker id="school-year-end" label="Last day" value={end} onChange={setEnd} />
+          {current ? (
+            <p className="text-sm text-muted-foreground">
+              Current school year: <span className="font-medium">{current.replace("-", "–")}</span>
+            </p>
+          ) : null}
+          {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setStart("08-28");
+              setEnd("06-01");
+            }}
+          >
+            Use default (Aug 28 – Jun 1)
+          </Button>
+          <Button
+            type="button"
+            disabled={saving}
+            onClick={() => void save()}
+            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function EmailSettingsDialog({
   defaultRecipient,

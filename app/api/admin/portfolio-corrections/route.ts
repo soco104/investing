@@ -1,57 +1,57 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
-import { createPortfolioCorrection } from "@/lib/server/repository";
+import { applyPortfolioCorrection, portfolioErrorResponse } from "@/lib/server/portfolios";
 
 type PortfolioCorrectionRequest = {
   adjustmentCents: number;
-  afterSnapshot?: unknown;
-  beforeSnapshot?: unknown;
-  portfolioId: string;
+  className?: string;
   reason: string;
+  studentEmail: string;
 };
 
+// Adjusts a student's cash in their current class portfolio, with an audit
+// reason. Recorded in the portfolio's activity, the corrections table (before
+// and after), and the audit log.
 export async function POST(request: Request) {
-  const { response, user } = await requirePermission(
-    request,
-    "portfolioCorrections"
-  );
+  const { response, user } = await requirePermission(request, "portfolioCorrections");
 
   if (response || !user) {
     return response;
   }
 
-  const body = (await request.json()) as PortfolioCorrectionRequest;
+  const body = (await request.json().catch(() => ({}))) as PortfolioCorrectionRequest;
 
-  if (!body.portfolioId || !body.reason || !Number.isFinite(body.adjustmentCents)) {
+  if (!body.studentEmail?.trim() || !body.reason?.trim() || !Number.isFinite(body.adjustmentCents)) {
     return Response.json(
-      {
-        message: "portfolioId, adjustmentCents, and reason are required.",
-        ok: false,
-      },
+      { message: "Enter the student's email, an adjustment, and an audit reason.", ok: false },
       { status: 400 }
     );
   }
 
-  const audit = await recordAuditEvent({
-    action: "portfolio.corrected",
-    actor: user,
-    context: {
-      adjustmentCents: body.adjustmentCents,
-      afterSnapshot: body.afterSnapshot,
-      beforeSnapshot: body.beforeSnapshot,
-    },
-    reason: body.reason,
-    targetId: body.portfolioId,
-    targetType: "portfolio",
-  });
-  await createPortfolioCorrection({
-    adjustmentCents: body.adjustmentCents,
-    afterSnapshot: body.afterSnapshot,
-    beforeSnapshot: body.beforeSnapshot,
-    correctedByUserId: user.id,
-    portfolioId: body.portfolioId,
-    reason: body.reason,
-  });
+  try {
+    const result = await applyPortfolioCorrection({
+      actor: user,
+      adjustmentCents: Math.round(body.adjustmentCents),
+      className: body.className?.trim() || undefined,
+      reason: body.reason,
+      studentEmail: body.studentEmail,
+    });
+    const audit = await recordAuditEvent({
+      action: "portfolio.corrected",
+      actor: user,
+      context: {
+        adjustmentCents: Math.round(body.adjustmentCents),
+        afterCashCents: result.afterCents,
+        beforeCashCents: result.beforeCents,
+        studentEmail: body.studentEmail.trim().toLowerCase(),
+      },
+      reason: body.reason,
+      targetId: result.portfolioId,
+      targetType: "portfolio",
+    });
 
-  return Response.json({ audit, ok: true, persisted: true }, { status: 201 });
+    return Response.json({ audit, ok: true, persisted: true, ...result }, { status: 201 });
+  } catch (error) {
+    return portfolioErrorResponse(error);
+  }
 }

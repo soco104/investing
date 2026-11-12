@@ -2,6 +2,39 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.3 — 2026-11-12
+
+### Email
+
+- FutureFund can now send email. In the Admin portal, open **Email** to see
+  whether email is set up, send yourself a test email, and see recent emails
+  and whether each was sent. Message contents are never stored.
+- **Operators:** email needs a Resend account with a verified domain. Add
+  `RESEND_API_KEY` (encrypted) and `EMAIL_FROM` in DigitalOcean (App →
+  Settings → web → Environment Variables). Until then, no email is sent.
+  Setup steps are in the Admin Guide, section 15a.
+
+### Password Resets
+
+- Password resets now work end to end. When an admin sends a reset, the user
+  gets an email with a link to the new **Set a new password** page. The link
+  works for 30 minutes and only once, and setting a new password signs the
+  user out of other devices.
+- The reset popup now tells the admin whether the email went out, and says so
+  plainly if no user has that email.
+
+### Fixes
+
+- The demo student account `maya.patel@example.edu` now requires the demo
+  security question, like the other demo accounts.
+- The User Manual and Admin Guide now say correctly that quest import/export
+  does not yet store quests on the server.
+
+### Release Process
+
+- Updates in the 0.2 series all use patch numbers (0.2.3, 0.2.4, …). The next
+  minor version, 0.3.0, is saved for a milestone.
+
 ## v0.2.2 — 2026-11-12
 
 No changes to how the app works in this update. The User Manual and Admin

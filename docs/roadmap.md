@@ -238,19 +238,20 @@ milestone the owner chooses.
 
 | Version | Update | Size |
 |---|---|---|
-| v0.2.3 | Stay signed in across refresh; real sign-out; Privacy posture saves; fix the guides' quest import/export claim (it only records an audit entry) | Small |
-| v0.2.4 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
-| v0.2.5 | Admin "view as student" by email, for troubleshooting | Medium |
-| v0.2.6 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
-| v0.2.7 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
-| v0.2.8 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |
+| v0.2.3 ✅ | Email system (Resend), Admin Email page, password resets that work end to end, guides' quest import/export claim corrected | Done |
+| v0.2.4 | Stay signed in across refresh; real sign-out; Privacy posture saves | Small |
+| v0.2.5 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
+| v0.2.6 | Admin "view as student" by email, for troubleshooting | Medium |
+| v0.2.7 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
+| v0.2.8 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
+| v0.2.9 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |
 
-### Profanity filter upgrade (part of v0.2.8)
+### Profanity filter upgrade (part of v0.2.9)
 
 Today's filter is a 7-word list checked only in the browser, so it's easy to
 skip, and it misses common variations ("fucking", "shitty", "f*ck", "sh1t",
 "fuuuck", "s h i t"). A separate 2-word server filter exists but isn't used.
-In v0.2.8:
+In v0.2.9:
 
 - **Run on the server** for every message and discussion post, so it can't be
   bypassed.
@@ -266,8 +267,7 @@ In v0.2.8:
     **email address** to the forward for someone outside the app (e.g. a
     counselor or parent liaison).
   - Every flag, forward, and email recipient is recorded in the audit log.
-  - Emailing requires an email delivery service, which the app doesn't have
-    yet (password resets need one too). Set one up before or with v0.2.8.
+  - Emailing uses the email system added in v0.2.3 (Resend).
   - Admins can limit which email domains forwards may go to (e.g. only the
     district's own domain), since flagged messages contain student
     information.

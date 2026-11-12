@@ -262,6 +262,26 @@ try {
       completed_at timestamp
     )
   `;
+  // Email delivery log. Stores who/what/status only, never message bodies,
+  // because emails can contain student information.
+  await sql`
+    create table if not exists email_deliveries (
+      id text primary key,
+      kind text not null,
+      recipient text not null,
+      subject text not null,
+      status text not null,
+      provider text not null,
+      provider_message_id text,
+      error text,
+      requested_by_user_id text,
+      created_at timestamp not null
+    )
+  `;
+  await sql`
+    create index if not exists email_deliveries_created_at_idx
+      on email_deliveries (created_at desc)
+  `;
   await sql`
     create table if not exists portfolio_corrections (
       id text primary key,

@@ -18,6 +18,7 @@ export type AuditAction =
   | "credential.rotated"
   | "class_market.updated"
   | "privacy.updated"
+  | "email.test_sent"
   | "password_reset.requested"
   | "retention.export_requested"
   | "retention.delete_requested"

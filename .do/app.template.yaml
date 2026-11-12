@@ -76,6 +76,14 @@ services:
       # encrypted (SECRET) variable; it is intentionally not stored here.
       # Without it, demo logins are refused in production.
 
+      # Email (Resend). Set these in the DigitalOcean console; the key is a
+      # secret and is intentionally not stored here:
+      #   RESEND_API_KEY  (encrypted)  API key from resend.com
+      #   EMAIL_FROM                   e.g. FutureFund Classroom <no-reply@yourdomain.org>
+      #   APP_BASE_URL    (optional)   public site address used in email links
+      # Without them, no email is sent (password resets are created but not
+      # delivered).
+
       # Security secrets
       - key: SESSION_SECRET
         value: __SESSION_SECRET__

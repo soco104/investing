@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.2; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.3; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -10,7 +10,9 @@ change that affects what it describes.
 - **Saved on the server and audited:** users (create, import, edit, enable,
   disable), permissions, schools, market integrations and integration tests,
   Market Simulator class settings, Credential Vault entries, support cases,
-  password reset requests, portfolio corrections, and quest import/export.
+  password resets (emailed to the user), email test sends, and portfolio
+  corrections. Quest import/export records an audit entry only; the quests
+  themselves are not stored yet.
 - **On screen but not saved yet** (lost on refresh): the Privacy posture page,
   and everything outside the Admin portal: student trades and allocations,
   messages and discussions, Quest Studio edits, and the teacher's Market page
@@ -123,6 +125,7 @@ The Admin portal contains the following operational modules:
 - Market APIs
 - Market Simulator
 - Credential Vault
+- Email
 - Privacy posture
 - Password resets
 - Portfolio corrections
@@ -305,7 +308,9 @@ Teachers create and modify learning quests from the Teacher portal. Admins can
 review templates and import/export learning quests for district reuse.
 
 In this version, quests created or edited in Quest Studio are not saved (they
-reset on refresh). Quest import/export is saved on the server and audited.
+reset on refresh). Quest import/export records an audit entry, but the quests
+themselves are not stored on the server yet; keep exported JSON files as the
+saved copy.
 
 Quest configuration includes:
 
@@ -625,29 +630,81 @@ creation with category, summary, requester, status, actor, and timestamp.
 The Password resets widget opens a popup where an admin enters a user's email
 and triggers a reset.
 
-Current behavior: the admin's request is saved on the server as an audited
-reset request with a time-limited token, and the screen confirms it. **The user
-cannot complete the reset yet**: no email is sent, and the app does not yet have
-a page where the user sets a new password. Until then, resolve access issues by
-other means (for example, a support case). Production behavior should:
+How it works:
 
-- Verify the email belongs to an active district user.
-- Create a password reset request record.
-- Send a time-limited reset link through an approved email provider.
-- Force reset on next login when appropriate.
-- Log the requesting admin, target user, timestamp, and result.
-- Hand off to district SSO once SSO is implemented.
+1. The admin enters the user's email and clicks **Send reset**. If no user has
+   that email, the popup says so and nothing is sent.
+2. The user is emailed a link to the **Set a new password** page
+   (`/reset-password`). The link works for **30 minutes** and only once.
+3. The user enters a new password (at least 10 characters) twice. They are
+   signed out of any other devices.
+4. They sign in with the new password.
+
+The popup tells the admin whether the email was sent. If email is not set up
+(see section 15a), the reset is still created but no email goes out; set up
+email and send the reset again. Every reset is recorded in the audit log and
+in the email log.
+
+Still to come: forcing a reset on next login, and handing off to district SSO
+once SSO is implemented.
 
 Production endpoint:
 
 - `POST /api/admin/password-resets`
 - `POST /api/auth/reset-password`
 
-The admin endpoint requires `Admin portal` permission and creates an audited
-reset request with a hashed token and expiration. The reset completion endpoint
-accepts the token and a new password, updates the credential, clears
-`forceReset`, and marks the reset request complete. Email delivery remains the
-piece that needs a district-approved email provider.
+The admin endpoint requires `Admin portal` permission, creates an audited
+reset request with a hashed token and expiration, and emails the link. The
+reset completion endpoint accepts the token and a new password, updates the
+credential, clears `forceReset`, signs the user out of other sessions, and
+marks the reset request complete.
+
+## 15a. Email
+
+FutureFund sends email (password resets now; forwarded flagged messages later)
+through **Resend**, an email service, using its web API. DigitalOcean blocks
+the usual email ports (SMTP), so the app sends over HTTPS instead.
+
+### Setting up email
+
+1. Create a Resend account at resend.com (the free plan allows 3,000 emails a
+   month, 100 a day).
+2. In Resend, add and verify the domain you will send from (for example
+   `futurefundclassroom.com` or a school domain) by adding the DNS records
+   Resend gives you. Until a domain is verified, Resend only delivers to your
+   own Resend account address.
+3. In Resend, create an API key.
+4. In DigitalOcean (App → Settings → **web** component → Environment
+   Variables), add:
+
+| Variable | Value |
+|---|---|
+| `RESEND_API_KEY` | the API key, with **Encrypt** checked |
+| `EMAIL_FROM` | the sender, e.g. `FutureFund Classroom <no-reply@yourdomain.org>`; its domain must be verified in Resend |
+| `APP_BASE_URL` (optional) | the site's public address, e.g. `https://classroom.yourdomain.org`, used in email links. If not set, the address the admin is using is used. |
+
+5. Save. DigitalOcean redeploys the app.
+
+### The Email page
+
+Open **Email** in the Admin portal to:
+
+- See whether email is set up, and which settings are missing if not.
+- **Send a test email** (to yourself by default). Check that inbox.
+- Review **recent emails**: when, to whom, what kind (test, password reset),
+  and whether each was sent or failed. Hover a failed row to see why.
+
+The log never stores message contents, because emails can contain reset links
+and student information. Test sends are recorded in the audit log
+(`email.test_sent`).
+
+If email is not set up, nothing is sent. On a developer's computer the email
+is printed to the server log instead, so it can be tested; on the live site
+nothing is printed.
+
+Endpoint: `GET /api/admin/email` (status and recent emails),
+`POST /api/admin/email` (send a test). Both require `Admin portal`
+permission.
 
 ## 16. Portfolio Corrections
 
@@ -942,7 +999,7 @@ operating procedures:
   `DEMO_LOGINS` to `false`.
 - Keep users signed in across page refreshes (sessions are not restored yet).
 - Save the pages that are not saved yet (see "What Is Saved in This Version").
-- Add the password reset page and email delivery.
+- Set up email (section 15a) and confirm a test email arrives.
 - Continue wiring student, teacher, quest, portfolio, and messaging reads to
   production server queries.
 - Enforce server-side authorization from the signed session on every protected

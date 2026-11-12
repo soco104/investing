@@ -15,11 +15,12 @@ export const DEMO_SECURITY_QUESTION = "What city was Sean born in?";
 
 // Every account created by scripts/seed-demo-data.mjs, plus the local
 // development copies. All of them get the question, so the published
-// passwords alone are never enough.
+// passwords alone are never enough. tests/demo-challenge.test.ts checks this
+// list against the seed script so they can't drift apart.
 const DEMO_ACCOUNT_EMAILS = new Set([
   "demo-user@demo.edu",
   "avery.johnson@example.edu",
-  "maya.chen@example.edu",
+  "maya.patel@example.edu",
   "jordan.lee@example.edu",
   "elena.rivera@example.edu",
   "sam.gordon@example.edu",

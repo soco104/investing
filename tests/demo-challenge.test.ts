@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   checkDemoChallenge,
+  isDemoAccountEmail,
   normalizeCityAnswer,
   resetDemoChallengeAttempts,
 } from "@/lib/server/demo-challenge";
@@ -29,6 +32,16 @@ describe("demo login security question", () => {
     expect(
       checkDemoChallenge({ email: demoEmail, answer: undefined, clientKey: demoEmail })
     ).toEqual({ status: "required" });
+  });
+
+  it("covers every account in the demo seed script", () => {
+    const seed = readFileSync("scripts/seed-demo-data.mjs", "utf8");
+    const seededEmails = [...seed.matchAll(/email: "([^"]+)"/g)].map((m) => m[1]);
+
+    expect(seededEmails.length).toBeGreaterThanOrEqual(6);
+    for (const email of seededEmails) {
+      expect(isDemoAccountEmail(email), email).toBe(true);
+    }
   });
 
   it("covers the other seeded demo accounts too", () => {

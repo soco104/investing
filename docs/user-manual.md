@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.9; the version you are using is shown
+district admins. It describes version 0.2.10; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -24,13 +24,12 @@ yet. Know which is which before using it with a class:
   support cases, password resets, email, privacy posture, and portfolio
   corrections.
 
-**Not saved yet** (lost when the page is refreshed or you sign out):
-
-- Inbox messages and discussion posts.
+- Inbox messages and discussion posts (deleted after 90 days unless kept),
+  flags, and the parent contacts an admin adds to a profile.
 
 Some screens still show built-in sample data rather than real records: the
 teacher's class analytics and Active Students view (including its quest
-progress figures), messages, and the sidebar figures (financial readiness, learning streak).
+progress figures), and the sidebar figures (financial readiness, learning streak).
 
 
 ## Sign In
@@ -109,7 +108,7 @@ Students can:
 - Adjust allocation targets.
 - View recent simulated trades or portfolio changes.
 - Search for visible student or teacher profiles.
-- Send text-only messages where permitted.
+- Send saved text-only messages to the people they are allowed to message.
 - Join classroom discussion rooms.
 
 ### Learning Quests
@@ -213,14 +212,24 @@ and in your profile's **Stocks** box.
 
 ### Messaging and Discussions
 
-Messaging is text-only. The app includes a first-pass profanity filter that
-blocks a message before it is sent.
+Messaging is text-only, and messages are saved.
 
-In this version, messages and discussion posts are not saved: they reset when
-the page is refreshed.
+- **Start a conversation:** open **Inbox**, choose **New message**, pick a
+  person and click **Start conversation**. You only see people you may message:
+  students can message classmates and their teachers; teachers can message
+  their students, other teachers and admins; admins can message everyone.
+- **Discussion rooms** belong to a class. Teachers create them with **New
+  discussion room**; the class can post in them.
+- **Keep:** messages are deleted after **90 days** unless someone in the
+  conversation ticks **Keep** on the message (or it has an open flag).
+- **Language check:** the server blocks disrespectful language before a message
+  is sent. If you see "Message blocked", rewrite it respectfully.
+- **Safety:** messages that share personal details (phone number, email, home
+  address, social account) or suggest bullying or a safety concern are still
+  sent, but your teacher is notified. Anyone can also use **Flag** on a message.
+- **Teachers can read student conversations.** The Inbox tells students this.
 
-Users should keep messages classroom appropriate. Teachers and admins may
-review escalated or blocked discussions according to district policy.
+Keep messages classroom appropriate.
 
 ## Teacher Experience
 
@@ -234,8 +243,16 @@ Teachers can:
 - Create, save, copy, and assign learning quests, and read and comment on
   student submissions.
 - Import or export quest templates when permitted.
-- View teacher profiles showing managed classes, authored quests, and inbox.
-- Message students and participate in classroom discussions.
+- View teacher profiles showing managed classes and authored quests.
+- Message students and participate in classroom discussions, create discussion
+  rooms, and read their students' conversations (Inbox, **Student
+  conversations**, read-only).
+- Review **Flagged messages** on the Teacher dashboard: **Resolve** a flag, or
+  **Forward** it to the admins, to an email address on the admin-set allowed
+  list, or to a parent on file. Forwarded emails to outside people include the
+  flagged message, so only forward when needed.
+- Send a **parent or guardian email** to the admins to add to a student's
+  profile as an alternate contact.
 - Use the Market page's Teacher market controls to move prices and trigger a
   classroom scenario for a class, all their classes, a group, or one student.
 

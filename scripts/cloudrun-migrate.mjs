@@ -345,6 +345,124 @@ try {
     )
   `;
 
+  // Messages (v0.2.10). A conversation is a one-to-one thread ('direct') or a
+  // class discussion room ('room'). Messages are deleted after 90 days unless
+  // someone ticked Keep (see lib/message-rules.ts and the cleanup job).
+  await sql`
+    create table if not exists conversations (
+      id text primary key,
+      kind text not null,
+      title text not null default '',
+      class_name text,
+      created_by_user_id text not null references app_users(id),
+      created_at timestamp not null
+    )
+  `;
+  await sql`
+    create table if not exists conversation_participants (
+      conversation_id text not null references conversations(id),
+      user_id text not null references app_users(id),
+      last_read_at timestamp,
+      primary key (conversation_id, user_id)
+    )
+  `;
+  await sql`
+    create table if not exists messages (
+      id text primary key,
+      conversation_id text not null references conversations(id),
+      sender_user_id text not null references app_users(id),
+      acting_admin_user_id text,
+      body text not null,
+      created_at timestamp not null
+    )
+  `;
+  await sql`
+    create index if not exists messages_conversation_idx on messages (conversation_id, created_at)
+  `;
+  // Keep is per person: a message is retained while anyone has kept it.
+  await sql`
+    create table if not exists message_keeps (
+      message_id text not null references messages(id),
+      user_id text not null references app_users(id),
+      kept_at timestamp not null,
+      primary key (message_id, user_id)
+    )
+  `;
+  // A flag goes to the teacher first; they can resolve it or forward it.
+  await sql`
+    create table if not exists message_flags (
+      id text primary key,
+      message_id text not null references messages(id),
+      flagged_by_user_id text references app_users(id),
+      reason text not null,
+      status text not null default 'open',
+      created_at timestamp not null,
+      handled_by_user_id text,
+      handled_at timestamp,
+      handled_note text not null default ''
+    )
+  `;
+  await sql`
+    create table if not exists message_flag_forwards (
+      id text primary key,
+      flag_id text not null references message_flags(id),
+      forwarded_to_kind text not null,
+      forwarded_to text not null,
+      forwarded_by_user_id text not null references app_users(id),
+      note text not null default '',
+      email_status text not null default '',
+      forwarded_at timestamp not null
+    )
+  `;
+  // Email domains teachers may forward flagged messages to (set by admins).
+  await sql`
+    create table if not exists allowed_email_domains (
+      domain text primary key,
+      added_by_user_id text not null references app_users(id),
+      added_at timestamp not null
+    )
+  `;
+  // Parent / guardian emails: a teacher requests, an admin approves, and the
+  // approved contact is added to the student's profile.
+  await sql`
+    create table if not exists alternate_contact_requests (
+      id text primary key,
+      student_user_id text not null references app_users(id),
+      requested_by_user_id text not null references app_users(id),
+      contact_name text not null,
+      relationship text not null default '',
+      contact_email text not null,
+      note text not null default '',
+      status text not null default 'pending',
+      decided_by_user_id text,
+      decided_at timestamp,
+      decision_note text not null default '',
+      created_at timestamp not null
+    )
+  `;
+  await sql`
+    create table if not exists student_alternate_contacts (
+      id text primary key,
+      student_user_id text not null references app_users(id),
+      contact_name text not null,
+      relationship text not null default '',
+      contact_email text not null,
+      added_by_user_id text not null references app_users(id),
+      request_id text,
+      created_at timestamp not null,
+      removed_at timestamp,
+      removed_by_user_id text
+    )
+  `;
+  // Records when a daily job last ran, so only one instance runs it per day.
+  await sql`
+    create table if not exists maintenance_runs (
+      name text primary key,
+      last_run_at timestamp not null,
+      details text not null default ''
+    )
+  `;
+
   // School year dates per district ("MM-DD"); default Aug 28 – Jun 1.
   await sql`
     create table if not exists district_settings (

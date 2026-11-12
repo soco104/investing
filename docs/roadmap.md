@@ -248,7 +248,7 @@ milestone the owner chooses.
 | v0.2.7 ✅ | Admin "view as student" by email, with full student features, banner and Exit, actions marked as by the admin, audited; no time limit; student not notified | Done |
 | v0.2.8 ✅ | Teacher market controls saved, with targeting (class, all classes, group, one student), Active changes with Undo, and Reset to normal; audited | Done |
 | v0.2.9 ✅ | Quests saved; shared library with Copy; assign to classes with due dates; students submit and edit until the due date; comments on submissions; import/export stores quests | Done |
-| v0.2.10 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |
+| v0.2.10 ✅ | Messages and discussions saved, following the rules above; upgraded server-side profanity filter; flags to teachers with forwarding; allowed email domains; parent contacts via admins; 90-day deletion with **Keep**. Not done yet: district word list and a moderation queue for blocked attempts | Done |
 
 ### Profanity filter upgrade (part of v0.2.10)
 

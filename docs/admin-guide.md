@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.9; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.10; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -18,8 +18,10 @@ change that affects what it describes.
   targets, value history), for every class and school year; teachers' reset
   requests (the request itself is audited). Each portfolio keeps its own
   activity history. Students' quest submissions and the comments on them.
-- **On screen but not saved yet** (lost on refresh): messages and
-  discussions.
+- **Saved and audited (messages):** inbox messages and discussion posts (kept
+  90 days unless someone ticks Keep), flags, forwards, allowed email domains,
+  alternate contacts and requests, and cleanup runs. Message text itself is not
+  in the audit log.
 - **Sample data:** the Monitoring pages (open errors, slow calls, integration
   health), the teacher's class analytics and Active Students view, and the
   student sidebar figures (financial readiness, learning streak).
@@ -138,6 +140,7 @@ The Admin portal contains the following operational modules:
 - Privacy posture
 - Password resets
 - Portfolio corrections
+- Messaging
 - Learning quest import/export
 
 Each widget opens either a page, drilldown panel, or popup for the related task.
@@ -269,17 +272,45 @@ Teacher profiles show:
 
 - Classes managed
 - Learning quests authored
-- Teacher inbox
 - Message link
 
 Admin profiles show system-level identity and permissions rather than a student
 or teacher profile card.
 
-The app supports text-only direct inbox conversations and classroom discussion
-rooms. A first-pass profanity filter blocks messages containing disallowed
-language. In this version, messages and discussion posts are not saved; they
-reset when the page is refreshed. Production moderation should expand this into configurable policy,
-audit logs, review queues, and district-specific retention rules.
+The app supports saved, text-only direct conversations and classroom discussion
+rooms. See "Messaging" below for the rules, flags, allowed email domains,
+alternate contacts, and the 90-day cleanup.
+
+### Messaging
+
+Open **Admin portal > Messaging**.
+
+- **Who can message whom:** students: classmates and their teachers; teachers:
+  their students, other teachers and admins; admins: everyone. The server
+  enforces this.
+- **Student conversations:** admins (and teachers, for their own students) can
+  read conversations read-only from the Inbox.
+- **View as student:** messages sent this way are marked "Sent by admin" and
+  audited.
+- **Language filter:** runs on the server on every message. Blocked messages are
+  refused. Messages with personal details, bullying or safety concerns from a
+  student are sent and flagged to the teacher.
+- **Flagged messages:** the Messaging page lists flags teachers forwarded to
+  admins. Resolve them once handled. Open flags stop the 90-day deletion.
+- **Allowed email domains:** teachers can forward a flagged message by email only
+  to these domains (subdomains count) or to a parent on file. Add your
+  district's domain here. Forwarded emails to outside people include the
+  flagged message text; the email log never stores message bodies. Email needs
+  the setup in "Email" below.
+- **Alternate contact requests:** a teacher sends a parent or guardian email; you
+  **Approve** (adds it to the student's profile) or **Deny**. You can also add
+  or remove a contact directly. Contacts are visible to admins, the student's
+  teachers and the student.
+- **90-day cleanup:** permanently deletes messages older than 90 days that nobody
+  ticked Keep on and that have no open flag. It runs automatically once a day
+  while the app is in use. **Run cleanup now** runs it on demand (audited).
+  There is no separate scheduled job; a job could call
+  `POST /api/admin/message-cleanup` with the cron secret header.
 
 ## 8. Permissions
 
@@ -977,9 +1008,9 @@ state/federal student privacy obligations.
 
 ## 19. Moderation Review
 
-The app supports text-only direct messages and classroom discussions with a
-first-pass profanity filter. Production moderation should give teachers and
-admins a review queue for blocked or escalated items.
+The app supports saved text-only direct messages and classroom discussions with
+a server-side language filter. Flagged messages are reviewed by teachers and
+admins (see "Messaging" above). A queue for blocked attempts is not built yet.
 
 Production endpoint:
 
@@ -988,8 +1019,8 @@ Production endpoint:
 The endpoint requires `Teacher portal` permission, which means teachers and
 admins can review classroom messages. Reviews support allow, block, and escalate
 actions, and every review creates an audit event. There is no review queue
-screen yet, and because messages are not saved in this version, there is
-nothing for it to review from the app.
+screen for it yet; use the flag review on the Teacher dashboard and the Admin
+Messaging page.
 
 Moderation review process:
 
@@ -1102,7 +1133,8 @@ During the school day:
 
 - Watch for login, roster, or permission issues.
 - Use password resets for account access issues.
-- Review messaging or discussion moderation concerns escalated by teachers.
+- Review flagged messages forwarded to admins and pending alternate contact
+  requests on the Messaging page.
 - Avoid changing market integrations during active quests unless necessary.
 - Avoid changing market simulator scenarios during active assessments unless
   the quest design calls for it.

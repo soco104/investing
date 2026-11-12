@@ -35,6 +35,12 @@ export default async function globalSetup() {
     // Quests: keep only the seeded sample quests (and reset their assignments).
     await sql`truncate quest_submission_comments, quest_submissions, quest_assignments`;
     await sql`delete from learning_quests where id not like 'quest-seed-%'`;
+    // Messages (v0.2.10): start with no conversations, flags or contacts.
+    await sql`
+      truncate message_flag_forwards, message_flags, message_keeps, messages,
+        conversation_participants, conversations, allowed_email_domains,
+        alternate_contact_requests, student_alternate_contacts, maintenance_runs
+    `;
     await sql`delete from district_settings`;
     await sql`update class_market_configs set grade_level = null`;
   } finally {

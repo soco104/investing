@@ -2,6 +2,49 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.10 — 2026-11-12
+
+### Messages and Discussions (Everyone)
+
+- Your **Inbox** and **Discussion** rooms are now **saved**. Messages are still
+  there after a refresh or sign-out.
+- Choose **New message** to pick someone to write to. You'll only see people
+  you're allowed to message: students see classmates and their teachers;
+  teachers see their students, other teachers and admins; admins see everyone.
+- Teachers create discussion rooms for their classes with **New discussion
+  room**.
+- Tick **Keep** on a message to stop it being deleted. Messages are removed
+  after **90 days** unless someone in the conversation ticked Keep (or the
+  message has an open flag).
+- Use **Flag** on any message that worries you. Messages that share personal
+  details (a phone number, email, address or social account) or suggest
+  bullying or a safety concern are sent, but the teacher is notified
+  automatically.
+- The language filter is stronger and now runs on the server. If a message is
+  blocked, rewrite it using respectful classroom language.
+- Students: teachers can read your conversations. The Inbox says so.
+
+### Teachers
+
+- **Student conversations** (in the Inbox) shows read-only conversations
+  involving your students.
+- **Flagged messages** on your dashboard lists flags with the messages around
+  them. **Resolve** a flag, or **Forward** it to the admins, to an email address
+  on the allowed list, or to a parent on file.
+- **Parent or guardian email:** send it to the admins to add to the student's
+  profile as an alternate contact.
+
+### Admin Messaging (Admins)
+
+- A new **Messaging** page in the Admin portal has: flags forwarded to admins,
+  **Allowed email domains** (teachers can only forward flagged messages by
+  email to these, or to a parent on file), contact requests to approve or deny,
+  alternate contacts on file, and **Run cleanup now** for the 90-day deletion.
+- **Settings to change:** add your district's email domain(s) under Allowed
+  email domains, otherwise teachers can forward only to admins or to parents on
+  file. Email sending needs the Email setup (Resend) from the Email page.
+- The 90-day cleanup runs by itself once a day while the app is in use.
+
 ## v0.2.9 — 2026-11-12
 
 ### Learning Quests (Teachers)

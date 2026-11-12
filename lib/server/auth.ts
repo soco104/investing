@@ -38,7 +38,7 @@ export type SeedAuthUser = AuthenticatedUser & {
 export const seedAuthUsers: SeedAuthUser[] = [
   {
     id: "user-avery",
-    email: "avery.johnson@student.lincolnusd.edu",
+    email: "avery.johnson@example.edu",
     firstName: "Avery",
     lastName: "Johnson",
     alias: "ValueVoyager",
@@ -57,7 +57,7 @@ export const seedAuthUsers: SeedAuthUser[] = [
   },
   {
     id: "user-rivera",
-    email: "erivera@lincolnusd.edu",
+    email: "elena.rivera@example.edu",
     firstName: "Elena",
     lastName: "Rivera",
     alias: "MsRivera",
@@ -76,7 +76,7 @@ export const seedAuthUsers: SeedAuthUser[] = [
   },
   {
     id: "user-admin",
-    email: "sgordon@lincolnusd.edu",
+    email: "sam.gordon@example.edu",
     firstName: "Sam",
     lastName: "Gordon",
     alias: "DistrictAdmin",
@@ -93,11 +93,45 @@ export const seedAuthUsers: SeedAuthUser[] = [
       portfolioCorrections: true,
     },
   },
+  {
+    // Demo super user: an Admin with every permission, so it can use the
+    // "Assume role" switcher to view the Student, Teacher, and Admin portals.
+    id: "user-demo-super",
+    email: "demo-user@demo.edu",
+    firstName: "Demo",
+    lastName: "User",
+    alias: "DemoSuperUser",
+    role: "Admin",
+    className: "District",
+    classNames: ["District"],
+    passwordHash:
+      "cebf292c038fdcd2de5f7ac62c3b81bcfe4efc535383031d762b06b26cfabea2",
+    permissions: {
+      studentProfile: true,
+      teacherPortal: true,
+      adminPortal: true,
+      questImportExport: true,
+      portfolioCorrections: true,
+    },
+  },
 ];
 
 const sessionCookieName = "futurefund_session";
 const defaultSessionSecret = "futurefund-local-development-session-secret";
 const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
+
+/**
+ * Whether the login page should offer the demo profiles. Always on outside
+ * production; in production, set DEMO_LOGINS=true at runtime (the demo users
+ * themselves come from scripts/seed-demo-data.mjs in the database).
+ */
+export function areDemoLoginsEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.DEMO_LOGINS === "true" ||
+    process.env.ALLOW_DEMO_AUTH === "true"
+  );
+}
 
 export function isDemoAuthAllowed() {
   return process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_AUTH === "true";

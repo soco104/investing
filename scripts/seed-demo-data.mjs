@@ -128,6 +128,20 @@ const users = [
     role: "Admin",
     scopes: ["District"],
   },
+  {
+    // Demo super user: Admin role with every admin permission. Admins can use
+    // the in-app "Assume role" switcher to view Student and Teacher portals.
+    id: "user-demo-super",
+    schoolId: null,
+    firstName: "Demo",
+    lastName: "User",
+    alias: "DemoSuperUser",
+    displayName: "Demo User",
+    email: "demo-user@demo.edu",
+    role: "Admin",
+    scopes: ["District"],
+    password: "demo-user",
+  },
 ];
 
 const integrations = [
@@ -407,7 +421,8 @@ try {
         )
         values (
           ${`credential-${user.id}`}, ${user.id}, ${user.email},
-          ${passwordHashes[user.role]}, 'bcrypt', false, ${now}, ${now}
+          ${user.password ? await bcrypt.hash(user.password, 12) : passwordHashes[user.role]},
+          'bcrypt', false, ${now}, ${now}
         )
         on conflict (email) do update set
           password_hash = excluded.password_hash,
@@ -737,6 +752,7 @@ try {
   console.log("- Student: avery.johnson@example.edu / student-demo");
   console.log("- Teacher: elena.rivera@example.edu / teacher-demo");
   console.log("- Admin: sam.gordon@example.edu / admin-demo");
+  console.log("- Super user (all roles): demo-user@demo.edu / demo-user");
 } finally {
   await sql.end();
 }

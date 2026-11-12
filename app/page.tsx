@@ -1518,21 +1518,13 @@ const roleOptions = [
   },
 ] as const;
 
+// These match the users in scripts/seed-demo-data.mjs (live database) and
+// seedAuthUsers in lib/server/auth.ts (local development without a database).
 const demoLoginAccounts = [
   {
-    label: "Student",
-    email: "avery.johnson@student.lincolnusd.edu",
-    password: "student-demo",
-  },
-  {
-    label: "Teacher",
-    email: "erivera@lincolnusd.edu",
-    password: "teacher-demo",
-  },
-  {
-    label: "Admin",
-    email: "sgordon@lincolnusd.edu",
-    password: "admin-demo",
+    label: "Demo super user (all roles)",
+    email: "demo-user@demo.edu",
+    password: "demo-user",
   },
 ];
 
@@ -1602,6 +1594,10 @@ export default function Home() {
   );
   const [loginNotice, setLoginNotice] = useState("");
   const [loginPending, setLoginPending] = useState(false);
+  const [loginChallengeQuestion, setLoginChallengeQuestion] = useState<
+    string | null
+  >(null);
+  const [loginChallengeAnswer, setLoginChallengeAnswer] = useState("");
   const [activeTab, setActiveTab] = useState("student");
   const [activeStudentPage, setActiveStudentPage] = useState<
     "dashboard" | "portfolio" | "profile"
@@ -3194,18 +3190,29 @@ export default function Home() {
           email: loginEmail,
           password: loginPassword,
           provider: "password",
+          ...(loginChallengeQuestion
+            ? { securityAnswer: loginChallengeAnswer }
+            : {}),
         }),
       });
       const result = (await response.json()) as {
         ok: boolean;
         message?: string;
         user?: AuthenticatedUser;
+        challenge?: { question: string };
       };
 
       if (!result.ok || !result.user) {
+        if (result.challenge) {
+          setLoginChallengeQuestion(result.challenge.question);
+          setLoginChallengeAnswer("");
+        }
         setLoginNotice(result.message ?? "Login failed.");
         return;
       }
+
+      setLoginChallengeQuestion(null);
+      setLoginChallengeAnswer("");
 
       setAuthenticatedUser(result.user);
       setActiveTab(roleToTab(result.user.role));
@@ -3252,6 +3259,8 @@ export default function Home() {
     setAuthenticatedUser(null);
     setLoginEmail(demoLoginAccounts[0].email);
     setLoginPassword(demoLoginAccounts[0].password);
+    setLoginChallengeQuestion(null);
+    setLoginChallengeAnswer("");
     setActiveTab("student");
     setActiveStudentPage("dashboard");
     setActiveTeacherPage("dashboard");
@@ -3265,11 +3274,20 @@ export default function Home() {
         notice={loginNotice}
         password={loginPassword}
         pending={loginPending}
-        onEmailChange={setLoginEmail}
+        challengeQuestion={loginChallengeQuestion}
+        challengeAnswer={loginChallengeAnswer}
+        onChallengeAnswerChange={setLoginChallengeAnswer}
+        onEmailChange={(value) => {
+          setLoginEmail(value);
+          setLoginChallengeQuestion(null);
+          setLoginChallengeAnswer("");
+        }}
         onPasswordChange={setLoginPassword}
         onSelectDemo={(account) => {
           setLoginEmail(account.email);
           setLoginPassword(account.password);
+          setLoginChallengeQuestion(null);
+          setLoginChallengeAnswer("");
           setLoginNotice("");
         }}
         onSsoLogin={startSsoLogin}
@@ -4609,6 +4627,9 @@ function LoginPage({
   notice,
   password,
   pending,
+  challengeQuestion,
+  challengeAnswer,
+  onChallengeAnswerChange,
   onEmailChange,
   onPasswordChange,
   onSelectDemo,
@@ -4619,15 +4640,38 @@ function LoginPage({
   notice: string;
   password: string;
   pending: boolean;
+  challengeQuestion: string | null;
+  challengeAnswer: string;
+  onChallengeAnswerChange: (answer: string) => void;
   onEmailChange: (email: string) => void;
   onPasswordChange: (password: string) => void;
   onSelectDemo: (account: (typeof demoLoginAccounts)[number]) => void;
   onSsoLogin: () => void;
   onSubmit: () => void;
 }) {
-  const demoAccountsAvailable =
-    process.env.NODE_ENV !== "production" ||
-    process.env.NEXT_PUBLIC_ALLOW_DEMO_AUTH === "true";
+  const [demoAccountsAvailable, setDemoAccountsAvailable] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/auth/demo-logins")
+      .then(
+        (response) =>
+          (response.ok ? response.json() : { enabled: false }) as Promise<{
+            enabled?: boolean;
+          }>
+      )
+      .then((body) => {
+        if (!cancelled) {
+          setDemoAccountsAvailable(Boolean(body.enabled));
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -4687,13 +4731,50 @@ function LoginPage({
           >
             <div className="space-y-2">
               <Label htmlFor="login-email">Email</Label>
-              <Input
-                id="login-email"
-                autoComplete="email"
-                type="email"
-                value={email}
-                onChange={(event) => onEmailChange(event.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="login-email"
+                  autoComplete="email"
+                  type="email"
+                  value={email}
+                  className={demoAccountsAvailable ? "pr-11" : undefined}
+                  onChange={(event) => onEmailChange(event.target.value)}
+                />
+                {demoAccountsAvailable ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Choose the demo login"
+                        className="absolute top-1/2 right-1 size-7 -translate-y-1/2 text-muted-foreground"
+                      >
+                        <ChevronRight
+                          className="size-4 rotate-90"
+                          aria-hidden="true"
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-72">
+                      <DropdownMenuLabel>Demo login</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {demoLoginAccounts.map((account) => (
+                        <DropdownMenuItem
+                          key={account.email}
+                          onSelect={() => onSelectDemo(account)}
+                          className="flex flex-col items-start gap-0.5"
+                        >
+                          <span className="font-medium">{account.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {account.email}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="login-password">Password</Label>
@@ -4705,6 +4786,21 @@ function LoginPage({
                 onChange={(event) => onPasswordChange(event.target.value)}
               />
             </div>
+
+            {challengeQuestion ? (
+              <div className="space-y-2">
+                <Label htmlFor="login-security-answer">{challengeQuestion}</Label>
+                <Input
+                  id="login-security-answer"
+                  autoComplete="off"
+                  autoFocus
+                  value={challengeAnswer}
+                  onChange={(event) =>
+                    onChallengeAnswerChange(event.target.value)
+                  }
+                />
+              </div>
+            ) : null}
 
             {notice ? (
               <p className="rounded-md bg-[#fff3da] p-3 text-sm text-[#6d4a08]">
@@ -4739,27 +4835,6 @@ function LoginPage({
             Continue with district SSO
           </Button>
 
-          {demoAccountsAvailable ? (
-            <div className="mt-5 rounded-lg border border-border bg-background p-4">
-              <p className="mb-3 text-sm font-medium">Demo accounts</p>
-              <div className="grid gap-2">
-                {demoLoginAccounts.map((account) => (
-                  <Button
-                    key={account.email}
-                    type="button"
-                    variant="outline"
-                    className="justify-start"
-                    onClick={() => onSelectDemo(account)}
-                  >
-                    {account.label}
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {account.email}
-                    </span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </section>
       </section>
     </main>

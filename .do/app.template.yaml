@@ -64,6 +64,18 @@ services:
         scope: RUN_TIME
         type: GENERAL
 
+      # Demo logins: when "true", seeds the demo users (including the
+      # demo-user@demo.edu super user) on startup and shows the demo profile
+      # dropdown on the login page. Set to "false" before real school data.
+      - key: DEMO_LOGINS
+        value: "true"
+        scope: RUN_TIME
+        type: GENERAL
+      # Demo logins also require a security question ("What city was Sean
+      # born in?"). Set DEMO_SECURITY_ANSWER in the DigitalOcean console as an
+      # encrypted (SECRET) variable; it is intentionally not stored here.
+      # Without it, demo logins are refused in production.
+
       # Security secrets
       - key: SESSION_SECRET
         value: __SESSION_SECRET__

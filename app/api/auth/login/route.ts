@@ -6,6 +6,10 @@ import {
   authenticatePassword,
   createSessionToken,
 } from "@/lib/server/auth";
+import {
+  checkDemoChallenge,
+  DEMO_SECURITY_QUESTION,
+} from "@/lib/server/demo-challenge";
 import { buildDistrictSsoStartUrl } from "@/lib/server/sso";
 
 export async function POST(request: NextRequest) {
@@ -16,6 +20,7 @@ export async function POST(request: NextRequest) {
       email?: string;
       password?: string;
       provider?: string;
+      securityAnswer?: string;
     };
     const provider = body.provider ?? "password";
 
@@ -80,6 +85,58 @@ export async function POST(request: NextRequest) {
         {
           ok: false,
           message: "The email or password did not match a FutureFund account.",
+          telemetry: span.end(),
+        },
+        { status: 401 }
+      );
+    }
+
+    // Demo accounts have published passwords, so they also need the security
+    // question. It is only shown after the password is correct.
+    const challenge = checkDemoChallenge({
+      email,
+      answer: body.securityAnswer,
+      clientKey: email,
+    });
+
+    if (challenge.status === "unconfigured") {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Demo login is not available right now.",
+          telemetry: span.end(),
+        },
+        { status: 403 }
+      );
+    }
+
+    if (challenge.status === "locked") {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Too many wrong answers. Try again in ${Math.ceil(
+            challenge.retryAfterSeconds / 60
+          )} minutes.`,
+          telemetry: span.end(),
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(challenge.retryAfterSeconds) },
+        }
+      );
+    }
+
+    if (challenge.status === "required" || challenge.status === "wrong") {
+      return NextResponse.json(
+        {
+          ok: false,
+          challenge: { question: DEMO_SECURITY_QUESTION },
+          message:
+            challenge.status === "wrong"
+              ? `That answer isn't right. ${challenge.remaining} ${
+                  challenge.remaining === 1 ? "try" : "tries"
+                } left.`
+              : "Answer the security question to finish signing in.",
           telemetry: span.end(),
         },
         { status: 401 }

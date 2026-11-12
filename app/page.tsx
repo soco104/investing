@@ -1595,6 +1595,9 @@ const adminModules = [
 export default function Home() {
   const [authenticatedUser, setAuthenticatedUser] =
     useState<AuthenticatedUser | null>(null);
+  // false until we've asked the server whether a session cookie is still
+  // valid, so a refresh doesn't flash the login page.
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [loginEmail, setLoginEmail] = useState(demoLoginAccounts[0].email);
   const [loginPassword, setLoginPassword] = useState(
     demoLoginAccounts[0].password
@@ -1866,6 +1869,35 @@ export default function Home() {
     ) / teacherClassAnalytics.length
   );
 
+  // On page load, restore the signed-in user from the session cookie, so
+  // refreshing the page keeps the user signed in.
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((response) =>
+        response.ok
+          ? (response.json() as Promise<{ user?: AuthenticatedUser | null }>)
+          : { user: null }
+      )
+      .then((result) => {
+        if (!cancelled && result.user) {
+          setAuthenticatedUser(result.user);
+          setActiveTab(roleToTab(result.user.role));
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) {
+          setSessionChecked(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (authenticatedUser?.role !== "Admin") {
       return;
@@ -1930,6 +1962,10 @@ export default function Home() {
               status: string;
               summary: string;
             }>;
+            privacyPosture?: {
+              posture: string;
+              privacy_contact_email: string;
+            } | null;
             classMarketConfigs?: Array<{
               allowed_asset_types_json: string;
               allowed_symbols_csv: string;
@@ -2056,6 +2092,16 @@ export default function Home() {
               volatilityMultiplier: Number(config.volatility_multiplier),
             }))
           );
+        }
+
+        const savedPrivacy = result.state.privacyPosture;
+
+        if (
+          savedPrivacy &&
+          privacyPostures.some((option) => option.value === savedPrivacy.posture)
+        ) {
+          setPrivacyPosture(savedPrivacy.posture);
+          setPrivacyContact(savedPrivacy.privacy_contact_email);
         }
       } catch {
         // The prototype seed data remains available when production state is unavailable.
@@ -2658,6 +2704,16 @@ export default function Home() {
     setSupportSummary("");
   }
 
+  async function savePrivacyPosture(posture: string, contact: string) {
+    await postAdminMutation("/api/admin/privacy", {
+      posture,
+      privacyContactEmail: contact.trim(),
+      reason: "Admin privacy posture update",
+    });
+    setPrivacyPosture(posture);
+    setPrivacyContact(contact.trim());
+  }
+
   async function triggerPasswordReset() {
     const trimmedEmail = resetEmail.trim();
 
@@ -3236,11 +3292,7 @@ export default function Home() {
       setLoginChallengeQuestion(null);
       setLoginChallengeAnswer("");
 
-      setAuthenticatedUser(result.user);
-      setActiveTab(roleToTab(result.user.role));
-      setActiveStudentPage("dashboard");
-      setActiveTeacherPage("dashboard");
-      setActiveAdminPage("overview");
+      enterApp(result.user);
       setLoginPassword("");
     } catch {
       setLoginNotice("Login service is unavailable. Try again in a moment.");
@@ -3277,7 +3329,26 @@ export default function Home() {
     }
   }
 
-  function signOut() {
+  function enterApp(user: AuthenticatedUser) {
+    setAuthenticatedUser(user);
+    setActiveTab(roleToTab(user.role));
+    setActiveStudentPage("dashboard");
+    setActiveTeacherPage("dashboard");
+    setActiveAdminPage("overview");
+  }
+
+  async function signOut() {
+    try {
+      // Ends the session on the server and clears the session cookie, so a
+      // refresh after signing out doesn't sign the user back in.
+      await fetch("/api/auth/logout", {
+        credentials: "same-origin",
+        method: "POST",
+      });
+    } catch {
+      // Still sign out on this screen; the session expires on its own.
+    }
+
     setAuthenticatedUser(null);
     setLoginEmail(demoLoginAccounts[0].email);
     setLoginPassword(demoLoginAccounts[0].password);
@@ -3287,6 +3358,14 @@ export default function Home() {
     setActiveStudentPage("dashboard");
     setActiveTeacherPage("dashboard");
     setActiveAdminPage("overview");
+  }
+
+  if (!sessionChecked) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Loading…
+      </main>
+    );
   }
 
   if (!authenticatedUser) {
@@ -4326,8 +4405,7 @@ export default function Home() {
                     onNewUserTemporaryPasswordChange={
                       setNewUserTemporaryPassword
                     }
-                    onPrivacyContactChange={setPrivacyContact}
-                    onPrivacyPostureChange={setPrivacyPosture}
+                    onSavePrivacy={savePrivacyPosture}
                     onPortfolioAdjustmentChange={setPortfolioAdjustment}
                     onPortfolioCorrectionReasonChange={
                       setPortfolioCorrectionReason
@@ -6669,8 +6747,7 @@ function AdminDrilldown({
   onNewUserRoleChange,
   onNewUserClassNameChange,
   onNewUserTemporaryPasswordChange,
-  onPrivacyPostureChange,
-  onPrivacyContactChange,
+  onSavePrivacy,
   onSelectedPermissionUserChange,
   onToggleUserEnabled,
   onUpdateUserPermission,
@@ -6782,8 +6859,7 @@ function AdminDrilldown({
   onNewUserRoleChange: (role: AdminUser["role"]) => void;
   onNewUserClassNameChange: (className: string) => void;
   onNewUserTemporaryPasswordChange: (password: string) => void;
-  onPrivacyPostureChange: (posture: string) => void;
-  onPrivacyContactChange: (contact: string) => void;
+  onSavePrivacy: (posture: string, contact: string) => Promise<void>;
   onSelectedPermissionUserChange: (userId: string) => void;
   onToggleUserEnabled: (userId: string, enabled: boolean) => void;
   onUpdateUserPermission: (
@@ -6915,8 +6991,7 @@ function AdminDrilldown({
 
       {activePage === "privacy" ? (
         <PrivacyPostureAdminPage
-          onPrivacyContactChange={onPrivacyContactChange}
-          onPrivacyPostureChange={onPrivacyPostureChange}
+          onSavePrivacy={onSavePrivacy}
           privacyContact={privacyContact}
           privacyPosture={privacyPosture}
           selectedPrivacyPosture={selectedPrivacyPosture}
@@ -7890,21 +7965,53 @@ function PrivacyPostureAdminPage({
   privacyPosture,
   selectedPrivacyPosture,
   privacyContact,
-  onPrivacyPostureChange,
-  onPrivacyContactChange,
+  onSavePrivacy,
 }: {
   privacyPosture: string;
   selectedPrivacyPosture: (typeof privacyPostures)[number];
   privacyContact: string;
-  onPrivacyPostureChange: (posture: string) => void;
-  onPrivacyContactChange: (contact: string) => void;
+  onSavePrivacy: (posture: string, contact: string) => Promise<void>;
 }) {
+  // Edits are a draft until Save is clicked, like the Market Simulator page.
+  const [draftPosture, setDraftPosture] = useState<string | null>(null);
+  const [draftContact, setDraftContact] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const posture = draftPosture ?? privacyPosture;
+  const contact = draftContact ?? privacyContact;
+  const shownPosture =
+    privacyPostures.find((option) => option.value === posture) ??
+    selectedPrivacyPosture;
+  const hasChanges = posture !== privacyPosture || contact !== privacyContact;
+
+  async function save() {
+    setSaving(true);
+    setNotice("");
+
+    try {
+      await onSavePrivacy(posture, contact);
+      setDraftPosture(null);
+      setDraftContact(null);
+      setNotice("Saved. The change is recorded in the audit log.");
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="rounded-lg border border-border bg-background p-4">
         <div className="space-y-2">
           <Label>Required privacy posture</Label>
-          <Select value={privacyPosture} onValueChange={onPrivacyPostureChange}>
+          <Select
+            value={posture}
+            onValueChange={(value) => {
+              setDraftPosture(value);
+              setNotice("");
+            }}
+          >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -7919,9 +8026,9 @@ function PrivacyPostureAdminPage({
         </div>
 
         <div className="mt-4 rounded-lg border border-border bg-card p-4">
-          <h4 className="font-semibold">{selectedPrivacyPosture.label}</h4>
+          <h4 className="font-semibold">{shownPosture.label}</h4>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {selectedPrivacyPosture.description}
+            {shownPosture.description}
           </p>
         </div>
 
@@ -7929,9 +8036,30 @@ function PrivacyPostureAdminPage({
           <Label htmlFor="privacy-contact">Privacy contact</Label>
           <Input
             id="privacy-contact"
-            value={privacyContact}
-            onChange={(event) => onPrivacyContactChange(event.target.value)}
+            type="email"
+            value={contact}
+            onChange={(event) => {
+              setDraftContact(event.target.value);
+              setNotice("");
+            }}
           />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            disabled={!hasChanges || saving}
+            onClick={() => void save()}
+            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            {saving ? "Saving…" : "Save"}
+          </Button>
+          {hasChanges && !saving ? (
+            <span className="text-sm text-muted-foreground">Unsaved changes</span>
+          ) : null}
+          {notice ? (
+            <span className="text-sm text-muted-foreground">{notice}</span>
+          ) : null}
         </div>
       </div>
 
@@ -7953,7 +8081,7 @@ function PrivacyPostureAdminPage({
           />
           <AdminPolicy
             detail="Exports, corrections, and role changes require admin audit events."
-            enabled={privacyPosture !== "standard"}
+            enabled={posture !== "standard"}
             title="Enhanced audit"
           />
         </div>

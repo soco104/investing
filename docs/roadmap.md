@@ -239,7 +239,7 @@ milestone the owner chooses.
 | Version | Update | Size |
 |---|---|---|
 | v0.2.3 ✅ | Email system (Resend), Admin Email page, password resets that work end to end, guides' quest import/export claim corrected | Done |
-| v0.2.4 | Stay signed in across refresh; real sign-out; Privacy posture saves | Small |
+| v0.2.4 ✅ | Stay signed in across refresh; real sign-out; Privacy posture saves | Done |
 | v0.2.5 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
 | v0.2.6 | Admin "view as student" by email, for troubleshooting | Medium |
 | v0.2.7 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |

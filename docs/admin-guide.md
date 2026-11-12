@@ -1,9 +1,28 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It is written for the current web MVP and should be
-updated as the prototype moves from in-memory demo flows to production-backed
-services.
+the FutureFund Classroom MVP. It describes version 0.2.2; the running version is
+shown in small text at the bottom of every page. It is updated with every
+change that affects what it describes.
+
+### What Is Saved in This Version
+
+- **Saved on the server and audited:** users (create, import, edit, enable,
+  disable), permissions, schools, market integrations and integration tests,
+  Market Simulator class settings, Credential Vault entries, support cases,
+  password reset requests, portfolio corrections, and quest import/export.
+- **On screen but not saved yet** (lost on refresh): the Privacy posture page,
+  and everything outside the Admin portal: student trades and allocations,
+  messages and discussions, Quest Studio edits, and the teacher's Market page
+  price and scenario controls.
+- **Sample data:** the Monitoring pages (open errors, slow calls, integration
+  health), and the student and teacher dashboards and analytics, show built-in
+  sample data.
+- **Server endpoints with no screen yet:** moderation review, retention
+  requests, backup/restore tests, incidents, privacy, SSO settings, and the
+  audit log (sections 13, 17, 18, 19, and 20).
+
+Refreshing the page signs the user out; they need to sign in again.
 
 ## 1. Admin Responsibilities
 
@@ -27,8 +46,8 @@ or live custodial accounts.
 
 ## 2. Access and Login
 
-The local login screen can accept role-based demo accounts and routes users to
-the allowed role surface. The app includes three role families:
+Users sign in with email and password, and are taken to the portal their role
+allows. The app includes three role families:
 
 - `Student`: student dashboard, portfolio, learning quests, profile, inbox, and
   classroom discussions.
@@ -39,16 +58,44 @@ the allowed role surface. The app includes three role families:
 
 The password login API is implemented at `/api/auth/login`. Production
 deployments should use persisted user credentials, hardened session storage, and
-district SSO. Demo login is disabled in production unless a controlled demo
-deployment explicitly opts in. District OIDC SSO can start when the configured
-identity provider values are present; callback token exchange and assertion
-validation still need to be matched to the district identity provider before
-live rollout.
+district SSO. District OIDC SSO can start when the configured identity provider
+values are present; callback token exchange and assertion validation still need
+to be matched to the district identity provider before live rollout.
+
+### Demo Logins
+
+Demo logins are for demo and staging sites only. On a live district site, leave
+them off.
+
+They are controlled by two DigitalOcean environment variables (App → Settings →
+**web** component → Environment Variables):
+
+| Variable | Value | What it does |
+|---|---|---|
+| `DEMO_LOGINS` | `true` | Loads the demo users into the database each time the app starts, and shows the demo option on the login page. Any other value (or unset) turns demo logins off. |
+| `DEMO_SECURITY_ANSWER` | the answer (set as **Encrypted**) | Answer to the security question demo accounts must pass after their password. If it is missing on the live site, demo logins are refused. |
+
+How demo login works:
+
+- The login page's **Email** field has an arrow that offers **Demo super user
+  (all roles)**, `demo-user@demo.edu`. This account is an Admin with every
+  permission.
+- After the password is accepted, every demo account (including the student,
+  teacher, and admin demo accounts in section 21) must answer the security
+  question. Answers ignore capitals and extra spaces.
+- Five wrong answers lock that account for 15 minutes.
+- Anyone who has the site address and the security answer can sign in as an
+  admin, so turn `DEMO_LOGINS` off before real school data is added.
+
+Keep the older `ALLOW_DEMO_AUTH` setting `false` on live sites. Setting it to
+`true` lets the app's built-in demo accounts sign in even when they aren't in
+the database, and also shows the demo option on the login page.
 
 ## 3. Role and Permission Model
 
-Admins can use the role selector in the app header to view permitted role
-surfaces. Admin users do not need the left-side student or teacher profile card;
+Admins can use the **Assume role** menu in the app header to switch between the
+Student, Teacher, and Admin views their permissions allow. In the Student view,
+admins see sample student data rather than a specific student's account. Admin users do not need the left-side student or teacher profile card;
 student and teacher users see role-appropriate profile content.
 
 The admin permission model currently tracks these permission categories:
@@ -82,8 +129,9 @@ The Admin portal contains the following operational modules:
 - Learning quest import/export
 
 Each widget opens either a page, drilldown panel, or popup for the related task.
-When an admin action affects access, integrations, support, privacy, or
-portfolio balances, the production implementation should write an audit event.
+Admin actions that affect access, integrations, support, or portfolio balances
+are saved on the server and write an audit event. See "What Is Saved in This
+Version" above for the pages that are not saved yet.
 
 ## 5. Schools Configuration
 
@@ -217,7 +265,8 @@ or teacher profile card.
 
 The app supports text-only direct inbox conversations and classroom discussion
 rooms. A first-pass profanity filter blocks messages containing disallowed
-language. Production moderation should expand this into configurable policy,
+language. In this version, messages and discussion posts are not saved; they
+reset when the page is refreshed. Production moderation should expand this into configurable policy,
 audit logs, review queues, and district-specific retention rules.
 
 ## 8. Permissions
@@ -235,7 +284,9 @@ When changing permissions:
 1. Select the user.
 2. Review role and current permissions.
 3. Toggle only the needed rights.
-4. Record the reason in the production audit log.
+4. The change is saved and audited immediately. The audit log records a generic
+   reason ("Admin permission update"); the screen does not yet ask for a
+   specific reason, so note it in a support case if one is needed.
 5. Ask the user to sign out and back in if their session does not update.
 
 Admin permissions are intentionally locked on in the MVP. In production, admin
@@ -252,6 +303,9 @@ permission key, enabled state, actor, timestamp, and reason in the audit trail.
 
 Teachers create and modify learning quests from the Teacher portal. Admins can
 review templates and import/export learning quests for district reuse.
+
+In this version, quests created or edited in Quest Studio are not saved (they
+reset on refresh). Quest import/export is saved on the server and audited.
 
 Quest configuration includes:
 
@@ -423,12 +477,13 @@ Scenarios:
 - `Growth rally`
 - `Rate shock`
 
-Admins can manage all class market contexts. Teachers can manage only assigned
-classes when teacher controls are enabled by district policy. Students can view
-only their own class market.
+Admins can manage all class market contexts. The server also allows teachers to
+change their own assigned classes when teacher controls are enabled, but there
+is not yet a teacher screen for it, so in practice admins make these changes.
+Students can view only their own class market.
 
 Market simulator changes draft locally in the UI and are persisted only when
-the admin or teacher selects `Save`. This avoids excessive writes and prevents
+the admin selects `Save`. This avoids excessive writes and prevents
 partial edits from creating noisy audit events.
 
 Production endpoints:
@@ -455,6 +510,11 @@ prices during instruction. The first built-in world scenario is `Strait of
 Hormuz blockade`, which applies a large oil-price shock to teacher-selected
 symbols. Energy and oil-service symbols are raised, while travel symbols can be
 lowered to model increased fuel costs.
+
+In this version, the Market page shows built-in classroom sample quotes, and
+student trades and the teacher's price and scenario controls are not saved:
+they affect only the current screen and reset on refresh. They do not change
+the saved class market settings above.
 
 Audit action:
 
@@ -500,6 +560,9 @@ rotate, and delete actions before writing secret values or credential metadata.
 Use the Privacy posture page to select the required district posture for student
 privacy compliance. This is a configuration aid and does not replace legal
 review.
+
+In this version, the Privacy posture page is not saved: a selection resets on
+refresh. The server endpoint below exists but the page does not use it yet.
 
 The page tracks:
 
@@ -562,8 +625,11 @@ creation with category, summary, requester, status, actor, and timestamp.
 The Password resets widget opens a popup where an admin enters a user's email
 and triggers a reset.
 
-Current behavior is a frontend simulation that confirms the reset request.
-Production behavior should:
+Current behavior: the admin's request is saved on the server as an audited
+reset request with a time-limited token, and the screen confirms it. **The user
+cannot complete the reset yet**: no email is sent, and the app does not yet have
+a page where the user sets a new password. Until then, resolve access issues by
+other means (for example, a support case). Production behavior should:
 
 - Verify the email belongs to an active district user.
 - Create a password reset request record.
@@ -623,6 +689,11 @@ The Monitoring page gives admins visibility into:
 The app currently includes frontend error reporting, performance reporting, and
 OTEL-ready span hooks. Monitoring data includes date and time stamps so admins
 can match issues to classroom activity.
+
+In this version, the Monitoring pages (Open Errors, Slow Calls, Integration
+Health) show built-in sample data, not the app's live errors or timings. The
+audit log is available only through the endpoint below; there is no audit log
+screen yet.
 
 Audit endpoint:
 
@@ -684,7 +755,8 @@ exports and deletions:
 - `POST /api/admin/retention`
 
 The endpoint requires `Admin portal` permission and creates an audited retention
-plan for a student, teacher, classroom, school, or district target.
+plan for a student, teacher, classroom, school, or district target. There is no
+screen for this yet; it is called directly.
 
 Export workflow:
 
@@ -718,7 +790,9 @@ Production endpoint:
 
 The endpoint requires `Teacher portal` permission, which means teachers and
 admins can review classroom messages. Reviews support allow, block, and escalate
-actions, and every review creates an audit event.
+actions, and every review creates an audit event. There is no review queue
+screen yet, and because messages are not saved in this version, there is
+nothing for it to review from the app.
 
 Moderation review process:
 
@@ -741,6 +815,8 @@ Backup and restore-test endpoint:
 Incident endpoint:
 
 - `POST /api/admin/operations/incidents`
+
+Neither has a screen yet; they are called directly.
 
 Backup procedure:
 
@@ -775,7 +851,8 @@ The current deployment package includes:
 - `Dockerfile`
 - `cloudbuild.yaml`
 - Terraform in `infra/cloudrun/`
-- App Platform spec in `infra/digitalocean/`
+- App Platform specs: `.do/app.template.yaml` (used by
+  `deploy-digitalocean.sh`) and `infra/digitalocean/app.yaml`
 - Cloud Run service baseline
 - Artifact Registry
 - Cloud SQL PostgreSQL
@@ -784,14 +861,15 @@ The current deployment package includes:
 - DigitalOcean App Platform service and scheduled job template
 - Central class market config and snapshot tables
 
-Important production note: the current app schema and demo flows are still
-SQLite/D1-shaped in code. The Cloud Run package provisions Cloud SQL
-PostgreSQL as the production target, but the app data access and migrations
-should be ported and validated before using Cloud SQL as the source of truth.
+The app's data layer uses PostgreSQL, with migrations that run automatically
+each time the app starts. Validate them against Cloud SQL before using Cloud
+Run as the source of truth.
 
 ### Optional Demo Data Seed
 
-Staging and demo environments can be populated with a reusable demo data set:
+Staging and demo environments can be populated with a reusable demo data set.
+On DigitalOcean this happens automatically at startup when `DEMO_LOGINS=true`
+(see section 2). To run it by hand:
 
 ```bash
 npm run db:seed:demo
@@ -802,11 +880,14 @@ permission grants, market integrations, class market simulator settings,
 quotes, support tickets, privacy posture, monitoring events, and audit records.
 It is idempotent and runs the production table setup before inserting records.
 
-Demo accounts:
+Demo accounts (all also require the security question; see section 2):
 
+- Super user (all roles): `demo-user@demo.edu` / `demo-user`
 - Student: `avery.johnson@example.edu` / `student-demo`
 - Teacher: `elena.rivera@example.edu` / `teacher-demo`
 - Admin: `sam.gordon@example.edu` / `admin-demo`
+
+Running the seed again resets these accounts' passwords to the values above.
 
 ## 22. Daily Admin Checklist
 
@@ -857,7 +938,11 @@ package. Before production use with real districts, confirm these items are
 fully wired to the selected production database, identity provider, and district
 operating procedures:
 
-- Replace local demo auth with district SSO for live school users.
+- Replace local demo auth with district SSO for live school users, and set
+  `DEMO_LOGINS` to `false`.
+- Keep users signed in across page refreshes (sessions are not restored yet).
+- Save the pages that are not saved yet (see "What Is Saved in This Version").
+- Add the password reset page and email delivery.
 - Continue wiring student, teacher, quest, portfolio, and messaging reads to
   production server queries.
 - Enforce server-side authorization from the signed session on every protected

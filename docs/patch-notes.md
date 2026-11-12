@@ -2,6 +2,41 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.2 — 2026-11-12
+
+No changes to how the app works in this update. The User Manual and Admin
+Guide were reviewed against the app and corrected.
+
+### User Manual and Admin Guide
+
+- **New "What Is Saved in This Version" section** in both guides. Admin portal
+  actions are saved; student trades, messages, discussions, Quest Studio
+  edits, the teacher's Market page controls, and the Privacy posture page are
+  not saved yet and reset when the page is refreshed. Student and teacher
+  dashboards and the Monitoring pages show sample data.
+- **Refreshing the page signs you out** in this version. Both guides now say
+  so.
+- **Demo login** is documented: the demo super user, the email dropdown, the
+  security question and 15-minute lockout, and the `DEMO_LOGINS` and
+  `DEMO_SECURITY_ANSWER` settings in DigitalOcean.
+- **Assume role** menu for switching between the Student, Teacher, and Admin
+  views is documented.
+- **Corrected:**
+  - Teachers can't yet change a class's simulation mode, volatility, starting
+    cash, or symbols. Admins do this on the Market Simulator page.
+  - Password reset requests are saved, but users can't complete a reset yet:
+    no email is sent and there is no reset page.
+  - Permission changes record a generic reason automatically.
+  - Moderation, retention, backup, and incident tools are server-only for now,
+    with no screens.
+  - The database note is updated: the app runs on PostgreSQL.
+- Both guides now state the version they describe (0.2.2).
+
+### Release Process
+
+- Any change to how the app works must now update the User Manual and Admin
+  Guide in the same update.
+
 ## v0.2.1 — 2026-11-12
 
 No changes to how the app works in this update; the version label at the

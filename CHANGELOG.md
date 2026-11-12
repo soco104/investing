@@ -7,6 +7,17 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Patch** (0.2.0 → 0.2.1): a bug fix or small tweak.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.2] - 2026-11-12
+
+### Changed
+- User Manual and Admin Guide reviewed against the app and corrected. Both now
+  say which version they describe and what is and isn't saved yet, cover demo
+  login (super user, security question, `DEMO_LOGINS` and
+  `DEMO_SECURITY_ANSWER` settings) and the Assume role menu, and fix outdated
+  descriptions of teacher market controls, password resets, privacy posture,
+  monitoring, and the database.
+- Every pull request that changes app behavior must now update the guides too.
+
 ## [0.2.1] - 2026-11-12
 
 ### Added
@@ -45,6 +56,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.2]: https://github.com/soco104/investing/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/soco104/investing/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/soco104/investing/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/soco104/investing/releases/tag/v0.1.0

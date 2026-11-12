@@ -198,3 +198,55 @@ students see).
 - Are uploaded SVGs allowed? They can contain scripts, so they'd need
   sanitizing, or limit uploads to PNG/JPG.
 - Who can change branding: district admins only, or school admins too?
+
+## Plan: Save everything that currently resets on refresh
+
+**Added:** 2026-11-12 · **Status:** planned, decisions made 2026-11-12
+
+In v0.2.2, these reset when the page is refreshed: student trades and
+allocations, messages and discussions, Quest Studio edits, the teacher's Market
+page controls, and the Privacy posture page. Refreshing also signs users out.
+This plan fixes them in order, one pull request and version each.
+
+### Decisions
+
+- **Who can message whom:**
+
+  | From | Can message |
+  |---|---|
+  | Student | Other students, and their teachers |
+  | Teacher | All students in their classes, other teachers, and admins |
+  | Admin | Everyone |
+
+- **Teachers can see student conversations** for students in their classes,
+  and students are told this.
+- **Messages are kept for 90 days**, then deleted, unless a message is marked
+  to keep longer with a **Keep** checkbox on the message.
+- **Admin "view as student":** when an issue is reported (e.g. a teacher says a
+  student's messages aren't sending and gives their email), an admin can enter
+  that student's email and view the app as that student, with access to their
+  profile, to troubleshoot.
+- **Teacher market changes** can be applied to the whole class, all classes
+  the teacher is assigned, a group of students, or one student.
+
+### Updates
+
+| Version | Update | Size |
+|---|---|---|
+| v0.3.0 | Stay signed in across refresh; real sign-out; Privacy posture saves; fix the guides' quest import/export claim (it only records an audit entry) | Small |
+| v0.4.0 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
+| v0.5.0 | Admin "view as student" by email, for troubleshooting | Medium |
+| v0.6.0 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
+| v0.7.0 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
+| v0.8.0 | Messages and discussions saved, following the rules above; server-side profanity filter and moderation queue; 90-day deletion with **Keep** | Large |
+
+### Notes
+
+- **View as student** is audited (who, which student, when, why) and shows a
+  clear "Viewing as <student>" banner with an exit button.
+- **Per-student market changes** mean students in the same class can see
+  different prices for the same symbol. That's fine for a simulation, but
+  class leaderboards and comparisons should account for it. It also lays the
+  groundwork for the **teacher life events** goal above.
+- **Students are told** about teacher visibility and the 90-day rule in the
+  Inbox and in the User Manual.

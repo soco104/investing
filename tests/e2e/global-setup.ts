@@ -29,8 +29,9 @@ export default async function globalSetup() {
     await sql`
       truncate portfolio_reset_requests, portfolio_value_snapshots,
         portfolio_allocation_targets, portfolio_activity, portfolio_holdings,
-        portfolio_corrections, student_portfolios
+        portfolio_corrections, student_portfolios, market_adjustments
     `;
+    await sql`update class_market_configs set teacher_controls_enabled = true`;
     await sql`delete from district_settings`;
     await sql`update class_market_configs set grade_level = null`;
   } finally {

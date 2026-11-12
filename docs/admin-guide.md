@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.7; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.8; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -11,16 +11,15 @@ change that affects what it describes.
   disable), permissions, schools, market integrations and integration tests,
   Market Simulator class settings, Credential Vault entries, support cases,
   password resets (emailed to the user), email test sends, privacy posture,
-  school year dates, class grade levels, portfolio corrections, and portfolio
-  reset decisions. Quest import/export records an audit entry only; the quests
+  school year dates, class grade levels, portfolio corrections, portfolio
+  reset decisions, and teacher market changes (each change, undo and reset). Quest import/export records an audit entry only; the quests
   themselves are not stored yet.
 - **Saved, not audited:** student portfolios (cash, stocks, trades, allocation
   targets, value history), for every class and school year; teachers' reset
   requests (the request itself is audited). Each portfolio keeps its own
   activity history.
 - **On screen but not saved yet** (lost on refresh): messages and
-  discussions, Quest Studio edits, and the teacher's Market page price and
-  scenario controls.
+  discussions, and Quest Studio edits.
 - **Sample data:** the Monitoring pages (open errors, slow calls, integration
   health), the teacher's class analytics and Active Students view, and the
   student sidebar figures (financial readiness, learning streak).
@@ -476,7 +475,15 @@ Class market settings include:
 - Starting cash (used when a student's portfolio for the class is created)
 - Grade level (grade 10 and above can trade fractional shares; leave it on
   "From name" to read it from class names like "7th Grade Finance A")
-- Teacher controls enabled/disabled
+- Teacher controls enabled/disabled. When on, the class's teachers can use
+  the **Teacher market controls** panel on the Market page to raise or lower
+  symbols and trigger the Strait of Hormuz scenario for the class, all their
+  classes, a group of students, or one student. Students see and trade at the
+  changed prices until the teacher clicks **Undo** or **Reset to normal**.
+  When off, the class doesn't appear in its teachers' panel (changes already
+  made stay until an admin resets them). Admins can use the panel on the
+  Market page for any class. Each change, undo and reset is audited as
+  `market_change.created`, `market_change.undone` and `market_change.reset`.
 - Allowed symbols (also the symbols students can trade)
 - Allowed asset types
 

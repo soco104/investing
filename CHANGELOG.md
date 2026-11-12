@@ -7,6 +7,27 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.8] - 2026-11-12
+
+### Added
+- **Teacher market controls that apply to students.** On the Market page,
+  teachers raise or lower a symbol 3% or trigger the Strait of Hormuz scenario
+  for **this class**, **all my classes**, **a group of students** (tick boxes),
+  or **one student**. Changes are saved and students see and trade at the
+  changed prices, with the teacher's news on the symbol.
+- **Active changes** list per class with **Undo** for each change and
+  **Reset to normal**. Undone changes are kept as records, not deleted.
+- Only the teacher's own classes with "Teacher controls" turned on (Market
+  Simulator); admins can change any class. Every change, undo and reset is in
+  the audit log (`market_change.created`, `market_change.undone`,
+  `market_change.reset`).
+- 9 unit tests for the price rules and 4 browser tests for the teacher flow.
+
+### Changed
+- The teacher's Raise/Lower buttons and scenario box moved into one
+  **Teacher market controls** panel; they used to change only the teacher's
+  own screen and reset on refresh.
+
 ## [0.2.7] - 2026-11-12
 
 ### Added
@@ -164,6 +185,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.8]: https://github.com/soco104/investing/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/soco104/investing/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/soco104/investing/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/soco104/investing/compare/v0.2.4...v0.2.5

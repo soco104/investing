@@ -730,7 +730,7 @@ type ServerPortfolio = {
   market: {
     scenarioLabel: string;
     simulationMode: string;
-    symbols: Array<{ changePercent: number; name: string; priceCents: number; ticker: string }>;
+    symbols: Array<{ changePercent: number; name: string; news?: string | null; priceCents: number; ticker: string }>;
   };
   readOnly: boolean;
   resetCount: number;
@@ -824,7 +824,7 @@ function portfolioToScreens(portfolio: ServerPortfolio) {
         dayHigh: roundMoney(Math.max(price, price * (1 + Math.abs(symbol.changePercent) / 200))),
         dayLow: roundMoney(Math.min(price, price * (1 - Math.abs(symbol.changePercent) / 200))),
         name: symbol.name,
-        news: sample?.news ?? "Classroom simulation market input.",
+        news: symbol.news ?? sample?.news ?? "Classroom simulation market input.",
         price,
         sector: sample?.sector ?? "Class market",
         ticker: symbol.ticker,
@@ -969,12 +969,6 @@ type ClassMarketConfig = {
   // Set by admins; null = read from the class name. Grade 10+ can trade
   // fractional shares.
   gradeLevel?: number | null;
-};
-
-type TeacherScenarioDraft = {
-  affectedSymbols: string;
-  oilSpikePercent: number;
-  selectedClass: string;
 };
 
 type CredentialRecord = {
@@ -1792,12 +1786,6 @@ export default function Home() {
   const [portfolioLoadError, setPortfolioLoadError] = useState("");
   const activePortfolio =
     profilePortfolios?.find((item) => item.id === activePortfolioId) ?? null;
-  const [teacherScenarioDraft, setTeacherScenarioDraft] =
-    useState<TeacherScenarioDraft>({
-      affectedSymbols: "XLE,OIH,JETS",
-      oilSpikePercent: 18,
-      selectedClass: classOptions[0],
-    });
   const [teacherQuests, setTeacherQuests] =
     useState<TeacherQuest[]>(initialTeacherQuests);
   const [selectedQuestId, setSelectedQuestId] = useState(
@@ -2502,55 +2490,6 @@ export default function Home() {
     } catch {
       setMarketNotice("The trade could not be completed. Try again in a moment.");
     }
-  }
-
-  function adjustMarketPrice(ticker: string, direction: "up" | "down") {
-    const changePercent = direction === "up" ? 3 : -3;
-
-    setMarketQuotes((quotes) =>
-      quotes.map((quote) =>
-        quote.ticker === ticker ? applyQuoteMove(quote, changePercent) : quote
-      )
-    );
-    setMarketNotice(
-      `${ticker} moved ${direction === "up" ? "up" : "down"} by ${Math.abs(
-        changePercent
-      )}%.`
-    );
-  }
-
-  function triggerHormuzScenario() {
-    const affectedSymbols = teacherScenarioDraft.affectedSymbols
-      .split(",")
-      .map((symbol) => symbol.trim().toUpperCase())
-      .filter(Boolean);
-    const oilSpike = Math.max(
-      1,
-      Math.min(60, teacherScenarioDraft.oilSpikePercent)
-    );
-
-    setMarketQuotes((quotes) =>
-      quotes.map((quote) => {
-        if (affectedSymbols.includes(quote.ticker)) {
-          const move =
-            quote.sector === "Travel" || quote.ticker === "JETS"
-              ? -Math.round(oilSpike * 0.45)
-              : oilSpike;
-
-          return {
-            ...applyQuoteMove(quote, move),
-            news: `Teacher scenario: Strait of Hormuz blockade triggered for ${teacherScenarioDraft.selectedClass}. Oil supply risk moved this symbol.`,
-          };
-        }
-
-        return quote;
-      })
-    );
-    setMarketNotice(
-      `Strait of Hormuz blockade scenario applied to ${affectedSymbols.join(
-        ", "
-      )}.`
-    );
   }
 
   function openUserProfile(userId: string) {
@@ -4107,11 +4046,7 @@ export default function Home() {
                 quotes={marketQuotes}
                 role={authenticatedUser.role}
                 stockHoldingsValue={stockHoldingsValue}
-                teacherScenarioDraft={teacherScenarioDraft}
-                onAdjustPrice={adjustMarketPrice}
-                onScenarioDraftChange={setTeacherScenarioDraft}
                 onTrade={tradeStock}
-                onTriggerScenario={triggerHormuzScenario}
                 allowFractional={activePortfolio?.allowFractional ?? false}
                 portfolioError={portfolioLoadError}
                 portfolioTitle={activePortfolio ? portfolioLabel(activePortfolio) : null}
@@ -5307,11 +5242,7 @@ function MarketPage({
   quotes,
   role,
   stockHoldingsValue,
-  teacherScenarioDraft,
-  onAdjustPrice,
-  onScenarioDraftChange,
   onTrade,
-  onTriggerScenario,
 }: {
   cash: number;
   holdings: StockHolding[];
@@ -5319,17 +5250,14 @@ function MarketPage({
   quotes: MarketQuote[];
   role: AdminUser["role"];
   stockHoldingsValue: number;
-  teacherScenarioDraft: TeacherScenarioDraft;
-  onAdjustPrice: (ticker: string, direction: "up" | "down") => void;
-  onScenarioDraftChange: (draft: TeacherScenarioDraft) => void;
   onTrade: (ticker: string, action: "buy" | "sell", shares: number) => Promise<void>;
-  onTriggerScenario: () => void;
   allowFractional: boolean;
   portfolioError: string;
   portfolioTitle: string | null;
   readOnly: boolean;
 }) {
-  const isTeacher = role === "Teacher";
+  // Teachers and admins get the saved market controls (v0.2.8).
+  const isTeacher = role === "Teacher" || role === "Admin";
   // How many shares each row's Buy/Sell will trade (typed or set with −/+).
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [tradingTicker, setTradingTicker] = useState<string | null>(null);
@@ -5429,9 +5357,6 @@ function MarketPage({
               <TableHead className="text-[#8cffb0]">Trade</TableHead>
               <TableHead className="text-[#8cffb0]">Range</TableHead>
               <TableHead className="text-[#8cffb0]">Latest news</TableHead>
-              {isTeacher ? (
-                <TableHead className="text-[#8cffb0]">Teacher controls</TableHead>
-              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -5538,30 +5463,6 @@ function MarketPage({
                   <TableCell className="max-w-[320px] text-sm text-[#c7f7d7]">
                     {quote.news}
                   </TableCell>
-                  {isTeacher ? (
-                    <TableCell>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onAdjustPrice(quote.ticker, "up")}
-                          className="border-[#62f58e]/60 bg-transparent text-[#8cffb0] hover:bg-[#102c1b]"
-                        >
-                          Raise
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onAdjustPrice(quote.ticker, "down")}
-                          className="border-[#ff6b6b]/60 bg-transparent text-[#ffb0b0] hover:bg-[#351111]"
-                        >
-                          Lower
-                        </Button>
-                      </div>
-                    </TableCell>
-                  ) : null}
                 </TableRow>
               );
             })}
@@ -5573,84 +5474,7 @@ function MarketPage({
         <StocksInfoBox holdings={holdings} quotes={quotes} />
 
         {isTeacher ? (
-          <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold">Teacher scenario</h3>
-                <p className="text-sm text-muted-foreground">
-                  Trigger a class market event and apply it to selected symbols.
-                </p>
-              </div>
-              <TriangleAlert className="size-5 text-[#c44536]" />
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Class market</Label>
-                <Select
-                  value={teacherScenarioDraft.selectedClass}
-                  onValueChange={(value) =>
-                    onScenarioDraftChange({
-                      ...teacherScenarioDraft,
-                      selectedClass: value,
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classOptions.map((className) => (
-                      <SelectItem key={className} value={className}>
-                        {className}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hormuz-symbols">Affected symbols</Label>
-                <Input
-                  id="hormuz-symbols"
-                  value={teacherScenarioDraft.affectedSymbols}
-                  onChange={(event) =>
-                    onScenarioDraftChange({
-                      ...teacherScenarioDraft,
-                      affectedSymbols: event.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="oil-spike">Oil spike %</Label>
-                <Input
-                  id="oil-spike"
-                  max={60}
-                  min={1}
-                  type="number"
-                  value={teacherScenarioDraft.oilSpikePercent}
-                  onChange={(event) =>
-                    onScenarioDraftChange({
-                      ...teacherScenarioDraft,
-                      oilSpikePercent: Number(event.target.value),
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <div className="mt-4 rounded-lg bg-[#fff3da] p-4 text-sm text-[#5b3f0b]">
-              Strait of Hormuz blockade creates a major oil supply shock. Energy
-              and oil-service symbols spike; travel symbols can fall because
-              fuel costs rise.
-            </div>
-            <Button
-              type="button"
-              onClick={onTriggerScenario}
-              className="mt-4 bg-[#c44536] text-white hover:bg-[#a9362a]"
-            >
-              <TriangleAlert className="size-4" aria-hidden="true" />
-              Trigger scenario
-            </Button>
-          </div>
+          <TeacherMarketControls />
         ) : (
           <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
             <h3 className="text-lg font-semibold">Trading notes</h3>
@@ -5665,6 +5489,437 @@ function MarketPage({
     </section>
   );
 }
+
+type TeacherMarketChange = {
+  appliesTo: string;
+  createdAt: string;
+  createdBy: string;
+  eventId: string;
+  id: string;
+  label: string;
+  percent: number;
+  ticker: string;
+};
+
+type TeacherMarketView = {
+  changes: TeacherMarketChange[];
+  classes: string[];
+  className: string | null;
+  market: Array<{ changePercent: number; name: string; news?: string; price: number; ticker: string }>;
+  students: Array<{ email: string; name: string }>;
+};
+
+type TeacherTargetType = "class" | "all_classes" | "students" | "student";
+
+type TeacherMarketLoad = TeacherMarketView | { error: string };
+
+async function fetchTeacherMarket(className: string | null): Promise<TeacherMarketLoad> {
+  try {
+    const query = className ? `?className=${encodeURIComponent(className)}` : "";
+    const response = await fetch(`/api/teacher/market${query}`, { credentials: "same-origin" });
+    const result = (await response.json()) as TeacherMarketView & { message?: string };
+
+    return response.ok ? result : { error: result.message ?? "The class market couldn't be loaded." };
+  } catch {
+    return { error: "The class market couldn't be loaded." };
+  }
+}
+
+const nativeSelectClass =
+  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs";
+
+/**
+ * Teacher market controls (v0.2.8). Changes are saved on the server and
+ * apply to students' real prices: raise or lower a symbol, or trigger the
+ * Strait of Hormuz scenario, for this class, all my classes, a group of
+ * students, or one student. Every change can be undone; nothing is deleted.
+ */
+function TeacherMarketControls() {
+  const [view, setView] = useState<TeacherMarketView | null>(null);
+  const [className, setClassName] = useState<string | null>(null);
+  const [targetType, setTargetType] = useState<TeacherTargetType>("class");
+  const [groupEmails, setGroupEmails] = useState<string[]>([]);
+  const [oneStudent, setOneStudent] = useState("");
+  const [hormuzSymbols, setHormuzSymbols] = useState("XLE,OIH,JETS");
+  const [oilSpike, setOilSpike] = useState(18);
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
+  const requestId = useRef(0);
+
+  function applyLoaded(current: number, result: TeacherMarketLoad) {
+    // Ignore a slower, older response (same guard as issue #19).
+    if (current !== requestId.current) return;
+
+    if ("error" in result) {
+      setNotice(result.error);
+      return;
+    }
+
+    setView(result);
+    setClassName(result.className);
+  }
+
+  async function load(nextClass: string | null) {
+    const current = ++requestId.current;
+    applyLoaded(current, await fetchTeacherMarket(nextClass));
+  }
+
+  useEffect(() => {
+    const current = ++requestId.current;
+    void fetchTeacherMarket(null).then((result) => applyLoaded(current, result));
+    // Runs once when the panel opens.
+  }, []);
+
+  function chooseClass(next: string) {
+    setGroupEmails([]);
+    setOneStudent("");
+    setNotice("");
+    void load(next);
+  }
+
+  function buildTarget() {
+    if (!className) return null;
+    if (targetType === "all_classes") return { type: "all_classes" };
+    if (targetType === "class") return { className, type: "class" };
+
+    const emails = targetType === "student" ? (oneStudent ? [oneStudent] : []) : groupEmails;
+    return emails.length ? { className, studentEmails: emails, type: "students" } : null;
+  }
+
+  function targetDescription() {
+    if (targetType === "all_classes") return "all your classes";
+    if (targetType === "class") return className ?? "this class";
+    if (targetType === "student") {
+      return view?.students.find((s) => s.email === oneStudent)?.name ?? "one student";
+    }
+    return `${groupEmails.length} student${groupEmails.length === 1 ? "" : "s"}`;
+  }
+
+  async function send(body: Record<string, unknown>, success: (result: Record<string, unknown>) => string) {
+    setPending(true);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/teacher/market", {
+        body: JSON.stringify(body),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as Record<string, unknown> & { message?: string };
+
+      if (!response.ok) {
+        setNotice(result.message ?? "That market change couldn't be saved.");
+        return;
+      }
+
+      setNotice(success(result));
+      await load(className);
+    } catch {
+      setNotice("That market change couldn't be saved. Try again in a moment.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function makeChange(change: Record<string, unknown>, what: string) {
+    const target = buildTarget();
+
+    if (!target) {
+      setNotice(targetType === "student" ? "Choose a student first." : "Tick at least one student first.");
+      return;
+    }
+
+    const who = targetDescription();
+    void send({ action: "change", change, target }, (result) => {
+      const skipped = Array.isArray(result.skipped) && result.skipped.length
+        ? ` Skipped: ${(result.skipped as string[]).join(", ")}.`
+        : "";
+      return `${what} for ${who}. Students see the new prices now.${skipped}`;
+    });
+  }
+
+  if (!view) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <h3 className="text-lg font-semibold">Teacher market controls</h3>
+        <p className="mt-2 text-sm text-muted-foreground">{notice || "Loading your class markets…"}</p>
+      </div>
+    );
+  }
+
+  if (!view.className) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <h3 className="text-lg font-semibold">Teacher market controls</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          None of your classes have teacher market controls turned on. An admin can turn them on
+          in Market Engine.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Teacher market controls"
+      className="space-y-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">Teacher market controls</h3>
+          <p className="text-sm text-muted-foreground">
+            Changes are saved and apply to your students&apos; prices right away. They stay
+            until you undo them or reset the market to normal.
+          </p>
+        </div>
+        <TriangleAlert className="size-5 text-[#c44536]" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="teacher-market-class">Class market</Label>
+          <select
+            id="teacher-market-class"
+            className={nativeSelectClass}
+            value={view.className}
+            onChange={(event) => chooseClass(event.target.value)}
+          >
+            {view.classes.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="teacher-market-target">Who it applies to</Label>
+          <select
+            id="teacher-market-target"
+            className={nativeSelectClass}
+            value={targetType}
+            onChange={(event) => setTargetType(event.target.value as TeacherTargetType)}
+          >
+            <option value="class">This class</option>
+            <option value="all_classes">All my classes</option>
+            <option value="students">A group of students</option>
+            <option value="student">One student</option>
+          </select>
+        </div>
+      </div>
+
+      {targetType === "students" ? (
+        <fieldset className="rounded-md border border-border p-3">
+          <legend className="px-1 text-sm font-medium">Students in {view.className}</legend>
+          {view.students.length ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {view.students.map((student) => (
+                <label key={student.email} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    aria-label={student.name}
+                    checked={groupEmails.includes(student.email)}
+                    onCheckedChange={(checked) =>
+                      setGroupEmails((all) =>
+                        checked ? [...all, student.email] : all.filter((e) => e !== student.email)
+                      )
+                    }
+                  />
+                  {student.name}
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No students in this class yet.</p>
+          )}
+        </fieldset>
+      ) : null}
+
+      {targetType === "student" ? (
+        <div className="space-y-2">
+          <Label htmlFor="teacher-market-student">Student</Label>
+          <select
+            id="teacher-market-student"
+            className={nativeSelectClass}
+            value={oneStudent}
+            onChange={(event) => setOneStudent(event.target.value)}
+          >
+            <option value="">Choose a student…</option>
+            {view.students.map((student) => (
+              <option key={student.email} value={student.email}>
+                {student.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Symbol</TableHead>
+              <TableHead className="text-right">Class price</TableHead>
+              <TableHead className="text-right">Change</TableHead>
+              <TableHead>Move it {PRICE_STEP_LABEL}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {view.market.map((symbol) => (
+              <TableRow key={symbol.ticker}>
+                <TableCell>
+                  <span className="font-semibold">{symbol.ticker}</span>
+                  <span className="block text-xs text-muted-foreground">{symbol.name}</span>
+                </TableCell>
+                <TableCell className="text-right" data-testid={`class-price-${symbol.ticker}`}>
+                  {formatCurrency(symbol.price)}
+                </TableCell>
+                <TableCell className="text-right">{formatSignedPercent(symbol.changePercent)}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      aria-label={`Raise ${symbol.ticker}`}
+                      onClick={() =>
+                        makeChange({ direction: "raise", kind: "price", ticker: symbol.ticker }, `Raised ${symbol.ticker} 3%`)
+                      }
+                    >
+                      Raise
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      aria-label={`Lower ${symbol.ticker}`}
+                      onClick={() =>
+                        makeChange({ direction: "lower", kind: "price", ticker: symbol.ticker }, `Lowered ${symbol.ticker} 3%`)
+                      }
+                    >
+                      Lower
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Class prices show what the whole class sees. Changes for a group or one student
+          only change those students&apos; prices.
+        </p>
+      </div>
+
+      <div className="rounded-md border border-border p-3">
+        <h4 className="font-semibold">Strait of Hormuz scenario</h4>
+        <p className="mt-1 text-sm text-muted-foreground">
+          A major oil supply shock. Energy and oil-service symbols rise by the oil spike;
+          travel symbols fall because fuel costs rise.
+        </p>
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="hormuz-symbols">Affected symbols</Label>
+            <Input
+              id="hormuz-symbols"
+              value={hormuzSymbols}
+              onChange={(event) => setHormuzSymbols(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="oil-spike">Oil spike %</Label>
+            <Input
+              id="oil-spike"
+              max={60}
+              min={1}
+              type="number"
+              value={oilSpike}
+              onChange={(event) => setOilSpike(Number(event.target.value))}
+            />
+          </div>
+        </div>
+        <Button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            makeChange(
+              {
+                kind: "hormuz",
+                oilSpikePercent: oilSpike,
+                tickers: hormuzSymbols.split(",").map((t) => t.trim()).filter(Boolean),
+              },
+              "Strait of Hormuz scenario started"
+            )
+          }
+          className="mt-3 bg-[#c44536] text-white hover:bg-[#a9362a]"
+        >
+          <TriangleAlert className="size-4" aria-hidden="true" />
+          Trigger scenario
+        </Button>
+      </div>
+
+      {notice ? (
+        <p role="status" className="rounded-md bg-accent px-3 py-2 text-sm">
+          {notice}
+        </p>
+      ) : null}
+
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="font-semibold">Active changes in {view.className}</h4>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending || view.changes.length === 0}
+            onClick={() =>
+              void send(
+                { action: "reset", className: view.className },
+                () => `${view.className} is back to normal prices.`
+              )
+            }
+          >
+            Reset to normal
+          </Button>
+        </div>
+        {view.changes.length ? (
+          <ul className="mt-2 grid gap-2" aria-label="Active changes">
+            {view.changes.map((change) => (
+              <li
+                key={change.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <span>
+                  <strong>{change.label}</strong> · {change.appliesTo}
+                  <span className="block text-xs text-muted-foreground">
+                    {change.createdBy} · {new Date(change.createdAt).toLocaleString()}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  aria-label={`Undo ${change.label}`}
+                  onClick={() => void send({ action: "undo", changeId: change.id }, () => `Undid ${change.label}.`)}
+                >
+                  Undo
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            No active changes. Students see the normal class market.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+const PRICE_STEP_LABEL = "3%";
 
 function StocksInfoBox({
   holdings,
@@ -11507,18 +11762,6 @@ function formatCurrency(value: number) {
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
-}
-
-function applyQuoteMove(quote: MarketQuote, changePercent: number) {
-  const nextPrice = roundMoney(quote.price * (1 + changePercent / 100));
-
-  return {
-    ...quote,
-    changePercent: roundMoney(changePercent),
-    dayHigh: Math.max(quote.dayHigh, nextPrice),
-    dayLow: Math.min(quote.dayLow, nextPrice),
-    price: nextPrice,
-  };
 }
 
 function downloadIntegrationLogsZip(integration: IntegrationHealthMetric) {

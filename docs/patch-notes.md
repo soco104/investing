@@ -2,6 +2,27 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.8 — 2026-11-12
+
+### Teacher Market Controls
+
+- Teacher market changes **now apply to your students** and are **saved**.
+  Before, Raise/Lower and the Strait of Hormuz scenario only changed your own
+  screen.
+- On the **Market** page, use the **Teacher market controls** panel:
+  1. Pick the **Class market**.
+  2. Pick **Who it applies to**: this class, all my classes, a group of
+     students (tick their names), or one student.
+  3. Click **Raise** or **Lower** next to a symbol (3% each click), or set the
+     affected symbols and oil spike % and click **Trigger scenario**.
+- Students see the new price and your news line on their Market page, and
+  their trades use the changed price. Changes stack (two raises = about +6%).
+- **Active changes** lists what's in effect. Click **Undo** to remove one
+  change, or **Reset to normal** to clear them all for that class.
+- If a class isn't listed, its **Teacher controls** setting is off; an admin
+  can turn it on in **Market Simulator**. Admins can change any class's market.
+- Every change, undo and reset is recorded in the audit log.
+
 ## v0.2.7 — 2026-11-12
 
 ### View as Student (Admins)

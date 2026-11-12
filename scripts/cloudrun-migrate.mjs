@@ -267,6 +267,30 @@ try {
   await sql`alter table auth_sessions add column if not exists view_as_reason text`;
   await sql`alter table auth_sessions add column if not exists view_as_started_at timestamp`;
 
+  // Teacher market changes (raise/lower a price, scenarios). One row per
+  // class and symbol; student_user_ids_json null = the whole class, else only
+  // those students. Active until cleared; never deleted.
+  await sql`
+    create table if not exists market_adjustments (
+      id text primary key,
+      event_id text not null,
+      class_name text not null,
+      student_user_ids_json text,
+      ticker text not null,
+      percent numeric(8, 3) not null,
+      label text not null,
+      news text not null default '',
+      created_by_user_id text not null references app_users(id),
+      created_at timestamp not null,
+      cleared_at timestamp,
+      cleared_by_user_id text
+    )
+  `;
+  await sql`
+    create index if not exists market_adjustments_active_idx
+      on market_adjustments (class_name) where cleared_at is null
+  `;
+
   // School year dates per district ("MM-DD"); default Aug 28 – Jun 1.
   await sql`
     create table if not exists district_settings (

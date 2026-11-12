@@ -10,13 +10,13 @@ Every change gets a version bump and patch notes, **including small ones**
 
 - **Minor** (0.2.0 → 0.3.0): a new feature or noticeable change.
 - **Patch** (0.2.0 → 0.2.1): a bug fix, small tweak, or process/config update.
+- **Major** (→ 1.0.0): only when the owner says so (e.g. launching with real
+  schools).
 
 **The one exception: documentation-only changes** (e.g. `README.md`,
 `docs/roadmap.md`, deployment runbooks) don't need a version bump or patch
 notes. **But changes to `docs/user-manual.md` or `docs/admin-guide.md` always
 do** (patch bump), because teachers and admins rely on them.
-- **Major** (→ 1.0.0): only when the owner says so (e.g. launching with real
-  schools).
 
 When planning a change, include the version bump and a draft of its patch
 notes in the plan, so the owner can see what users will be told before the work
@@ -34,6 +34,11 @@ In the same pull request as the change:
    sections by feature area (e.g. `### Demo Login`). Write them for teachers and
    admins: what changed and how to use it, plus any settings to change.
 4. Put the version in the PR title, e.g. `v0.3.0: Add class leaderboard`.
+5. If the change affects anything `docs/user-manual.md` or
+   `docs/admin-guide.md` describes (screens, steps, settings, environment
+   variables, what is or isn't saved), update those guides too, and update the
+   version they say they describe. A pull request that changes app behavior
+   without checking the guides is not finished.
 
 If several small changes go in one pull request, they share one version and
 one patch notes entry.

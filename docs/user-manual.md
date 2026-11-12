@@ -1,15 +1,69 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins.
+district admins. It describes version 0.2.2; the version you are using is shown
+in small text at the bottom of every page.
+
+## What Is Saved in This Version
+
+FutureFund Classroom is still a prototype, and not everything you do is saved
+yet. Know which is which before using it with a class:
+
+**Saved** (kept after you refresh or sign out):
+
+- Signing in.
+- Everything in the Admin portal: users, permissions, schools, market
+  integrations, the Market Simulator's class settings, the Credential Vault,
+  support cases, password resets, portfolio corrections, and quest
+  import/export.
+
+**Not saved yet** (lost when the page is refreshed or you sign out):
+
+- Student simulated trades, allocation changes, and portfolio activity.
+- Inbox messages and discussion posts.
+- Quests created or edited in Quest Studio.
+- The teacher's quick Market page controls (raise/lower prices, Strait of
+  Hormuz scenario).
+
+Student and teacher dashboards, portfolios, class analytics, and messages start
+from built-in sample data rather than each person's real records.
+
+**Refreshing the page signs you out.** Sign in again to continue.
 
 ## Sign In
 
-Users sign in from the FutureFund Classroom login page with either district
-credentials or district SSO when configured.
+Users sign in from the FutureFund Classroom login page with their email and
+password. A **Continue with district SSO** button is shown; it works only once
+the district's identity provider has been connected (otherwise it shows a
+message saying SSO is not configured yet).
 
-Demo accounts may be available in non-production environments. Production
-district deployments should use persisted credentials or SSO.
+### Demo Login
+
+On demo sites, the **Email** field has a small arrow on its right. Click it and
+choose **Demo super user (all roles)** to fill in the demo email and password,
+then click **Sign in**. You can still type any email address into the field.
+
+Demo accounts have an extra step: after the password is accepted, the page asks
+a security question. Type the answer and click **Sign in** again. Capital
+letters and extra spaces don't matter. After five wrong answers, the account is
+locked for 15 minutes.
+
+Live district sites hide the demo option. Demo logins can be turned on or off
+by the site operator (see the Admin Guide).
+
+### Switching Role Views
+
+Users with access to more than one portal (for example the demo super user, or
+an Admin) can use the **Assume role** menu at the top right to switch between
+the Student, Teacher, and Admin views. The menu only lists views the account
+has permission to use.
+
+Note: when an Admin views the Student portal, the screens show sample student
+data, not a specific student's account.
+
+### Signing Out
+
+Click **Sign out** at the top right.
 
 ## Student Experience
 
@@ -76,9 +130,16 @@ Students can buy or sell simulated shares from this page using portfolio cash.
 Trades update available cash, add an entry to recent portfolio activity, and
 appear in the student's profile under the `Stocks` information box.
 
+In this version, trades are not saved: they reset when the page is refreshed.
+Prices on the Market page come from built-in classroom sample quotes.
+
 ### Messaging and Discussions
 
-Messaging is text-only. The app includes a first-pass profanity filter.
+Messaging is text-only. The app includes a first-pass profanity filter that
+blocks a message before it is sent.
+
+In this version, messages and discussion posts are not saved: they reset when
+the page is refreshed.
 
 Users should keep messages classroom appropriate. Teachers and admins may
 review escalated or blocked discussions according to district policy.
@@ -96,8 +157,8 @@ Teachers can:
 - Import or export quest templates when permitted.
 - View teacher profiles showing managed classes, authored quests, and inbox.
 - Message students and participate in classroom discussions.
-- Configure market simulator settings for assigned classes when district policy
-  allows teacher controls.
+- Use quick Market page controls to move prices and trigger a classroom
+  scenario.
 
 ### Active Students
 
@@ -123,27 +184,25 @@ Quest Studio lets teachers create learning quests with:
 
 Teachers should review hidden scoring rules before assigning a quest.
 
+In this version, quests created or edited in Quest Studio are not saved: they
+reset when the page is refreshed. Admins can save quests using quest
+import/export in the Admin portal.
+
 ### Teacher Class Market Controls
 
-When enabled, teachers can configure assigned class markets through the market
-simulator controls exposed by the platform.
+A class's market settings (simulation mode, scenario, volatility multiplier,
+starting cash, and allowed symbols) are set by an admin on the Admin portal's
+**Market Simulator** page. There is not yet a teacher screen for these
+settings; ask your admin to change them.
 
-Teachers may adjust:
-
-- Simulation mode.
-- Scenario.
-- Volatility multiplier.
-- Starting cash.
-- Allowed symbols.
-
-Market configuration changes are saved intentionally and audited. Draft edits
-do not take effect until saved.
-
-Teachers can also use the Market page for quick classroom scenario controls.
-They can raise or lower selected symbol prices and trigger the initial Strait of
+Teachers can use the Market page for quick classroom scenario controls. They
+can raise or lower selected symbol prices and trigger the initial Strait of
 Hormuz blockade scenario. The scenario creates a major oil-price shock against
 teacher-selected symbols, raising energy or oil-service symbols and lowering
 travel symbols that are negatively affected by fuel costs.
+
+In this version, these quick controls are not saved: they affect only the
+teacher's current screen and reset when the page is refreshed.
 
 ## Admin Experience
 
@@ -180,6 +239,7 @@ Admins can manage each class context:
 - Allowed symbols.
 
 Changes are edited locally first and applied only when `Save` is clicked.
+Saved changes are kept on the server and recorded in the audit log.
 
 ### Market Data Access
 
@@ -188,6 +248,9 @@ endpoint requires authentication and scopes access by class.
 
 Students can view only their own class market. Teachers can view managed
 classes. Admins can view district class markets.
+
+This endpoint is used by market integrations. The Market page itself currently
+shows built-in classroom sample quotes.
 
 ### Credential Vault
 

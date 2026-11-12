@@ -88,6 +88,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { APP_VERSION } from "@/lib/version";
 
 const allocation = [
   { name: "Index stocks", value: 44, color: "#28666e" },
@@ -4618,7 +4619,18 @@ export default function Home() {
           </TabsContent>
         </Tabs>
       </section>
+      <AppVersion />
     </main>
+  );
+}
+
+function AppVersion({ className }: { className?: string }) {
+  return (
+    <footer
+      className={`py-3 text-center text-[11px] text-muted-foreground/60 ${className ?? ""}`}
+    >
+      v{APP_VERSION}
+    </footer>
   );
 }
 
@@ -4674,7 +4686,7 @@ function LoginPage({
   }, []);
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="relative min-h-screen bg-background text-foreground">
       <section className="mx-auto grid min-h-screen max-w-6xl items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
         <div className="space-y-6">
           <div className="flex items-center gap-3">
@@ -4837,6 +4849,7 @@ function LoginPage({
 
         </section>
       </section>
+      <AppVersion className="absolute inset-x-0 bottom-0" />
     </main>
   );
 }

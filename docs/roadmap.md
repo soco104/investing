@@ -260,9 +260,17 @@ In v0.2.8:
 - **Add slurs and harassment terms.**
 - **District word list:** admins can add or remove words for their district.
 - **Flag, not just block:** messages suggesting bullying or that a student may
-  be at risk go to a teacher or designated staff member for review, not only
-  bounced back to the student. *Open question: who receives these flags in
-  each district (teacher, counselor, admin)?*
+  be at risk are flagged for review, not only bounced back to the student.
+  - **Flags go to the student's teacher first.**
+  - The teacher can **forward** a flagged message to the admins, and can add an
+    **email address** to the forward for someone outside the app (e.g. a
+    counselor or parent liaison).
+  - Every flag, forward, and email recipient is recorded in the audit log.
+  - Emailing requires an email delivery service, which the app doesn't have
+    yet (password resets need one too). Set one up before or with v0.2.8.
+  - Admins can limit which email domains forwards may go to (e.g. only the
+    district's own domain), since flagged messages contain student
+    information.
 - **Blocked messages go to the moderation queue**, so teachers and admins see
   attempts, not just delivered messages.
 

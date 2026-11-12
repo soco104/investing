@@ -169,6 +169,72 @@ const integrations = [
   },
 ];
 
+// Sample learning quests in the shared library, owned by Elena Rivera.
+const demoQuests = [
+  {
+    id: "quest-seed-diversification-drop",
+    title: "Ride out a market drop",
+    objective:
+      "Students rebalance a simulated portfolio after a broad market dip and explain how diversification changes risk.",
+    marketMode: "scenario",
+    marketSymbols: "SPY, QQQ, BND",
+    marketWindow: "10 trading days",
+    requireReflection: true,
+    scoreVisibility: "summary",
+    criteria: [
+      {
+        id: "risk-explanation",
+        label: "Explains risk tradeoffs using evidence",
+        points: 40,
+        visibleToStudents: true,
+      },
+      {
+        id: "rebalance-choice",
+        label: "Maintains diversified allocation after volatility",
+        points: 35,
+        visibleToStudents: false,
+      },
+      {
+        id: "reflection-quality",
+        label: "Connects decision to long-term goal",
+        points: 25,
+        visibleToStudents: true,
+      },
+    ],
+  },
+  {
+    id: "quest-seed-roth-lab",
+    title: "Open the Roth IRA lab",
+    objective:
+      "Students compare taxable investing with a Roth IRA simulation after earning summer income.",
+    marketMode: "watchlist",
+    marketSymbols: "VTI, VXUS, BND",
+    marketWindow: "1 school quarter",
+    requireReflection: true,
+    scoreVisibility: "hidden",
+    criteria: [
+      {
+        id: "eligibility",
+        label: "Identifies earned income eligibility",
+        points: 30,
+        visibleToStudents: false,
+      },
+      {
+        id: "compound-growth",
+        label: "Models compound growth over time",
+        points: 45,
+        visibleToStudents: true,
+      },
+      {
+        id: "tax-advantage",
+        label: "Describes tax-free qualified growth",
+        points: 25,
+        visibleToStudents: false,
+      },
+    ],
+  },
+];
+
 const classMarketConfigs = [
   {
     id: "class-market-7-finance-a",
@@ -522,6 +588,25 @@ try {
           configured_by_user_id = excluded.configured_by_user_id,
           last_health_check_at = excluded.last_health_check_at,
           updated_at = excluded.updated_at
+      `;
+    }
+
+    // Sample quests: inserted once, never overwritten, so a teacher's edits
+    // to them survive restarts.
+    for (const quest of demoQuests) {
+      await tx`
+        insert into learning_quests (
+          id, owner_user_id, title, objective, market_mode, market_symbols,
+          market_window, require_reflection, score_visibility, criteria_json,
+          created_at, updated_at
+        )
+        values (
+          ${quest.id}, 'user-elena-rivera', ${quest.title}, ${quest.objective},
+          ${quest.marketMode}, ${quest.marketSymbols}, ${quest.marketWindow},
+          ${quest.requireReflection}, ${quest.scoreVisibility},
+          ${JSON.stringify(quest.criteria)}, ${now}, ${now}
+        )
+        on conflict (id) do nothing
       `;
     }
 

@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.8; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.9; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -12,14 +12,14 @@ change that affects what it describes.
   Market Simulator class settings, Credential Vault entries, support cases,
   password resets (emailed to the user), email test sends, privacy posture,
   school year dates, class grade levels, portfolio corrections, portfolio
-  reset decisions, and teacher market changes (each change, undo and reset). Quest import/export records an audit entry only; the quests
-  themselves are not stored yet.
+  reset decisions, teacher market changes (each change, undo and reset), and
+  learning quests (saved, copied, assigned, imported, exported).
 - **Saved, not audited:** student portfolios (cash, stocks, trades, allocation
   targets, value history), for every class and school year; teachers' reset
   requests (the request itself is audited). Each portfolio keeps its own
-  activity history.
+  activity history. Students' quest submissions and the comments on them.
 - **On screen but not saved yet** (lost on refresh): messages and
-  discussions, and Quest Studio edits.
+  discussions.
 - **Sample data:** the Monitoring pages (open errors, slow calls, integration
   health), the teacher's class analytics and Active Students view, and the
   student sidebar figures (financial readiness, learning streak).
@@ -313,13 +313,32 @@ permission key, enabled state, actor, timestamp, and reason in the audit trail.
 
 ## 9. Learning Quest Administration
 
-Teachers create and modify learning quests from the Teacher portal. Admins can
-review templates and import/export learning quests for district reuse.
+Teachers create, save and assign learning quests from Quest Studio in the
+Teacher portal (see the user manual's Quest Studio section). Each quest is
+owned by the teacher who saved it; only its owner or an admin can edit or
+assign it. Every teacher can open **See library** to browse all saved quests
+and **Copy** one into their own. The Admin portal's quest templates table lists
+the whole library with each quest's owner.
 
-In this version, quests created or edited in Quest Studio are not saved (they
-reset on refresh). Quest import/export records an audit entry, but the quests
-themselves are not stored on the server yet; keep exported JSON files as the
-saved copy.
+How quests are stored and protected:
+
+- Quests, class assignments (with optional due dates), student submissions and
+  comments are saved in the database. Nothing is deleted.
+- Teachers can assign only to their own classes; admins can assign to any
+  class.
+- Students see only quests assigned to their own classes, and only the scoring
+  rules marked visible (none if the quest's score visibility is hidden).
+- A submission can be edited until the end of its due date (23:59 server
+  time). After that the server refuses edits; comments are still allowed.
+- Comments can be posted by the student who submitted, a teacher of that
+  class, or an admin. Reflections and comments go through the profanity
+  filter.
+- Saving, copying and assigning are audited (`quest.saved`, `quest.copied`,
+  `quest.assigned`). Submissions and comments made while an admin is viewing
+  as a student are recorded as `view_as.action`, and comments made that way
+  show the admin's name.
+- When demo data is enabled, two sample quests owned by the demo teacher
+  (Elena Rivera) are added to the library once; edits to them are kept.
 
 Quest configuration includes:
 
@@ -337,8 +356,13 @@ when students should know how to optimize the activity.
 
 ### Quest Import and Export
 
-Teachers and admins with `Quest import/export` rights can export quest templates
-as JSON and import valid quest JSON into the current template list.
+Teachers and admins with `Quest import/export` rights can export their own
+saved quests as JSON, and import quest JSON (one quest or a list of up to 50).
+Imported quests are checked (title, scoring rules, points) and saved to the
+importer's own quests as drafts; if any quest is invalid, none are saved and
+the message names the problem. Exports contain quest content only, never
+student submissions. Both are audited (`quest_templates.exported`,
+`quest_templates.imported`).
 
 Recommended process:
 
@@ -347,9 +371,6 @@ Recommended process:
    library.
 3. Import templates into the target environment.
 4. Review market parameters and scoring visibility before assigning to classes.
-
-Production imports should validate schema version, author, district ownership,
-and unsafe content before saving.
 
 Production imports and exports should use the same audit pattern as other admin
 mutations. Quest template movement is privileged because a scoring rubric or

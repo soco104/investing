@@ -32,6 +32,9 @@ export default async function globalSetup() {
         portfolio_corrections, student_portfolios, market_adjustments
     `;
     await sql`update class_market_configs set teacher_controls_enabled = true`;
+    // Quests: keep only the seeded sample quests (and reset their assignments).
+    await sql`truncate quest_submission_comments, quest_submissions, quest_assignments`;
+    await sql`delete from learning_quests where id not like 'quest-seed-%'`;
     await sql`delete from district_settings`;
     await sql`update class_market_configs set grade_level = null`;
   } finally {

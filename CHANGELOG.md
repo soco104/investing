@@ -7,6 +7,38 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.9] - 2026-11-12
+
+### Added
+- **Saved learning quests.** Quest Studio saves quests to the server; they
+  stay after a refresh or sign-out. Each quest belongs to the teacher who made
+  it.
+- **Quest library:** **See library** opens every teacher's saved quests as a
+  list; **Copy** adds one to your own quests to edit and assign. Two sample
+  quests are in the demo library.
+- **Assign quests** to one or more of your classes with an optional due date.
+  Assigned and Submitted counts are real.
+- **Students see their assigned quests** on their dashboard (replacing the
+  built-in sample quests), with the scoring rules marked visible, and submit a
+  reflection. They can edit it until the end of the due date; after that it's
+  locked.
+- **Comments** on every submission, for the student and their teacher (and
+  admins), before and after the due date.
+- Teachers see each class's students, submissions and comments under
+  **Submissions** for the selected quest.
+- Audit entries `quest.saved`, `quest.copied`, `quest.assigned`; view-as
+  actions on quests are recorded as `view_as.action`.
+- 6 unit tests for quest rules and 6 browser tests for the quest flows.
+
+### Changed
+- **Import** now saves imported quests to your quests (as drafts), and checks
+  each one first. **Export** downloads your saved quests.
+- Quest Studio's **Save draft** button is now **Save quest**. The Monitor
+  quests card shows Classes, Hidden and Submitted instead of sample averages.
+
+### Removed
+- The built-in sample quests on the student dashboard.
+
 ## [0.2.8] - 2026-11-12
 
 ### Added
@@ -185,6 +217,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.9]: https://github.com/soco104/investing/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/soco104/investing/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/soco104/investing/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/soco104/investing/compare/v0.2.5...v0.2.6

@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.6; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.7; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -103,7 +103,9 @@ the database, and also shows the demo option on the login page.
 
 Admins can use the **Assume role** menu in the app header to switch between the
 Student, Teacher, and Admin views their permissions allow. In the Student view,
-admins see sample student data rather than a specific student's account. Admin users do not need the left-side student or teacher profile card;
+admins see their own **Practice** portfolio. To see and work in a specific
+student's account, use **View as student** (section 14a). Admin users do not
+need the left-side student or teacher profile card;
 student and teacher users see role-appropriate profile content.
 
 The admin permission model currently tracks these permission categories:
@@ -131,6 +133,7 @@ The Admin portal contains the following operational modules:
 - Market APIs
 - Market Simulator
 - Credential Vault
+- View as student
 - School year
 - Email
 - Privacy posture
@@ -638,6 +641,44 @@ Production endpoint:
 
 The endpoint requires `Admin portal` permission and audits new support case
 creation with category, summary, requester, status, actor, and timestamp.
+
+## 14a. View as Student
+
+Use **View as student** to troubleshoot an issue a student or teacher reports
+(for example, "this student's trades aren't going through"). You use the app
+as that student, with all of their features.
+
+**To start:**
+
+1. Open **View as student** in the Admin portal.
+2. Enter the student's email and a reason (for example the support case or
+   what the teacher reported).
+3. Click **Start viewing as student**. The app reloads as the student.
+
+**While viewing:**
+
+- A banner across the top shows **Viewing as** the student, and you as the
+  admin, on every screen. It stays after a page refresh.
+- You have the student's full features: their portfolios, Market page,
+  trading, allocation, and so on. Admin pages aren't available until you exit.
+- **Actions you take are saved to the student's account**, and are marked in
+  their portfolio history as "By admin [your name] on the student's behalf",
+  so it's always clear what the student did versus what you did. The student
+  can see these entries.
+- There's no time limit. Viewing ends when you click **Exit** in the banner or
+  sign out (sign-in sessions still expire after 8 hours).
+
+**What's recorded:** starting (`view_as.started`, with your reason), each
+action (`view_as.action`), and exiting (`view_as.ended`), all in the audit log
+under your name. The student is **not notified** that you viewed their
+account; only actions you take appear in their history.
+
+**Limits:** only for active **student** accounts (not teachers or admins).
+Only users with the Admin role can start it.
+
+Endpoints: `POST /api/admin/view-as` (start: `studentEmail`, `reason`;
+`Admin portal` permission and Admin role) and `DELETE /api/admin/view-as`
+(exit).
 
 ## 15. Password Resets
 

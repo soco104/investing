@@ -1,4 +1,5 @@
 import { validateAllocationTargets } from "@/lib/portfolio-rules";
+import { recordAuditEvent } from "@/lib/server/audit";
 import { userFromRequest } from "@/lib/server/auth";
 import { portfolioErrorResponse, saveAllocationTargets } from "@/lib/server/portfolios";
 
@@ -24,6 +25,18 @@ export async function POST(request: Request) {
 
   try {
     const portfolio = await saveAllocationTargets(user, body.portfolioId, targets);
+
+    if (user.actingAdmin) {
+      await recordAuditEvent({
+        action: "view_as.action",
+        actor: user.actingAdmin,
+        context: { action: "allocation.saved", studentEmail: user.email, targets },
+        reason: "Action while viewing as student",
+        targetId: body.portfolioId,
+        targetType: "portfolio",
+      });
+    }
+
     return Response.json({ ok: true, portfolio });
   } catch (error) {
     return portfolioErrorResponse(error);

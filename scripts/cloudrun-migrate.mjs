@@ -262,6 +262,11 @@ try {
       completed_at timestamp
     )
   `;
+  // "View as student": an admin's session can point at a student account.
+  await sql`alter table auth_sessions add column if not exists view_as_user_id text references app_users(id)`;
+  await sql`alter table auth_sessions add column if not exists view_as_reason text`;
+  await sql`alter table auth_sessions add column if not exists view_as_started_at timestamp`;
+
   // School year dates per district ("MM-DD"); default Aug 28 – Jun 1.
   await sql`
     create table if not exists district_settings (

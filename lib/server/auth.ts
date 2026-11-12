@@ -29,6 +29,12 @@ export type AuthenticatedUser = {
   className: string;
   classNames: string[];
   permissions: Record<PermissionKey, boolean>;
+  /**
+   * Set while an admin is viewing the app as this student ("view as"). The
+   * request acts as the student; this is the admin actually doing it, so
+   * actions can be recorded as done by the admin on the student's behalf.
+   */
+  actingAdmin?: AuthenticatedUser;
 };
 
 export type SeedAuthUser = AuthenticatedUser & {
@@ -226,6 +232,13 @@ export async function userFromRequest(request: Request) {
   return verifySessionToken(token);
 }
 
+/** Hash of the request's session token, for updating the session itself. */
+export async function sessionTokenHashFromRequest(request: Request) {
+  const token = bearerToken(request) ?? cookieToken(request);
+
+  return token ? hashToken(token) : null;
+}
+
 export async function requirePermission(
   request: Request,
   permission: PermissionKey
@@ -334,7 +347,19 @@ async function verifySessionToken(token: string): Promise<AuthenticatedUser | nu
         return null;
       }
 
-      return findUserById(session.user_id);
+      const user = await findUserById(session.user_id);
+
+      // View as student: only for a signed-in admin, and only into an active
+      // student account. Otherwise the session acts as the admin.
+      if (user && session.view_as_user_id && user.role === "Admin") {
+        const student = await findUserById(session.view_as_user_id);
+
+        if (student && student.role === "Student") {
+          return { ...student, actingAdmin: user };
+        }
+      }
+
+      return user;
     }
 
     if (!isDemoAuthAllowed()) {

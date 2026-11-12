@@ -7,6 +7,22 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.7] - 2026-11-12
+
+### Added
+- **View as student:** admins enter a student's email and a reason to use the
+  app as that student, with the student's full features, to troubleshoot. A
+  banner shows who is viewing as whom, with **Exit**. No time limit; it ends
+  on Exit or sign-out.
+- Actions taken while viewing are saved to the student's account and marked
+  "By admin … on the student's behalf" in the portfolio history. Start, each
+  action, and exit are recorded in the audit log (`view_as.started`,
+  `view_as.action`, `view_as.ended`). The student is not notified of viewing.
+- 2 browser tests for view-as.
+
+### Changed
+- Portfolio activity shows trade details together with any note.
+
 ## [0.2.6] - 2026-11-12
 
 ### Added
@@ -148,6 +164,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.7]: https://github.com/soco104/investing/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/soco104/investing/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/soco104/investing/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/soco104/investing/compare/v0.2.3...v0.2.4

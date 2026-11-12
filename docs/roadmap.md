@@ -242,7 +242,7 @@ milestone the owner chooses.
 | v0.2.4 ✅ | Stay signed in across refresh; real sign-out; Privacy posture saves | Done |
 | v0.2.5 ✅ | Automated testing: browser test suite, CI with a test report on every pull request, bug log (GitHub issues) | Done |
 | v0.2.6 ✅ | Student profiles with class portfolios by school year (read-only after the year ends); server-checked trading with −/+ and amount box; fractional shares for grade 10+; school year setting; teacher → admin reset requests; practice portfolios for staff | Done |
-| v0.2.7 | Admin "view as student" by email, for troubleshooting | Medium |
+| v0.2.7 ✅ | Admin "view as student" by email, with full student features, banner and Exit, actions marked as by the admin, audited; no time limit; student not notified | Done |
 | v0.2.8 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
 | v0.2.9 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
 | v0.2.10 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |

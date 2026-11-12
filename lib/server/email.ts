@@ -19,7 +19,11 @@ import { recordEmailDelivery } from "@/lib/server/repository";
  * subject, status). Message bodies are never stored.
  */
 
-export type EmailKind = "password_reset" | "test" | "flagged_message_forward";
+export type EmailKind =
+  | "password_reset"
+  | "test"
+  | "flagged_message_forward"
+  | "portfolio_reset_decision";
 
 export type SendEmailInput = {
   html?: string;

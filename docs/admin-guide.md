@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.4; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.6; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -11,15 +11,19 @@ change that affects what it describes.
   disable), permissions, schools, market integrations and integration tests,
   Market Simulator class settings, Credential Vault entries, support cases,
   password resets (emailed to the user), email test sends, privacy posture,
-  and portfolio corrections. Quest import/export records an audit entry only; the quests
+  school year dates, class grade levels, portfolio corrections, and portfolio
+  reset decisions. Quest import/export records an audit entry only; the quests
   themselves are not stored yet.
-- **On screen but not saved yet** (lost on refresh): everything outside the
-  Admin portal: student trades and allocations,
-  messages and discussions, Quest Studio edits, and the teacher's Market page
-  price and scenario controls.
+- **Saved, not audited:** student portfolios (cash, stocks, trades, allocation
+  targets, value history), for every class and school year; teachers' reset
+  requests (the request itself is audited). Each portfolio keeps its own
+  activity history.
+- **On screen but not saved yet** (lost on refresh): messages and
+  discussions, Quest Studio edits, and the teacher's Market page price and
+  scenario controls.
 - **Sample data:** the Monitoring pages (open errors, slow calls, integration
-  health), and the student and teacher dashboards and analytics, show built-in
-  sample data.
+  health), the teacher's class analytics and Active Students view, and the
+  student sidebar figures (financial readiness, learning streak).
 - **Server endpoints with no screen yet:** moderation review, retention
   requests, backup/restore tests, incidents, SSO settings, and the audit log
   (sections 17, 18, 19, and 20).
@@ -127,6 +131,7 @@ The Admin portal contains the following operational modules:
 - Market APIs
 - Market Simulator
 - Credential Vault
+- School year
 - Email
 - Privacy posture
 - Password resets
@@ -465,9 +470,11 @@ Class market settings include:
 - Simulation mode
 - Scenario
 - Volatility multiplier
-- Starting cash
+- Starting cash (used when a student's portfolio for the class is created)
+- Grade level (grade 10 and above can trade fractional shares; leave it on
+  "From name" to read it from class names like "7th Grade Finance A")
 - Teacher controls enabled/disabled
-- Allowed symbols
+- Allowed symbols (also the symbols students can trade)
 - Allowed asset types
 
 Simulation modes:
@@ -518,10 +525,10 @@ Hormuz blockade`, which applies a large oil-price shock to teacher-selected
 symbols. Energy and oil-service symbols are raised, while travel symbols can be
 lowered to model increased fuel costs.
 
-In this version, the Market page shows built-in classroom sample quotes, and
-student trades and the teacher's price and scenario controls are not saved:
-they affect only the current screen and reset on refresh. They do not change
-the saved class market settings above.
+Students trade at the class's current simulated price, served by the
+central simulator; trades are checked and saved on the server (see section
+16a). The teacher's quick price and scenario controls are not saved yet: they
+affect only the teacher's screen and do not change what students trade at.
 
 Audit action:
 
@@ -716,14 +723,38 @@ permission.
 ## 16. Portfolio Corrections
 
 Use Portfolio corrections when a student's simulated portfolio needs an
-administrative adjustment, such as increasing or decreasing portfolio value
-after a classroom error or test scenario reset.
+administrative adjustment, such as increasing or decreasing its cash after a
+classroom error.
 
-Correction fields include:
+To apply one, open **Portfolio corrections** and enter:
 
-- Adjustment amount
-- Audit reason
-- Target simulated portfolio
+- **Student email**
+- **Class**, only if the student has portfolios in more than one class
+- **Cash adjustment** in dollars (use a minus sign to decrease)
+- **Audit reason**
+
+Click **Apply correction**. The correction applies to the student's portfolio
+for that class in the current school year. The page confirms the cash before
+and after. A correction can't make cash negative. Each correction is recorded
+in the portfolio's activity (the student sees it), the corrections table
+(before and after), and the audit log (`portfolio.corrected`).
+
+### Portfolio Reset Requests
+
+Teachers can't reset portfolios themselves; they request a reset from the
+Teacher dashboard, and an admin decides. Requests appear under **Portfolio
+reset requests** on the Portfolio corrections page, pending first, with the
+student, class, school year, who asked, and why.
+
+- **Approve reset:** the portfolio goes back to the class's starting cash
+  with no stocks. Nothing is deleted: a "Reset" entry in the portfolio's
+  history records what it held before.
+- **Deny:** the portfolio is unchanged.
+
+Add an optional note to the teacher. The teacher who asked is emailed the
+outcome (if email is set up; see section 15a). Requests, approvals, and
+denials are recorded in the audit log (`portfolio_reset.requested`,
+`portfolio_reset.approved`, `portfolio_reset.denied`).
 
 Operating rules:
 
@@ -734,13 +765,46 @@ Operating rules:
 - Do not use corrections to reward or penalize students outside the defined
   learning quest rules unless the district explicitly approves that policy.
 
-Production endpoint:
+Endpoints:
 
-- `POST /api/admin/portfolio-corrections`
+- `POST /api/admin/portfolio-corrections` (`Portfolio corrections`
+  permission): student email, optional class, amount, reason.
+- `GET/POST /api/admin/portfolio-resets` (`Admin portal` permission): the
+  reset queue, and approve/deny.
+- `GET/POST /api/portfolios/reset-requests` (`Teacher portal` permission):
+  a teacher's students and requests, and new requests (own classes only).
 
-The endpoint requires `Portfolio corrections` permission and audits the
-portfolio id, adjustment amount, before/after snapshots, actor, timestamp, and
-reason.
+## 16a. Student Portfolios and School Years
+
+**How portfolios are organized.** Each student has one long-term profile.
+Every class they're assigned to gets a portfolio per school year, created the
+first time they sign in that year, with that class's starting cash. Staff
+(teachers, admins) get a "Practice" portfolio for the Student view, which
+allows fractional shares.
+
+Portfolios are never deleted. After the school year's last day, that year's
+portfolios become **read-only records** that students can review but not
+trade in. This builds each student's multi-year record.
+
+**School year.** Open **School year** in the Admin portal to set the first and
+last day (default **August 28 – June 1**). Portfolios are labeled by school
+year (e.g. "2026–27"); summer dates count toward the upcoming year. Changes
+are audited (`school_year.updated`). Set this before the year starts: it
+decides which year new portfolios are labeled with, and when portfolios
+become read-only.
+
+**Trading rules** (enforced on the server):
+
+- Prices come from the class's simulated market; only that class's allowed
+  symbols can be traded.
+- No spending more cash than the portfolio has; no selling more than it holds.
+- Whole shares only, unless the class's grade level is 10 or above
+  (fractional shares, up to 4 decimal places).
+- No trading in read-only (ended) school years.
+
+Endpoints: `GET /api/portfolios` (the signed-in user's portfolios),
+`POST /api/portfolios/trade`, `POST /api/portfolios/allocation`,
+`GET/POST /api/admin/school-year`.
 
 ## 17. Monitoring and Logs
 
@@ -992,6 +1056,10 @@ Before a new class period or semester:
 - Review teacher permissions.
 - Delete or disable integrations for classes no longer in session.
 - Archive or reset class market contexts for classes no longer in session.
+- Confirm the **School year** dates for the new year. Last year's portfolios
+  become read-only records automatically after the last day.
+- Set each new class's **grade level** on the Market Simulator page if its
+  name doesn't include it (e.g. "High School Personal Finance").
 - Export reusable learning quest templates.
 - Review privacy posture before new integrations or vendors are added.
 
@@ -1006,7 +1074,7 @@ operating procedures:
   `DEMO_LOGINS` to `false`.
 - Save the pages that are not saved yet (see "What Is Saved in This Version").
 - Set up email (section 15a) and confirm a test email arrives.
-- Continue wiring student, teacher, quest, portfolio, and messaging reads to
+- Continue wiring teacher analytics, quest, and messaging reads to
   production server queries.
 - Enforce server-side authorization from the signed session on every protected
   route.

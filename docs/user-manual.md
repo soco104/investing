@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.4; the version you are using is shown
+district admins. It describes version 0.2.6; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -13,6 +13,8 @@ yet. Know which is which before using it with a class:
 
 - Signing in. You stay signed in when you refresh the page (see Staying Signed
   In below).
+- Student portfolios: cash, stocks, trades, allocation targets, and the
+  portfolio history for every class and school year.
 - Everything in the Admin portal: users, permissions, schools, market
   integrations, the Market Simulator's class settings, the Credential Vault,
   support cases, password resets, email, privacy posture, and portfolio
@@ -22,14 +24,14 @@ yet. Know which is which before using it with a class:
 
 **Not saved yet** (lost when the page is refreshed or you sign out):
 
-- Student simulated trades, allocation changes, and portfolio activity.
 - Inbox messages and discussion posts.
 - Quests created or edited in Quest Studio.
 - The teacher's quick Market page controls (raise/lower prices, Strait of
   Hormuz scenario).
 
-Student and teacher dashboards, portfolios, class analytics, and messages start
-from built-in sample data rather than each person's real records.
+Some screens still show built-in sample data rather than real records: the
+teacher's class analytics and Active Students view, messages, quests, and the
+sidebar figures (financial readiness, learning streak).
 
 
 ## Sign In
@@ -111,15 +113,36 @@ portfolio task, and scoring rules.
 Some scoring rules may be hidden. Hidden rules are used for teacher assessment
 and are not shown to students unless the teacher or admin makes them visible.
 
+### Your Profile and Portfolios
+
+Each student has **one profile** that stays with them across school years. Inside
+it, every class you're assigned to gets **its own portfolio for each school
+year** (for example "7th Grade Finance A · 2026–27"). Over time, your profile
+builds a record of every portfolio you've managed, which you can look back on,
+review, and present.
+
+- A new class portfolio is created the first time you sign in during the school
+  year. It starts with your class's **starting cash** (set by your district).
+- When the school year ends, that year's portfolios become **read-only
+  records**: you can still open and review them, but not trade in them.
+- Teachers and admins see a **Practice portfolio** in the Student view, so they
+  can try the student experience without affecting any student.
+
 ### Simulated Portfolio
 
-The portfolio page shows:
+Open the Portfolio page from **Portfolio value** on the Home page. It shows:
 
-- Current simulated portfolio value.
-- Historical value chart.
-- Asset allocation.
-- Recent activity.
-- Allocation change controls.
+- Which portfolio you're viewing (class and school year).
+- Current portfolio value: your cash plus your stocks at today's class prices.
+- A value chart built from your saved history (one point per day).
+- Your allocation targets, and recent activity (trades, corrections, resets).
+- **Your portfolios**: every portfolio on your profile, by school year, with
+  its value, gain or loss, number of trades, and whether it's current or a
+  read-only record. Click **View** to open an older one.
+
+To change your **allocation targets**, move the sliders and click **Save
+allocation**. Targets that don't add up to 100% are saved as a draft for your
+teacher to review.
 
 Portfolio values are educational simulations. They may use delayed market data,
 teacher-defined scenarios, or a frozen classroom market selected by the
@@ -142,17 +165,28 @@ Students can only view their own class market context.
 
 ### Market Page
 
-The Market page is available to students and teachers. It shows classroom-safe
-live market data in a quote table with price cells colored green for gains and
-red for losses. Each row includes the symbol, price, daily range, movement, and
-latest classroom news for that symbol.
+The Market page is available to students and teachers. It shows your class's
+simulated market prices in a quote table with price cells colored green for
+gains and red for losses. Each row includes the symbol, price, movement, a
+trade box, the daily range, and classroom news for that symbol. The label at
+the top shows which portfolio you're trading in.
 
-Students can buy or sell simulated shares from this page using portfolio cash.
-Trades update available cash, add an entry to recent portfolio activity, and
-appear in the student's profile under the `Stocks` information box.
+**To trade:**
 
-In this version, trades are not saved: they reset when the page is refreshed.
-Prices on the Market page come from built-in classroom sample quotes.
+1. Set how many shares: click **−** or **+** to change the amount by one, or
+   type a number in the box.
+2. Click **Buy** or **Sell**.
+
+Trades use the class's current price and are checked by the server: you can't
+spend more cash than you have, or sell more shares than you own. A message
+above the table confirms each trade or explains why it didn't go through.
+
+**Whole or fractional shares:** classes for grade 10 and above can trade
+fractional shares (up to 4 decimal places, e.g. 2.5 or 0.125). Grades 6–9
+trade whole shares only. The note at the top of the page says which applies.
+
+Trades are saved: they appear in your portfolio's activity and value history,
+and in your profile's **Stocks** box.
 
 ### Messaging and Discussions
 
@@ -224,7 +258,25 @@ teacher-selected symbols, raising energy or oil-service symbols and lowering
 travel symbols that are negatively affected by fuel costs.
 
 In this version, these quick controls are not saved: they affect only the
-teacher's current screen and reset when the page is refreshed.
+teacher's current screen and reset when the page is refreshed. Students trade
+at the class's saved market prices, not the teacher's on-screen changes.
+
+### Requesting a Portfolio Reset
+
+If a student's class portfolio needs to start over (for example, they traded
+during a test window), ask an admin to reset it:
+
+1. On the Teacher dashboard, find **Portfolio resets** and click **Request
+   portfolio reset**.
+2. Choose the student (only students in your classes are listed) and give a
+   reason.
+3. Click **Send request**.
+
+An admin approves or denies the request, and you get an email with the
+outcome. The status also shows under **Portfolio resets**. An approved reset
+puts the portfolio back to the class's starting cash; everything before the
+reset stays in the portfolio's history. Only one request per portfolio can be
+waiting at a time.
 
 ## Admin Experience
 
@@ -242,7 +294,9 @@ Admins can:
 - Select privacy posture.
 - Review monitoring, logs, and integration health.
 - Trigger password resets.
-- Apply audited simulated portfolio corrections.
+- Set the school year dates.
+- Apply audited corrections to a student's portfolio cash, and approve or deny
+  teachers' portfolio reset requests.
 - Import/export learning quests.
 
 ### Market Simulator
@@ -256,7 +310,9 @@ Admins can manage each class context:
 - Simulation mode.
 - Scenario.
 - Volatility multiplier.
-- Starting cash.
+- Starting cash (for new portfolios in that class).
+- Grade level (grade 10 and above can trade fractional shares; "From name"
+  reads it from class names like "7th Grade Finance A").
 - Teacher controls.
 - Allowed symbols.
 

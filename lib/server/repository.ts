@@ -329,7 +329,7 @@ export async function listAdminState() {
       sql`
       select class_name, simulation_mode, allowed_asset_types_json,
         allowed_symbols_csv, event_scenario, volatility_multiplier,
-        starting_cash_cents, teacher_controls_enabled, updated_at
+        starting_cash_cents, teacher_controls_enabled, grade_level, updated_at
       from class_market_configs
       order by updated_at desc
       limit 100

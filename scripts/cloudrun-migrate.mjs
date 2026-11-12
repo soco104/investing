@@ -262,6 +262,106 @@ try {
       completed_at timestamp
     )
   `;
+  // School year dates per district ("MM-DD"); default Aug 28 – Jun 1.
+  await sql`
+    create table if not exists district_settings (
+      district_id text primary key references districts(id),
+      school_year_start text not null default '08-28',
+      school_year_end text not null default '06-01',
+      updated_by_user_id text,
+      updated_at timestamp not null
+    )
+  `;
+  // Grade level per class (decides fractional shares). Null = not set.
+  await sql`
+    alter table class_market_configs add column if not exists grade_level integer
+  `;
+
+  // Student portfolios: one per student, per class, per school year (kind
+  // 'class'), plus 'practice' portfolios for staff. Never deleted: past years
+  // are the student's multi-year record. Money in cents; quantities in units
+  // of 1/10,000 share.
+  await sql`
+    create table if not exists student_portfolios (
+      id text primary key,
+      user_id text not null references app_users(id),
+      class_name text not null,
+      school_year text not null,
+      kind text not null default 'class',
+      starting_cash_cents bigint not null,
+      cash_cents bigint not null,
+      reset_count integer not null default 0,
+      created_at timestamp not null,
+      updated_at timestamp not null,
+      unique (user_id, class_name, school_year, kind)
+    )
+  `;
+  await sql`
+    create table if not exists portfolio_holdings (
+      portfolio_id text not null references student_portfolios(id),
+      ticker text not null,
+      name text not null,
+      quantity_units bigint not null,
+      average_cost_cents numeric(18, 4) not null,
+      updated_at timestamp not null,
+      primary key (portfolio_id, ticker)
+    )
+  `;
+  await sql`
+    create table if not exists portfolio_activity (
+      id text primary key,
+      portfolio_id text not null references student_portfolios(id),
+      kind text not null,
+      ticker text,
+      quantity_units bigint,
+      price_cents bigint,
+      amount_cents bigint,
+      cash_after_cents bigint,
+      note text not null default '',
+      actor_user_id text,
+      created_at timestamp not null
+    )
+  `;
+  await sql`
+    create index if not exists portfolio_activity_portfolio_idx
+      on portfolio_activity (portfolio_id, created_at desc)
+  `;
+  await sql`
+    create table if not exists portfolio_allocation_targets (
+      portfolio_id text primary key references student_portfolios(id),
+      targets_json text not null,
+      updated_at timestamp not null
+    )
+  `;
+  await sql`
+    create table if not exists portfolio_value_snapshots (
+      id text primary key,
+      portfolio_id text not null references student_portfolios(id),
+      value_cents bigint not null,
+      cash_cents bigint not null,
+      recorded_at timestamp not null
+    )
+  `;
+  await sql`
+    create index if not exists portfolio_value_snapshots_portfolio_idx
+      on portfolio_value_snapshots (portfolio_id, recorded_at)
+  `;
+  // Teacher-requested portfolio resets, approved or denied by an admin.
+  await sql`
+    create table if not exists portfolio_reset_requests (
+      id text primary key,
+      portfolio_id text not null references student_portfolios(id),
+      student_user_id text not null references app_users(id),
+      requested_by_user_id text not null references app_users(id),
+      reason text not null,
+      status text not null default 'pending',
+      decided_by_user_id text,
+      decision_note text,
+      created_at timestamp not null,
+      decided_at timestamp
+    )
+  `;
+
   // Email delivery log. Stores who/what/status only, never message bodies,
   // because emails can contain student information.
   await sql`

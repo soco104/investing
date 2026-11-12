@@ -241,7 +241,7 @@ milestone the owner chooses.
 | v0.2.3 ✅ | Email system (Resend), Admin Email page, password resets that work end to end, guides' quest import/export claim corrected | Done |
 | v0.2.4 ✅ | Stay signed in across refresh; real sign-out; Privacy posture saves | Done |
 | v0.2.5 ✅ | Automated testing: browser test suite, CI with a test report on every pull request, bug log (GitHub issues) | Done |
-| v0.2.6 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
+| v0.2.6 ✅ | Student profiles with class portfolios by school year (read-only after the year ends); server-checked trading with −/+ and amount box; fractional shares for grade 10+; school year setting; teacher → admin reset requests; practice portfolios for staff | Done |
 | v0.2.7 | Admin "view as student" by email, for troubleshooting | Medium |
 | v0.2.8 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
 | v0.2.9 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
@@ -289,3 +289,27 @@ In v0.2.10:
   groundwork for the **teacher life events** goal above.
 - **Students are told** about teacher visibility and the 90-day rule in the
   Inbox and in the User Manual.
+
+## Goal: Presentable portfolio summary for college credit
+
+**Added:** 2026-11-12 · **Status:** to evaluate
+
+Students build a multi-year record (one portfolio per class per school year,
+kept as read-only records since v0.2.6). The goal is a summary they can
+**present or submit for college credit**:
+
+- A printable / PDF report covering every school year: classes, starting cash,
+  final value, gain or loss, trades, allocation decisions, and teacher-graded
+  work (once quests and debriefs are saved).
+- A shareable, read-only link (with student and district consent) for
+  reviewers such as dual-enrollment programs or admissions.
+- Student reflections per year, so the record shows reasoning, not just
+  numbers.
+
+### Open questions
+
+- What do partner colleges or credit programs require (format, signatures,
+  teacher verification)?
+- Who can generate and share the report: the student, the teacher, or both?
+- How long are records kept after a student graduates or leaves the district?
+

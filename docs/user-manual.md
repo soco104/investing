@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.8; the version you are using is shown
+district admins. It describes version 0.2.9; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -17,21 +17,20 @@ yet. Know which is which before using it with a class:
   portfolio history for every class and school year.
 - Teacher market controls: price raises and lowers and the Strait of Hormuz
   scenario, until the teacher undoes them or resets the market.
+- Learning quests: quests saved in Quest Studio, imported quests, class
+  assignments and due dates, student submissions, and comments.
 - Everything in the Admin portal: users, permissions, schools, market
   integrations, the Market Simulator's class settings, the Credential Vault,
   support cases, password resets, email, privacy posture, and portfolio
-  corrections. (Quest
-  import/export records an audit entry, but the quests themselves are not
-  stored yet.)
+  corrections.
 
 **Not saved yet** (lost when the page is refreshed or you sign out):
 
 - Inbox messages and discussion posts.
-- Quests created or edited in Quest Studio.
 
 Some screens still show built-in sample data rather than real records: the
-teacher's class analytics and Active Students view, messages, quests, and the
-sidebar figures (financial readiness, learning streak).
+teacher's class analytics and Active Students view (including its quest
+progress figures), messages, and the sidebar figures (financial readiness, learning streak).
 
 
 ## Sign In
@@ -104,7 +103,8 @@ accounts, or provide financial advice.
 Students can:
 
 - View their dashboard and learning progress.
-- Open learning quests.
+- Open the learning quests assigned to their class, submit a reflection, and
+  comment on their submission.
 - Review a simulated portfolio.
 - Adjust allocation targets.
 - View recent simulated trades or portfolio changes.
@@ -114,11 +114,27 @@ Students can:
 
 ### Learning Quests
 
-Learning quests are teacher-created activities with an objective, instructions,
-portfolio task, and scoring rules.
+Learning quests are activities your teacher assigns to your class. The
+**Learning quests** card on your dashboard lists them with the class, the due
+date, and a status: **To do**, **Submitted**, **Submitted · locked** (the due
+date has passed), or **Past due** (not submitted, and the due date has
+passed). If none are assigned yet, it says so.
 
-Some scoring rules may be hidden. Hidden rules are used for teacher assessment
-and are not shown to students unless the teacher or admin makes them visible.
+Click **Open quest** to see the objective, any market setup, and how it's
+scored. Some scoring rules may be hidden: they're used for teacher assessment
+and are only shown if your teacher makes them visible.
+
+To turn in your work:
+
+1. Write your answer in **Your reflection** (or **Your response**).
+2. Click **Submit**. Your teacher can see it right away.
+3. Until the end of the due date, you can change it and click **Save changes**.
+   After the due date, your submission is locked and can't be changed.
+
+Once you've submitted, a **Comments** section appears under your work. You and
+your teacher can post comments there at any time, including after the due
+date. Reflections and comments with language that isn't allowed are refused;
+edit and try again.
 
 ### Your Profile and Portfolios
 
@@ -215,7 +231,8 @@ Teachers can:
 - View class-level student performance.
 - Open student performance details.
 - Review quest progress.
-- Create and modify learning quests.
+- Create, save, copy, and assign learning quests, and read and comment on
+  student submissions.
 - Import or export quest templates when permitted.
 - View teacher profiles showing managed classes, authored quests, and inbox.
 - Message students and participate in classroom discussions.
@@ -246,10 +263,37 @@ Quest Studio lets teachers create learning quests with:
 
 Teachers should review hidden scoring rules before assigning a quest.
 
-In this version, quests created or edited in Quest Studio are not saved: they
-reset when the page is refreshed. Quest export downloads a copy you can keep
-and import again later, but imported quests are also not saved on the server
-yet.
+**Saving.** Click **New quest** to start one, fill it in, and click **Save
+quest**. Your saved quests are listed under **Monitor quests**; click one to
+open it in the editor, change it, and click **Save quest** again. You can only
+edit your own quests.
+
+**The library.** Click **See library** to open a list of every teacher's saved
+quests (click **Hide library** to close it). Click **Copy** next to a quest to
+add a copy to your own quests; the copy opens in the editor so you can change
+it before assigning. Copying never changes the original.
+
+**Assigning.** With a saved quest open, click **Assign** (or **Assign quest**
+on the class roster). Tick one or more of your classes, optionally choose a
+**Due date**, and click **Assign quest**. Students in those classes see the
+quest on their dashboard right away. Assigning the quest to the same class
+again changes its due date. Students can edit their submission until the end
+of the due date; after that it's locked and only comments can be added.
+
+**Submissions.** Under **Monitor quests**, each quest shows how many classes
+it's assigned to, how many scoring rules are hidden, and how many students
+have submitted. Click a quest to see **Submissions**: for each assigned class,
+every student, whether they've submitted (and whether they edited it), and
+what they wrote. Use the **Comments** box under a submission to reply; the
+student sees your comment when they open the quest. Grading submissions with
+the rubric is planned for a later update.
+
+**Import and export** (if you have the Quest import/export permission):
+**Export** fills the box with your saved quests as JSON, to keep or share.
+To import, paste quest JSON (one quest or a list) and click **Import**; the
+quests are checked and saved to your own quests as drafts. If any quest is
+invalid (for example, it has no title), nothing is imported and the message
+says which one to fix.
 
 ### Teacher Class Market Controls
 

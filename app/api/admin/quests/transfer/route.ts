@@ -1,13 +1,15 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
+import { exportQuests, importQuests, questErrorResponse } from "@/lib/server/quests";
 
 type QuestTransferRequest = {
   action: "export" | "import";
-  count?: number;
   payload?: unknown;
   reason?: string;
 };
 
+// Export your saved quests as JSON, or import quests into your own quests
+// (saved as drafts). Both are audited. Since v0.2.9 imports are stored.
 export async function POST(request: Request) {
   const { response, user } = await requirePermission(request, "questImportExport");
 
@@ -15,7 +17,7 @@ export async function POST(request: Request) {
     return response;
   }
 
-  const body = (await request.json()) as QuestTransferRequest;
+  const body = (await request.json().catch(() => ({}))) as QuestTransferRequest;
 
   if (body.action !== "export" && body.action !== "import") {
     return Response.json(
@@ -24,20 +26,32 @@ export async function POST(request: Request) {
     );
   }
 
-  const audit = await recordAuditEvent({
-    action:
-      body.action === "export"
-        ? "quest_templates.exported"
-        : "quest_templates.imported",
-    actor: user,
-    context: {
-      count: body.count ?? 0,
-      payloadType: body.payload ? typeof body.payload : "none",
-    },
-    reason: body.reason,
-    targetId: `quest-transfer-${Date.now()}`,
-    targetType: "learning_quest_template",
-  });
+  try {
+    if (body.action === "export") {
+      const quests = await exportQuests(user);
+      const audit = await recordAuditEvent({
+        action: "quest_templates.exported",
+        actor: user,
+        context: { count: quests.length },
+        reason: body.reason,
+        targetId: `quest-transfer-${Date.now()}`,
+        targetType: "learning_quest_template",
+      });
+      return Response.json({ audit, ok: true, quests });
+    }
 
-  return Response.json({ audit, ok: true, persisted: true }, { status: 201 });
+    const result = await importQuests(user, body.payload);
+    const audit = await recordAuditEvent({
+      action: "quest_templates.imported",
+      actor: user,
+      context: { count: result.count, questIds: result.ids },
+      reason: body.reason,
+      targetId: `quest-transfer-${Date.now()}`,
+      targetType: "learning_quest_template",
+    });
+
+    return Response.json({ audit, ok: true, persisted: true, ...result }, { status: 201 });
+  } catch (error) {
+    return questErrorResponse(error);
+  }
 }

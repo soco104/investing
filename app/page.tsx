@@ -162,100 +162,6 @@ const basePortfolio = [
   { month: "Mar", value: 1326 },
 ];
 
-type StudentQuest = {
-  title: string;
-  concept: string;
-  points: number;
-  progress: number;
-  status: string;
-  objective: string;
-  scenario: string;
-  marketSetup?: string;
-  portfolioTask: string;
-  steps: string[];
-  visibleScoring: Array<{ label: string; points: number }>;
-  deliverable: string;
-};
-
-const missions: StudentQuest[] = [
-  {
-    title: "Build a first budget",
-    concept: "Needs, wants, savings",
-    points: 140,
-    progress: 90,
-    status: "Ready to submit",
-    objective:
-      "Create a simple monthly plan that covers needs first, sets aside savings, and leaves room for one want.",
-    scenario:
-      "You earned $120 from weekend work and need to plan how it moves through your wallet before investing anything.",
-    portfolioTask:
-      "Move money into cash buffer, savings goal, and long-term investing buckets.",
-    steps: [
-      "Sort the expenses into needs, wants, and savings.",
-      "Keep at least 20% in savings before choosing investments.",
-      "Explain one tradeoff you made and why it fits your goal.",
-    ],
-    visibleScoring: [
-      { label: "Budget covers required expenses", points: 45 },
-      { label: "Savings choice supports the goal", points: 45 },
-      { label: "Reflection explains the tradeoff", points: 50 },
-    ],
-    deliverable: "Submit your budget split and one short reflection.",
-  },
-  {
-    title: "Ride out a market drop",
-    concept: "Risk and diversification",
-    points: 210,
-    progress: 68,
-    status: "In progress",
-    objective:
-      "Use diversification to respond to market volatility without chasing short-term panic decisions.",
-    scenario:
-      "Growth stocks fell this week, but bonds and cash stayed steadier. Your goal is still five years away.",
-    marketSetup:
-      "Watchlist: SPY, QQQ, BND. Scenario window: 10 trading days after a broad market dip.",
-    portfolioTask:
-      "Rebalance the simulated portfolio while keeping risk aligned with the goal timeline.",
-    steps: [
-      "Review how each asset moved during the market day.",
-      "Choose whether to rebalance, hold, or move more into cash.",
-      "Explain how diversification changed the portfolio outcome.",
-    ],
-    visibleScoring: [
-      { label: "Identifies which assets changed risk", points: 60 },
-      { label: "Decision fits the five-year goal", points: 70 },
-      { label: "Reflection uses portfolio evidence", points: 80 },
-    ],
-    deliverable: "Submit your portfolio choice and risk explanation.",
-  },
-  {
-    title: "Open the Roth IRA lab",
-    concept: "Earned income and tax growth",
-    points: 180,
-    progress: 42,
-    status: "Next lesson",
-    objective:
-      "Compare a regular investing account with a Roth IRA simulation and explain why eligibility matters.",
-    scenario:
-      "You earned summer income and can choose how much to place in a retirement lab for long-term growth.",
-    marketSetup:
-      "Watchlist: VTI, VXUS, BND. Time horizon: one school quarter projected into retirement.",
-    portfolioTask:
-      "Allocate simulated earned income between spending, savings, and the Roth IRA lab.",
-    steps: [
-      "Confirm the money came from earned income in the scenario.",
-      "Choose a contribution amount that still leaves short-term savings.",
-      "Compare taxable growth with Roth IRA qualified growth.",
-    ],
-    visibleScoring: [
-      { label: "Understands earned income eligibility", points: 50 },
-      { label: "Contribution choice keeps a balanced plan", points: 55 },
-      { label: "Explains long-term tax-free growth", points: 75 },
-    ],
-    deliverable: "Submit your Roth IRA lab contribution and comparison.",
-  },
-];
-
 const marketWatch = [
   { ticker: "SPY", label: "S&P 500 ETF", move: "+0.7%", tone: "up" },
   { ticker: "QQQ", label: "Growth ETF", move: "-0.4%", tone: "down" },
@@ -659,7 +565,74 @@ type TeacherQuest = {
   submitted: number;
   avgScore: number;
   flagged: number;
+  // From the server (v0.2.9). A draft that was never saved has saved false.
+  saved?: boolean;
+  isMine?: boolean;
+  ownerName?: string;
+  assignments?: Array<{ className: string; dueAt: string | null; id: string }>;
 };
+
+// A saved quest from /api/quests (see lib/server/quests.ts).
+type ServerQuest = Omit<TeacherQuest, "avgScore" | "flagged" | "saved"> & {
+  isMine: boolean;
+  ownerName: string;
+  assignments: Array<{ className: string; dueAt: string | null; id: string }>;
+};
+
+function toTeacherQuest(quest: ServerQuest): TeacherQuest {
+  return { ...quest, avgScore: 0, flagged: 0, saved: true };
+}
+
+function newQuestDraft(): TeacherQuest {
+  return {
+    id: `draft-${Date.now()}`,
+    title: "New learning quest",
+    objective:
+      "Students will make a simulated financial decision and justify it with evidence.",
+    marketMode: "none",
+    marketSymbols: "",
+    marketWindow: "No market window",
+    requireReflection: true,
+    scoreVisibility: "summary",
+    criteria: [
+      {
+        id: "decision-quality",
+        label: "Decision matches the learning objective",
+        points: 40,
+        visibleToStudents: true,
+      },
+      {
+        id: "teacher-hidden-signal",
+        label: "Teacher-only misconception check",
+        points: 30,
+        visibleToStudents: false,
+      },
+      {
+        id: "reflection",
+        label: "Reflection uses portfolio evidence",
+        points: 30,
+        visibleToStudents: true,
+      },
+    ],
+    status: "Draft",
+    assigned: 0,
+    submitted: 0,
+    avgScore: 0,
+    flagged: 0,
+    saved: false,
+  };
+}
+
+async function fetchQuests(scope: "mine" | "library") {
+  const response = await fetch(`/api/quests?scope=${scope}`, { credentials: "same-origin" });
+  const result = (await response.json()) as { message?: string; quests?: ServerQuest[] };
+
+  if (!response.ok || !result.quests) {
+    throw new Error(result.message ?? "Quests couldn't be loaded.");
+  }
+
+  return result.quests.map(toTeacherQuest);
+}
 
 type ConversationMessage = {
   id: string;
@@ -874,6 +847,8 @@ type AuthenticatedUser = {
   alias: string;
   role: AdminUser["role"];
   className: string;
+  // Every class the user is assigned to (from the server).
+  classNames?: string[];
   permissions: AdminUser["permissions"];
   // Set while an admin is viewing the app as this student.
   actingAdmin?: { email: string; firstName: string; lastName: string };
@@ -1444,81 +1419,6 @@ const privacyPostures = [
   },
 ];
 
-const initialTeacherQuests: TeacherQuest[] = [
-  {
-    id: "quest-diversification-drop",
-    title: "Ride out a market drop",
-    objective:
-      "Students rebalance a simulated portfolio after a broad market dip and explain how diversification changes risk.",
-    marketMode: "scenario",
-    marketSymbols: "SPY, QQQ, BND",
-    marketWindow: "10 trading days",
-    requireReflection: true,
-    scoreVisibility: "summary",
-    criteria: [
-      {
-        id: "risk-explanation",
-        label: "Explains risk tradeoffs using evidence",
-        points: 40,
-        visibleToStudents: true,
-      },
-      {
-        id: "rebalance-choice",
-        label: "Maintains diversified allocation after volatility",
-        points: 35,
-        visibleToStudents: false,
-      },
-      {
-        id: "reflection-quality",
-        label: "Connects decision to long-term goal",
-        points: 25,
-        visibleToStudents: true,
-      },
-    ],
-    status: "Assigned",
-    assigned: 31,
-    submitted: 22,
-    avgScore: 84,
-    flagged: 3,
-  },
-  {
-    id: "quest-roth-lab",
-    title: "Open the Roth IRA lab",
-    objective:
-      "Students compare taxable investing with a Roth IRA simulation after earning summer income.",
-    marketMode: "watchlist",
-    marketSymbols: "VTI, VXUS, BND",
-    marketWindow: "1 school quarter",
-    requireReflection: true,
-    scoreVisibility: "hidden",
-    criteria: [
-      {
-        id: "eligibility",
-        label: "Identifies earned income eligibility",
-        points: 30,
-        visibleToStudents: false,
-      },
-      {
-        id: "compound-growth",
-        label: "Models compound growth over time",
-        points: 45,
-        visibleToStudents: true,
-      },
-      {
-        id: "tax-advantage",
-        label: "Describes tax-free qualified growth",
-        points: 25,
-        visibleToStudents: false,
-      },
-    ],
-    status: "Draft",
-    assigned: 0,
-    submitted: 0,
-    avgScore: 0,
-    flagged: 0,
-  },
-];
-
 const initialInboxConversations: Conversation[] = [
   {
     id: "teacher-risk-feedback",
@@ -1786,17 +1686,18 @@ export default function Home() {
   const [portfolioLoadError, setPortfolioLoadError] = useState("");
   const activePortfolio =
     profilePortfolios?.find((item) => item.id === activePortfolioId) ?? null;
-  const [teacherQuests, setTeacherQuests] =
-    useState<TeacherQuest[]>(initialTeacherQuests);
-  const [selectedQuestId, setSelectedQuestId] = useState(
-    initialTeacherQuests[0].id
-  );
+  // Saved quests (v0.2.9): this teacher's own, and the shared library.
+  const [teacherQuests, setTeacherQuests] = useState<TeacherQuest[]>([]);
+  const [libraryQuests, setLibraryQuests] = useState<TeacherQuest[]>([]);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [assignQuestOpen, setAssignQuestOpen] = useState(false);
+  const [questNotice, setQuestNotice] = useState("");
+  const [questsVersion, setQuestsVersion] = useState(0);
+  const [selectedQuestId, setSelectedQuestId] = useState("");
   const [selectedAdminLibraryQuest, setSelectedAdminLibraryQuest] =
     useState<TeacherQuest | null>(null);
   const [adminQuestDetailsOpen, setAdminQuestDetailsOpen] = useState(false);
-  const [draftQuest, setDraftQuest] = useState<TeacherQuest>(
-    initialTeacherQuests[0]
-  );
+  const [draftQuest, setDraftQuest] = useState<TeacherQuest>(newQuestDraft);
   const [inboxConversations, setInboxConversations] = useState<Conversation[]>(
     initialInboxConversations
   );
@@ -1918,8 +1819,7 @@ export default function Home() {
     return total + holding.quantity * (quote?.price ?? holding.averageCost);
   }, 0);
   const selectedQuest =
-    teacherQuests.find((quest) => quest.id === selectedQuestId) ??
-    teacherQuests[0];
+    teacherQuests.find((quest) => quest.id === selectedQuestId) ?? draftQuest;
   const hiddenRuleCount = draftQuest.criteria.filter(
     (criterion) => !criterion.visibleToStudents
   ).length;
@@ -2046,6 +1946,30 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  // Load saved quests for teachers and admins: their own and the library.
+  // questsVersion is bumped after every save, copy, assign, or import.
+  useEffect(() => {
+    if (!authenticatedUser?.permissions.teacherPortal && authenticatedUser?.role !== "Admin") {
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.all([fetchQuests("mine"), fetchQuests("library")])
+      .then(([mine, library]) => {
+        if (cancelled) return;
+        setTeacherQuests(mine);
+        setLibraryQuests(library);
+      })
+      .catch((error: Error) => {
+        if (!cancelled) setQuestNotice(error.message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticatedUser, questsVersion]);
 
   // Load the signed-in user's saved portfolios. The active one is this
   // school year's first class portfolio (or the staff practice portfolio).
@@ -2353,6 +2277,7 @@ export default function Home() {
   function loadQuest(quest: TeacherQuest) {
     setSelectedQuestId(quest.id);
     setDraftQuest(quest);
+    setQuestNotice("");
   }
 
   function openAdminQuestDetails(quest: TeacherQuest) {
@@ -2361,60 +2286,53 @@ export default function Home() {
   }
 
   function createBlankQuest() {
-    const nextQuest: TeacherQuest = {
-      id: `quest-${Date.now()}`,
-      title: "New learning quest",
-      objective:
-        "Students will make a simulated financial decision and justify it with evidence.",
-      marketMode: "none",
-      marketSymbols: "",
-      marketWindow: "No market window",
-      requireReflection: true,
-      scoreVisibility: "hidden",
-      criteria: [
-        {
-          id: "decision-quality",
-          label: "Decision matches the learning objective",
-          points: 40,
-          visibleToStudents: true,
-        },
-        {
-          id: "teacher-hidden-signal",
-          label: "Teacher-only misconception check",
-          points: 30,
-          visibleToStudents: false,
-        },
-        {
-          id: "reflection",
-          label: "Reflection uses portfolio evidence",
-          points: 30,
-          visibleToStudents: true,
-        },
-      ],
-      status: "Draft",
-      assigned: 0,
-      submitted: 0,
-      avgScore: 0,
-      flagged: 0,
-    };
+    const nextQuest = newQuestDraft();
 
     setSelectedQuestId(nextQuest.id);
     setDraftQuest(nextQuest);
+    setQuestNotice("");
   }
 
-  function saveDraftQuest() {
-    setTeacherQuests((quests) => {
-      const exists = quests.some((quest) => quest.id === draftQuest.id);
+  async function saveDraftQuest() {
+    const isSaved = teacherQuests.some((quest) => quest.id === draftQuest.id);
 
-      if (exists) {
-        return quests.map((quest) =>
-          quest.id === draftQuest.id ? draftQuest : quest
-        );
-      }
+    try {
+      const result = await postAdminMutation<{ id: string }>("/api/quests", {
+        action: "save",
+        quest: draftQuest,
+        questId: isSaved ? draftQuest.id : null,
+      });
+      const saved = { ...draftQuest, id: result.id, saved: true, isMine: true };
 
-      return [draftQuest, ...quests];
-    });
-    setSelectedQuestId(draftQuest.id);
+      setDraftQuest(saved);
+      setSelectedQuestId(result.id);
+      setQuestNotice(`Saved "${draftQuest.title}".`);
+      setQuestsVersion((version) => version + 1);
+    } catch (error) {
+      setQuestNotice((error as Error).message);
+    }
+  }
+
+  async function copyLibraryQuest(quest: TeacherQuest) {
+    try {
+      const result = await postAdminMutation<{ id: string }>("/api/quests", {
+        action: "copy",
+        questId: quest.id,
+      });
+      const copy = { ...quest, id: result.id, isMine: true, saved: true, assignments: [], assigned: 0, submitted: 0, status: "Draft" as const };
+
+      setDraftQuest(copy);
+      setSelectedQuestId(result.id);
+      setQuestNotice(`Copied "${quest.title}" into your quests. Edit it and assign it when ready.`);
+      setQuestsVersion((version) => version + 1);
+    } catch (error) {
+      setQuestNotice((error as Error).message);
+    }
+  }
+
+  function onQuestAssigned(message: string) {
+    setQuestNotice(message);
+    setQuestsVersion((version) => version + 1);
   }
 
   function updateUserAlias(userId: string, alias: string) {
@@ -2543,40 +2461,41 @@ export default function Home() {
 
   async function exportLearningQuests() {
     try {
-      await postAdminMutation("/api/admin/quests/transfer", {
+      const result = await postAdminMutation<{ quests: unknown[] }>("/api/admin/quests/transfer", {
         action: "export",
-        count: teacherQuests.length,
         reason: "Learning quest template export",
       });
-      setQuestTransferText(JSON.stringify(teacherQuests, null, 2));
-      setQuestTransferNotice("Learning quests exported as JSON and audited.");
+      setQuestTransferText(JSON.stringify(result.quests, null, 2));
+      setQuestTransferNotice(
+        `${result.quests.length} saved quest${result.quests.length === 1 ? "" : "s"} exported as JSON and audited.`
+      );
     } catch (error) {
       setQuestTransferNotice((error as Error).message);
     }
   }
 
   async function importLearningQuests() {
-    try {
-      const parsed = JSON.parse(questTransferText) as TeacherQuest | TeacherQuest[];
-      const importedQuests = Array.isArray(parsed) ? parsed : [parsed];
-      const normalizedQuests = importedQuests.map((quest) => ({
-        ...quest,
-        id: `${quest.id || "quest"}-${Date.now()}`,
-        status: "Draft" as const,
-      }));
+    let parsed: unknown;
 
-      await postAdminMutation("/api/admin/quests/transfer", {
-        action: "import",
-        count: normalizedQuests.length,
-        payload: normalizedQuests,
-        reason: "Learning quest template import",
-      });
-      setTeacherQuests((quests) => [...normalizedQuests, ...quests]);
-      setQuestTransferNotice(
-        `${normalizedQuests.length} learning quest imported and audited.`
-      );
+    try {
+      parsed = JSON.parse(questTransferText);
     } catch {
       setQuestTransferNotice("Import failed. Paste valid learning quest JSON.");
+      return;
+    }
+
+    try {
+      const result = await postAdminMutation<{ count: number }>("/api/admin/quests/transfer", {
+        action: "import",
+        payload: parsed,
+        reason: "Learning quest template import",
+      });
+      setQuestTransferNotice(
+        `${result.count} learning quest${result.count === 1 ? "" : "s"} imported, saved to your quests, and audited.`
+      );
+      setQuestsVersion((version) => version + 1);
+    } catch (error) {
+      setQuestTransferNotice(`Import failed: ${(error as Error).message}`);
     }
   }
 
@@ -3823,45 +3742,7 @@ export default function Home() {
                   <h3 className="text-lg font-semibold">Learning quests</h3>
                   <BookOpenCheck className="size-5 text-muted-foreground" />
                 </div>
-                <div className="space-y-4">
-                  {missions.map((mission) => (
-                    <Dialog key={mission.title}>
-                      <DialogTrigger asChild>
-                        <button
-                          type="button"
-                          className="w-full rounded-lg border border-border bg-background p-4 text-left transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h4 className="font-semibold">{mission.title}</h4>
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                {mission.concept}
-                              </p>
-                            </div>
-                            <Badge variant="outline" className="rounded-md">
-                              {mission.points} pts
-                            </Badge>
-                          </div>
-                          <div className="mt-4">
-                            <div className="mb-2 flex justify-between text-sm">
-                              <span>{mission.status}</span>
-                              <span>{mission.progress}%</span>
-                            </div>
-                            <Progress
-                              value={mission.progress}
-                              className="h-2 bg-[#e8f0ed]"
-                            />
-                          </div>
-                          <div className="mt-3 flex items-center gap-2 text-sm font-medium text-[#28666e]">
-                            Open quest
-                            <ChevronRight className="size-4" aria-hidden="true" />
-                          </div>
-                        </button>
-                      </DialogTrigger>
-                      <StudentQuestDialog mission={mission} />
-                    </Dialog>
-                  ))}
-                </div>
+                <StudentAssignedQuests />
               </div>
 
               <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -4107,14 +3988,59 @@ export default function Home() {
                     </Button>
                     <Button
                       type="button"
-                      onClick={saveDraftQuest}
+                      variant="outline"
+                      aria-expanded={libraryOpen}
+                      onClick={() => setLibraryOpen((open) => !open)}
+                    >
+                      <BookOpenCheck className="size-4" aria-hidden="true" />
+                      {libraryOpen ? "Hide library" : "See library"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!teacherQuests.some((quest) => quest.id === draftQuest.id)}
+                      title="Save the quest first, then assign it"
+                      onClick={() => setAssignQuestOpen(true)}
+                    >
+                      Assign
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => void saveDraftQuest()}
                       className="bg-[#28666e] text-white hover:bg-[#22565d]"
                     >
                       <Save className="size-4" aria-hidden="true" />
-                      Save draft
+                      Save quest
                     </Button>
                   </div>
                 </div>
+
+                {questNotice ? (
+                  <p role="status" className="mb-4 rounded-md bg-accent px-3 py-2 text-sm">
+                    {questNotice}
+                  </p>
+                ) : null}
+
+                {libraryOpen ? (
+                  <QuestLibraryList quests={libraryQuests} onCopy={(quest) => void copyLibraryQuest(quest)} />
+                ) : null}
+
+                <Dialog open={assignQuestOpen} onOpenChange={setAssignQuestOpen}>
+                  {assignQuestOpen ? (
+                    <AssignQuestDialog
+                      classNames={
+                        authenticatedUser.role === "Admin"
+                          ? classOptions
+                          : authenticatedUser.classNames ?? [authenticatedUser.className]
+                      }
+                      quest={draftQuest}
+                      onAssigned={(message) => {
+                        setAssignQuestOpen(false);
+                        onQuestAssigned(message);
+                      }}
+                    />
+                  ) : null}
+                </Dialog>
 
                 <LearningQuestTransferPanel
                   audience="Teacher"
@@ -4338,6 +4264,12 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-3">
+                  {teacherQuests.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      You don&apos;t have any saved quests yet. Click Save quest, or copy one from the
+                      library.
+                    </p>
+                  ) : null}
                   {teacherQuests.map((quest) => (
                     <button
                       key={quest.id}
@@ -4364,7 +4296,7 @@ export default function Home() {
                         </Badge>
                       </div>
                       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <QuestMonitorMetric label="Avg" value={`${quest.avgScore}%`} />
+                        <QuestMonitorMetric label="Classes" value={quest.assignments?.length ?? 0} />
                         <QuestMonitorMetric
                           label="Hidden"
                           value={
@@ -4373,8 +4305,19 @@ export default function Home() {
                             ).length
                           }
                         />
-                        <QuestMonitorMetric label="Review" value={quest.flagged} />
+                        <QuestMonitorMetric label="Submitted" value={quest.submitted} />
                       </div>
+                      {quest.assignments?.length ? (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          {quest.assignments
+                            .map((assignment) =>
+                              assignment.dueAt
+                                ? `${assignment.className} (due ${new Date(assignment.dueAt).toLocaleDateString()})`
+                                : `${assignment.className} (no due date)`
+                            )
+                            .join(" · ")}
+                        </p>
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -4394,6 +4337,13 @@ export default function Home() {
                     students unless the teacher changes visibility.
                   </p>
                 </div>
+
+                {teacherQuests.some((quest) => quest.id === selectedQuestId) ? (
+                  <QuestSubmissionsPanel
+                    key={`${selectedQuestId}-${questsVersion}`}
+                    questId={selectedQuestId}
+                  />
+                ) : null}
               </div>
             </section>
 
@@ -4407,7 +4357,15 @@ export default function Home() {
                       wins.
                     </p>
                   </div>
-                  <Button className="bg-[#28666e] text-white hover:bg-[#22565d]">
+                  <Button
+                    type="button"
+                    className="bg-[#28666e] text-white hover:bg-[#22565d]"
+                    onClick={() =>
+                      teacherQuests.some((quest) => quest.id === draftQuest.id)
+                        ? setAssignQuestOpen(true)
+                        : setQuestNotice("Open or save a quest in Quest Studio first, then assign it.")
+                    }
+                  >
                     Assign quest
                     <ChevronRight className="size-4" aria-hidden="true" />
                   </Button>
@@ -4747,7 +4705,7 @@ export default function Home() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {teacherQuests.map((quest) => (
+                    {libraryQuests.map((quest) => (
                       <TableRow
                         key={quest.id}
                         role="button"
@@ -4762,7 +4720,7 @@ export default function Home() {
                         className="cursor-pointer transition hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                       >
                         <TableCell className="font-medium">{quest.title}</TableCell>
-                        <TableCell>Grade 7 Finance</TableCell>
+                        <TableCell>{quest.ownerName ?? ""}</TableCell>
                         <TableCell className="capitalize">
                           {quest.marketMode}
                         </TableCell>
@@ -5105,129 +5063,6 @@ function LoginPage({
       </section>
       <AppVersion className="absolute inset-x-0 bottom-0" />
     </main>
-  );
-}
-
-function StudentQuestDialog({ mission }: { mission: StudentQuest }) {
-  return (
-    <DialogContent className="max-h-[min(88vh,760px)] overflow-y-auto sm:max-w-3xl">
-      <DialogHeader className="pr-8">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Badge className="rounded-md bg-[#e8f0ed] text-[#24493f] hover:bg-[#e8f0ed]">
-            {mission.concept}
-          </Badge>
-          <Badge variant="outline" className="rounded-md">
-            {mission.points} pts
-          </Badge>
-          <Badge variant="outline" className="rounded-md">
-            {mission.status}
-          </Badge>
-        </div>
-        <DialogTitle className="text-2xl leading-tight">
-          {mission.title}
-        </DialogTitle>
-        <DialogDescription className="text-base leading-7">
-          {mission.objective}
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <section className="space-y-4">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="size-5 text-[#28666e]" />
-              <h3 className="font-semibold">Scenario</h3>
-            </div>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {mission.scenario}
-            </p>
-          </div>
-
-          {mission.marketSetup ? (
-            <div className="rounded-lg border border-border bg-[#f7f2e8] p-4">
-              <div className="mb-3 flex items-center gap-2 text-[#5b3f0b]">
-                <LineChart className="size-5" />
-                <h3 className="font-semibold">Market setup</h3>
-              </div>
-              <p className="text-sm leading-6 text-[#6c5524]">
-                {mission.marketSetup}
-              </p>
-            </div>
-          ) : null}
-
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <WalletCards className="size-5 text-[#28666e]" />
-              <h3 className="font-semibold">Portfolio task</h3>
-            </div>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {mission.portfolioTask}
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <ClipboardList className="size-5 text-[#28666e]" />
-              <h3 className="font-semibold">Steps</h3>
-            </div>
-            <ol className="space-y-3">
-              {mission.steps.map((step, index) => (
-                <li key={step} className="flex gap-3 text-sm leading-6">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-md bg-[#e8f0ed] text-xs font-semibold text-[#24493f]">
-                    {index + 1}
-                  </span>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        <aside className="space-y-4">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="font-semibold">Progress</h3>
-              <span className="text-sm font-medium">{mission.progress}%</span>
-            </div>
-            <Progress value={mission.progress} className="h-2 bg-[#e8f0ed]" />
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Medal className="size-5 text-[#28666e]" />
-              <h3 className="font-semibold">How you earn points</h3>
-            </div>
-            <div className="space-y-3">
-              {mission.visibleScoring.map((rule) => (
-                <div
-                  key={rule.label}
-                  className="flex items-start justify-between gap-3 rounded-md bg-muted/55 p-3 text-sm"
-                >
-                  <span className="leading-5">{rule.label}</span>
-                  <span className="shrink-0 font-semibold">{rule.points}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <FilePenLine className="size-5 text-[#28666e]" />
-              <h3 className="font-semibold">Turn in</h3>
-            </div>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {mission.deliverable}
-            </p>
-          </div>
-        </aside>
-      </div>
-
-      <DialogFooter showCloseButton>
-        <Button className="bg-[#28666e] text-white hover:bg-[#22565d]">
-          {mission.progress > 0 ? "Continue quest" : "Start quest"}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
   );
 }
 
@@ -11731,6 +11566,535 @@ function LineGraph({
         </text>
       </svg>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- quests (v0.2.9)
+
+type QuestComment = {
+  authorName: string;
+  authorRole: string;
+  body: string;
+  createdAt: string;
+  id: string;
+};
+
+type QuestSubmission = {
+  comments: QuestComment[];
+  id: string;
+  reflection: string;
+  submittedAt: string;
+  updatedAt: string;
+};
+
+async function postJson<T>(path: string, body: Record<string, unknown>) {
+  const response = await fetch(path, {
+    body: JSON.stringify(body),
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const result = (await response.json().catch(() => ({}))) as T & { message?: string };
+
+  if (!response.ok) throw new Error(result.message ?? "That couldn't be saved. Try again.");
+  return result;
+}
+
+function formatDue(dueAt: string | null) {
+  return dueAt
+    ? `Due ${new Date(dueAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`
+    : "No due date";
+}
+
+/** The shared library: every teacher's quests, with Copy. */
+function QuestLibraryList({
+  onCopy,
+  quests,
+}: {
+  onCopy: (quest: TeacherQuest) => void;
+  quests: TeacherQuest[];
+}) {
+  return (
+    <section aria-label="Quest library" className="mb-5 rounded-lg border border-border bg-background p-4">
+      <h4 className="font-semibold">Quest library</h4>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Every teacher&apos;s saved quests. Copy one into your quests to edit and assign it.
+      </p>
+      {quests.length ? (
+        <ul className="mt-3 grid gap-2">
+          {quests.map((quest) => (
+            <li
+              key={quest.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm"
+            >
+              <span>
+                <strong>{quest.title}</strong>
+                <span className="block text-xs text-muted-foreground">
+                  By {quest.isMine ? "you" : quest.ownerName} · {quest.criteria.length} scoring rules ·
+                  {" "}{quest.marketMode === "none" ? "no market" : quest.marketMode}
+                </span>
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-label={`Copy ${quest.title}`}
+                onClick={() => onCopy(quest)}
+              >
+                Copy
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">The library is empty.</p>
+      )}
+    </section>
+  );
+}
+
+/** Assign a saved quest to one or more classes, with an optional due date. */
+function AssignQuestDialog({
+  classNames,
+  onAssigned,
+  quest,
+}: {
+  classNames: string[];
+  onAssigned: (message: string) => void;
+  quest: TeacherQuest;
+}) {
+  const [chosen, setChosen] = useState<string[]>(
+    () => quest.assignments?.map((assignment) => assignment.className) ?? []
+  );
+  const [dueDate, setDueDate] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function assign() {
+    if (chosen.length === 0) {
+      setNotice("Choose at least one class.");
+      return;
+    }
+
+    setPending(true);
+    try {
+      await postJson("/api/quests", {
+        action: "assign",
+        classNames: chosen,
+        dueDate: dueDate || null,
+        questId: quest.id,
+      });
+      onAssigned(
+        `Assigned "${quest.title}" to ${chosen.join(", ")}${dueDate ? `, due ${dueDate}` : ""}.`
+      );
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Assign &ldquo;{quest.title}&rdquo;</DialogTitle>
+        <DialogDescription>
+          Students in the chosen classes see this quest on their dashboard. Assigning to a class
+          again changes its due date.
+        </DialogDescription>
+      </DialogHeader>
+      <fieldset className="grid gap-2">
+        <legend className="mb-1 text-sm font-medium">Classes</legend>
+        {classNames.map((className) => (
+          <label key={className} className="flex items-center gap-2 text-sm">
+            <Checkbox
+              aria-label={className}
+              checked={chosen.includes(className)}
+              onCheckedChange={(checked) =>
+                setChosen((all) =>
+                  checked ? [...all, className] : all.filter((name) => name !== className)
+                )
+              }
+            />
+            {className}
+          </label>
+        ))}
+      </fieldset>
+      <div className="space-y-2">
+        <Label htmlFor="quest-due-date">Due date (optional)</Label>
+        <Input
+          id="quest-due-date"
+          type="date"
+          value={dueDate}
+          onChange={(event) => setDueDate(event.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Students can edit their submission until the end of the due date. After that it&apos;s
+          locked, and only comments can be added.
+        </p>
+      </div>
+      {notice ? <p className="rounded-md bg-accent px-3 py-2 text-sm">{notice}</p> : null}
+      <DialogFooter>
+        <Button
+          type="button"
+          disabled={pending}
+          onClick={() => void assign()}
+          className="bg-[#28666e] text-white hover:bg-[#22565d]"
+        >
+          Assign quest
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+/** Comments on a submission. Allowed before and after the due date. */
+function SubmissionComments({
+  comments,
+  onAdded,
+  submissionId,
+}: {
+  comments: QuestComment[];
+  onAdded: () => void;
+  submissionId: string;
+}) {
+  const [draft, setDraft] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function add() {
+    setPending(true);
+    setNotice("");
+    try {
+      await postJson("/api/quests/comments", { body: draft, submissionId });
+      setDraft("");
+      onAdded();
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section aria-label="Comments" className="mt-3 rounded-md border border-border bg-background p-3">
+      <h5 className="text-sm font-semibold">Comments</h5>
+      {comments.length ? (
+        <ul className="mt-2 grid gap-2">
+          {comments.map((comment) => (
+            <li key={comment.id} className="text-sm">
+              <span className="font-medium">{comment.authorName}</span>
+              {comment.authorRole ? (
+                <span className="text-xs text-muted-foreground"> · {comment.authorRole}</span>
+              ) : null}
+              <span className="text-xs text-muted-foreground">
+                {" "}· {new Date(comment.createdAt).toLocaleString()}
+              </span>
+              <p className="whitespace-pre-wrap">{comment.body}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-sm text-muted-foreground">No comments yet.</p>
+      )}
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <Input
+          aria-label="Add a comment"
+          placeholder="Add a comment"
+          value={draft}
+          maxLength={1000}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending || !draft.trim()}
+          onClick={() => void add()}
+        >
+          Post comment
+        </Button>
+      </div>
+      {notice ? <p className="mt-2 text-sm text-[#a13d2e]">{notice}</p> : null}
+    </section>
+  );
+}
+
+type SubmissionsView = {
+  classes: Array<{
+    className: string;
+    dueAt: string | null;
+    students: Array<{ email: string; name: string; submission: QuestSubmission | null }>;
+  }>;
+  title: string;
+};
+
+/** The teacher's view of one quest's submissions, with comments. */
+function QuestSubmissionsPanel({ questId }: { questId: string }) {
+  const [view, setView] = useState<SubmissionsView | null>(null);
+  const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`/api/quests/submissions?questId=${encodeURIComponent(questId)}`, {
+      credentials: "same-origin",
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as SubmissionsView & { message?: string };
+        if (cancelled) return;
+        if (!response.ok) setError(result.message ?? "Submissions couldn't be loaded.");
+        else setView(result);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Submissions couldn't be loaded.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [questId, version]);
+
+  return (
+    <section aria-label="Submissions" className="mt-5 rounded-lg border border-border bg-background p-4">
+      <h4 className="font-semibold">Submissions</h4>
+      {error ? <p className="mt-2 text-sm">{error}</p> : null}
+      {view && view.classes.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          This quest isn&apos;t assigned to any of your classes yet. Click Assign.
+        </p>
+      ) : null}
+      {view?.classes.map((classroom) => (
+        <div key={classroom.className} className="mt-3">
+          <p className="text-sm font-medium">
+            {classroom.className} · {formatDue(classroom.dueAt)} ·{" "}
+            {classroom.students.filter((student) => student.submission).length} of{" "}
+            {classroom.students.length} submitted
+          </p>
+          <ul className="mt-2 grid gap-2">
+            {classroom.students.map((student) => (
+              <li key={student.email} className="rounded-md border border-border bg-card p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">{student.name}</span>
+                  <Badge variant="outline" className="rounded-md">
+                    {student.submission
+                      ? student.submission.updatedAt !== student.submission.submittedAt
+                        ? "Submitted · edited"
+                        : "Submitted"
+                      : "Not submitted"}
+                  </Badge>
+                </div>
+                {student.submission ? (
+                  <>
+                    <p className="mt-2 whitespace-pre-wrap">{student.submission.reflection}</p>
+                    <SubmissionComments
+                      comments={student.submission.comments}
+                      submissionId={student.submission.id}
+                      onAdded={() => setVersion((current) => current + 1)}
+                    />
+                  </>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+type AssignedQuest = {
+  assignmentId: string;
+  canEdit: boolean;
+  className: string;
+  criteria: Array<{ id: string; label: string; points: number }>;
+  dueAt: string | null;
+  marketMode: string;
+  marketSymbols: string;
+  marketWindow: string;
+  objective: string;
+  questId: string;
+  requireReflection: boolean;
+  submission: QuestSubmission | null;
+  teacherName: string;
+  title: string;
+};
+
+/** The student's assigned quests (replaces the built-in sample quests). */
+function StudentAssignedQuests() {
+  const [quests, setQuests] = useState<AssignedQuest[] | null>(null);
+  const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/quests/student", { credentials: "same-origin" })
+      .then(async (response) => {
+        const result = (await response.json()) as { message?: string; quests?: AssignedQuest[] };
+        if (cancelled) return;
+        if (!response.ok || !result.quests) setError(result.message ?? "Quests couldn't be loaded.");
+        else setQuests(result.quests);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Quests couldn't be loaded.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [version]);
+
+  if (error) return <p className="text-sm text-muted-foreground">{error}</p>;
+  if (!quests) return <p className="text-sm text-muted-foreground">Loading your quests…</p>;
+  if (quests.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No quests assigned yet. Your teacher&apos;s quests will show up here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {quests.map((quest) => (
+        <Dialog key={quest.assignmentId}>
+          <DialogTrigger asChild>
+            <button
+              type="button"
+              className="w-full rounded-lg border border-border bg-background p-4 text-left transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4 className="font-semibold">{quest.title}</h4>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {quest.className} · {formatDue(quest.dueAt)}
+                  </p>
+                </div>
+                <Badge variant="outline" className="rounded-md">
+                  {quest.submission ? (quest.canEdit ? "Submitted" : "Submitted · locked") : quest.canEdit ? "To do" : "Past due"}
+                </Badge>
+              </div>
+              <div className="mt-3 flex items-center gap-2 text-sm font-medium text-[#28666e]">
+                Open quest
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </div>
+            </button>
+          </DialogTrigger>
+          <StudentAssignedQuestDialog quest={quest} onChanged={() => setVersion((v) => v + 1)} />
+        </Dialog>
+      ))}
+    </div>
+  );
+}
+
+function StudentAssignedQuestDialog({
+  onChanged,
+  quest,
+}: {
+  onChanged: () => void;
+  quest: AssignedQuest;
+}) {
+  const [reflection, setReflection] = useState(quest.submission?.reflection ?? "");
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
+  const label = quest.requireReflection ? "Your reflection" : "Your response";
+
+  async function submit() {
+    setPending(true);
+    setNotice("");
+    try {
+      const result = await postJson<{ edited: boolean }>("/api/quests/student", {
+        assignmentId: quest.assignmentId,
+        reflection,
+      });
+      setNotice(result.edited ? "Your changes are saved." : "Submitted! Your teacher can see it now.");
+      onChanged();
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>{quest.title}</DialogTitle>
+        <DialogDescription>
+          {quest.className} · from {quest.teacherName} · {formatDue(quest.dueAt)}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4 text-sm">
+        <p className="leading-6">{quest.objective}</p>
+        {quest.marketMode !== "none" ? (
+          <p className="rounded-md bg-[#e8f0ed] px-3 py-2 text-[#24493f]">
+            Market: {quest.marketSymbols || "class symbols"} · {quest.marketWindow}
+          </p>
+        ) : null}
+        {quest.criteria.length ? (
+          <div>
+            <h4 className="font-semibold">How it&apos;s scored</h4>
+            <ul className="mt-2 grid gap-1">
+              {quest.criteria.map((rule) => (
+                <li key={rule.id} className="flex justify-between gap-3">
+                  <span>{rule.label}</span>
+                  <span className="text-muted-foreground">{rule.points} pts</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          <Label htmlFor={`reflection-${quest.assignmentId}`}>{label}</Label>
+          <Textarea
+            id={`reflection-${quest.assignmentId}`}
+            value={reflection}
+            readOnly={!quest.canEdit}
+            maxLength={5000}
+            rows={6}
+            onChange={(event) => setReflection(event.target.value)}
+          />
+          {quest.canEdit ? (
+            <Button
+              type="button"
+              disabled={pending || !reflection.trim()}
+              onClick={() => void submit()}
+              className="bg-[#28666e] text-white hover:bg-[#22565d]"
+            >
+              {quest.submission ? "Save changes" : "Submit"}
+            </Button>
+          ) : (
+            <p className="rounded-md bg-accent px-3 py-2">
+              The due date has passed, so this submission is locked. You can still add comments.
+            </p>
+          )}
+          {quest.submission && quest.canEdit && quest.dueAt ? (
+            <p className="text-xs text-muted-foreground">
+              You can edit your submission until the end of the due date.
+            </p>
+          ) : null}
+          {notice ? (
+            <p role="status" className="rounded-md bg-accent px-3 py-2">
+              {notice}
+            </p>
+          ) : null}
+        </div>
+
+        {quest.submission ? (
+          <SubmissionComments
+            comments={quest.submission.comments}
+            submissionId={quest.submission.id}
+            onAdded={onChanged}
+          />
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Comments open once you submit.
+          </p>
+        )}
+      </div>
+    </DialogContent>
   );
 }
 

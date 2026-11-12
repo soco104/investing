@@ -291,6 +291,60 @@ try {
       on market_adjustments (class_name) where cleared_at is null
   `;
 
+  // Learning quests (v0.2.9). Owned by the teacher who made them; every
+  // teacher can see the shared library and copy from it. Never deleted.
+  await sql`
+    create table if not exists learning_quests (
+      id text primary key,
+      owner_user_id text not null references app_users(id),
+      title text not null,
+      objective text not null default '',
+      market_mode text not null default 'none',
+      market_symbols text not null default '',
+      market_window text not null default '',
+      require_reflection boolean not null default true,
+      score_visibility text not null default 'hidden',
+      criteria_json text not null default '[]',
+      copied_from_quest_id text,
+      created_at timestamp not null,
+      updated_at timestamp not null
+    )
+  `;
+  // A quest assigned to a class, with an optional due date.
+  await sql`
+    create table if not exists quest_assignments (
+      id text primary key,
+      quest_id text not null references learning_quests(id),
+      class_name text not null,
+      due_at timestamp,
+      assigned_by_user_id text not null references app_users(id),
+      assigned_at timestamp not null,
+      unique (quest_id, class_name)
+    )
+  `;
+  // One submission per student per assignment; editable until the due date.
+  await sql`
+    create table if not exists quest_submissions (
+      id text primary key,
+      assignment_id text not null references quest_assignments(id),
+      student_user_id text not null references app_users(id),
+      reflection text not null,
+      submitted_at timestamp not null,
+      updated_at timestamp not null,
+      unique (assignment_id, student_user_id)
+    )
+  `;
+  // Comments on a submission, by the student, their teacher, or an admin.
+  await sql`
+    create table if not exists quest_submission_comments (
+      id text primary key,
+      submission_id text not null references quest_submissions(id),
+      author_user_id text not null references app_users(id),
+      body text not null,
+      created_at timestamp not null
+    )
+  `;
+
   // School year dates per district ("MM-DD"); default Aug 28 – Jun 1.
   await sql`
     create table if not exists district_settings (

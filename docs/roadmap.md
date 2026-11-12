@@ -62,7 +62,10 @@ scandal, rate cut.
 hours cut) for the hardest test.
 
 **6. Debrief → student report → teacher grade.** Every event turns into a
-short graded assignment, so the lesson doesn't end when the money moves.
+short graded assignment, so the lesson doesn't end when the money moves. Build
+on v0.2.9's quest submissions and comments: grading submissions against the
+quest's scoring rules (the rubric) was left out of v0.2.9 so the grading
+screen is built once, here.
 
 - **Auto-generated debrief message.** When an event hits a student, the app
   sends a message to that student's **Inbox** explaining what happened *to
@@ -244,7 +247,7 @@ milestone the owner chooses.
 | v0.2.6 ✅ | Student profiles with class portfolios by school year (read-only after the year ends); server-checked trading with −/+ and amount box; fractional shares for grade 10+; school year setting; teacher → admin reset requests; practice portfolios for staff | Done |
 | v0.2.7 ✅ | Admin "view as student" by email, with full student features, banner and Exit, actions marked as by the admin, audited; no time limit; student not notified | Done |
 | v0.2.8 ✅ | Teacher market controls saved, with targeting (class, all classes, group, one student), Active changes with Undo, and Reset to normal; audited | Done |
-| v0.2.9 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
+| v0.2.9 ✅ | Quests saved; shared library with Copy; assign to classes with due dates; students submit and edit until the due date; comments on submissions; import/export stores quests | Done |
 | v0.2.10 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |
 
 ### Profanity filter upgrade (part of v0.2.10)

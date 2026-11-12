@@ -2,6 +2,35 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.9 — 2026-11-12
+
+### Learning Quests (Teachers)
+
+- Quests you create or edit in **Quest Studio are now saved**. Click **Save
+  quest**; they're still there after a refresh or sign-out.
+- **See library** opens every teacher's saved quests as a list. Click **Copy**
+  to add one to your own quests, then edit it and assign it.
+- **Assign** (in Quest Studio, or **Assign quest** on the class roster): tick
+  one or more of your classes and, optionally, a due date. Assigning to the
+  same class again changes its due date.
+- Pick a quest under **Monitor quests** to see **Submissions**: each student,
+  what they submitted (and whether they edited it), and a **Comments** section
+  where you can reply.
+- **Import** now saves the quests you paste into your own quests (as drafts),
+  and **Export** downloads your saved quests. Grading submissions is coming in
+  a later update.
+
+### Learning Quests (Students)
+
+- Your dashboard's **Learning quests** now shows the quests your teacher
+  assigned to your class, with the due date and the scoring rules your teacher
+  chose to show.
+- Open a quest, write your reflection, and click **Submit**. You can change it
+  and click **Save changes** until the end of the due date. After that it's
+  locked.
+- Once you've submitted, a **Comments** section lets you and your teacher talk
+  about your work, even after the due date.
+
 ## v0.2.8 — 2026-11-12
 
 ### Teacher Market Controls

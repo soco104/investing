@@ -95,12 +95,13 @@ reflection prompt for students.
   (`app/page.tsx`). Do new events need to move into the server-side engine so
   they persist and apply to every student?
 
-## Goal: School color themes
+## Goal: School branding — colors and logos
 
 **Added:** 2026-11-12 · **Status:** to evaluate
 
-Let admins customize the whole portal's color scheme to match their school
-colors, using a color picker or by typing exact color codes (e.g. `#1d4f91`).
+Let admins customize the whole portal to match their school: the color scheme
+(using a color picker or by typing exact color codes, e.g. `#1d4f91`) and the
+school logo.
 
 ### Where things stand
 
@@ -112,6 +113,8 @@ colors, using a color picker or by typing exact color codes (e.g. `#1d4f91`).
   colors, e.g. `#28666e` for the Sign in button and `#c44536` for warnings)
   that ignore the theme variables. These must be switched to theme variables
   first, or a school theme will only partly apply.
+- There is no logo support. The login page and app header show a generic
+  bank-building icon (`Landmark`) next to the "FutureFund Classroom" name.
 
 ### Ideas to evaluate
 
@@ -138,7 +141,19 @@ gold) fail on white.
 both, and that the login page shows the theme too (it's the first thing
 students see).
 
-**6. Later:** upload the school logo and mascot alongside the colors.
+**6. School logo upload.** On the same Branding page:
+
+- Upload a logo (PNG, JPG, or SVG), with a size limit and a crop/fit preview.
+- Shown on the login page, in the app header in place of the generic icon,
+  and optionally as the browser tab icon.
+- An optional square version for small spaces (header, tab icon) alongside
+  the full logo.
+- A light/dark variant, or a check that the logo is visible on both
+  backgrounds.
+- "Suggest colors from logo": pick the main colors out of the uploaded logo
+  as a starting theme the admin can adjust.
+- Always keep the FutureFund name somewhere small (e.g. "Powered by
+  FutureFund Classroom") so students know what app they're in.
 
 ### Open questions
 
@@ -151,3 +166,8 @@ students see).
 - How do school themes work with dark mode: generate a dark version
   automatically, or let admins set it?
 - Where are themes stored: a new database table, keyed by district or school?
+- Where are logos stored? The app runs on DigitalOcean with Postgres. Options
+  are DigitalOcean Spaces (file storage) or small images in the database.
+- Are uploaded SVGs allowed? They can contain scripts, so they'd need
+  sanitizing, or limit uploads to PNG/JPG.
+- Who can change branding: district admins only, or school admins too?

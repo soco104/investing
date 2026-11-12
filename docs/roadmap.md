@@ -206,7 +206,9 @@ students see).
 In v0.2.2, these reset when the page is refreshed: student trades and
 allocations, messages and discussions, Quest Studio edits, the teacher's Market
 page controls, and the Privacy posture page. Refreshing also signs users out.
-This plan fixes them in order, one pull request and version each.
+This plan fixes them in order, one pull request and version each. These are
+numbered as v0.2.x updates; the next minor version (0.3.0) is reserved for a
+milestone the owner chooses.
 
 ### Decisions
 
@@ -233,12 +235,12 @@ This plan fixes them in order, one pull request and version each.
 
 | Version | Update | Size |
 |---|---|---|
-| v0.3.0 | Stay signed in across refresh; real sign-out; Privacy posture saves; fix the guides' quest import/export claim (it only records an audit entry) | Small |
-| v0.4.0 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
-| v0.5.0 | Admin "view as student" by email, for troubleshooting | Medium |
-| v0.6.0 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
-| v0.7.0 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
-| v0.8.0 | Messages and discussions saved, following the rules above; server-side profanity filter and moderation queue; 90-day deletion with **Keep** | Large |
+| v0.2.3 | Stay signed in across refresh; real sign-out; Privacy posture saves; fix the guides' quest import/export claim (it only records an audit entry) | Small |
+| v0.2.4 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
+| v0.2.5 | Admin "view as student" by email, for troubleshooting | Medium |
+| v0.2.6 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
+| v0.2.7 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
+| v0.2.8 | Messages and discussions saved, following the rules above; server-side profanity filter and moderation queue; 90-day deletion with **Keep** | Large |
 
 ### Notes
 

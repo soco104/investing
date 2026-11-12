@@ -2,6 +2,31 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.1 — 2026-11-12
+
+No changes to how the app works in this update; the version label at the
+bottom of each page now reads v0.2.1.
+
+### Roadmap
+
+- Added a roadmap (`docs/roadmap.md`) of future goals being evaluated:
+  - **Teacher life events:** simple one-click "wrenches" that hit a student's
+    personal finances (car repair, hours cut, tax refund), testing whether
+    their portfolio can absorb real-life surprises. Each event sends the
+    student an Inbox debrief to write a report on, which the teacher grades
+    with a rubric.
+  - **School branding:** admins match the portal to their school colors (color
+    picker or exact color codes) and upload the school logo.
+
+### Release Process
+
+- Every update now gets a version number and an entry here, newest at the
+  top, including small fixes and process changes.
+- The only exception is documentation-only edits (like the roadmap). Changes
+  to the **User Manual** or **Admin Guide** always get a version and notes.
+- Plans for upcoming changes include a draft of their patch notes, so what
+  users will be told is agreed before work starts.
+
 ## v0.2.0 — 2026-11-12
 
 ### Demo Login

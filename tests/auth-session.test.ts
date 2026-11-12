@@ -69,7 +69,7 @@ describe("auth session trust", () => {
     const { authenticatePassword } = await import("@/lib/server/auth");
 
     await expect(
-      authenticatePassword("sgordon@lincolnusd.edu", "admin-demo")
+      authenticatePassword("sam.gordon@example.edu", "admin-demo")
     ).resolves.toBeNull();
 
     process.env.NODE_ENV = previousNodeEnv;

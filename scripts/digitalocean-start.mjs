@@ -14,6 +14,7 @@ import { spawn } from "node:child_process";
  */
 
 await import("./digitalocean-migrate.mjs");
+await import("./maybe-seed-demo.mjs");
 
 console.log("Starting FutureFund Vinext production server...");
 

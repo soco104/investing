@@ -20,6 +20,8 @@ testing, so problems are caught before they reach the live site.
   (all fixed).
 - **Test report for v0.2.0–v0.2.4** with evidence and the bug list:
   `docs/test-reports/2026-11-12-v0.2.0-v0.2.4.md`.
+- The new automatic tests already caught one problem on their first run: a
+  test that only passed on some computers (issue #17, fixed).
 
 ## v0.2.4 — 2026-11-12
 

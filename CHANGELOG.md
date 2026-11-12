@@ -27,6 +27,10 @@ All notable changes to FutureFund Classroom. Versions follow
 - `CLAUDE.md`: testing rules for every change (browser tests, CI must pass,
   bugs logged as issues with regression tests).
 
+### Fixed
+- The health check unit test only passed when no database was configured; it
+  now sets up its own environment (issue #17, caught by the first CI run).
+
 ## [0.2.4] - 2026-11-12
 
 ### Fixed

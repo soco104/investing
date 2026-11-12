@@ -17,6 +17,9 @@ const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Playwright clears this folder at the start of each run, so keep it
+  // separate from test-results/ (which also holds the unit test results).
+  outputDir: "test-results/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
   // One at a time: the tests share one database and one server.
   workers: 1,

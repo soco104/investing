@@ -243,7 +243,28 @@ milestone the owner chooses.
 | v0.2.5 | Admin "view as student" by email, for troubleshooting | Medium |
 | v0.2.6 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
 | v0.2.7 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
-| v0.2.8 | Messages and discussions saved, following the rules above; server-side profanity filter and moderation queue; 90-day deletion with **Keep** | Large |
+| v0.2.8 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |
+
+### Profanity filter upgrade (part of v0.2.8)
+
+Today's filter is a 7-word list checked only in the browser, so it's easy to
+skip, and it misses common variations ("fucking", "shitty", "f*ck", "sh1t",
+"fuuuck", "s h i t"). A separate 2-word server filter exists but isn't used.
+In v0.2.8:
+
+- **Run on the server** for every message and discussion post, so it can't be
+  bypassed.
+- **Use a maintained filter library** (e.g. the `obscenity` package) that
+  catches symbols, numbers, repeated letters, spacing, and word endings,
+  instead of a hand-made list.
+- **Add slurs and harassment terms.**
+- **District word list:** admins can add or remove words for their district.
+- **Flag, not just block:** messages suggesting bullying or that a student may
+  be at risk go to a teacher or designated staff member for review, not only
+  bounced back to the student. *Open question: who receives these flags in
+  each district (teacher, counselor, admin)?*
+- **Blocked messages go to the moderation queue**, so teachers and admins see
+  attempts, not just delivered messages.
 
 ### Notes
 

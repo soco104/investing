@@ -94,3 +94,60 @@ reflection prompt for students.
 - The Hormuz scenario and price raise/lower currently live in the browser
   (`app/page.tsx`). Do new events need to move into the server-side engine so
   they persist and apply to every student?
+
+## Goal: School color themes
+
+**Added:** 2026-11-12 · **Status:** to evaluate
+
+Let admins customize the whole portal's color scheme to match their school
+colors, using a color picker or by typing exact color codes (e.g. `#1d4f91`).
+
+### Where things stand
+
+- The main colors are already defined once, as theme variables in
+  `app/globals.css` (`--primary`, `--secondary`, `--accent`, `--background`,
+  chart colors, and a separate dark-mode set). Changing those changes most
+  buttons, cards, and badges.
+- **But** `app/page.tsx` also hard-codes about 300 color values (42 distinct
+  colors, e.g. `#28666e` for the Sign in button and `#c44536` for warnings)
+  that ignore the theme variables. These must be switched to theme variables
+  first, or a school theme will only partly apply.
+
+### Ideas to evaluate
+
+**1. Admin "Branding" page.** A small set of named colors, each with a color
+picker *and* a text box for the code (hex like `#1d4f91`; maybe RGB too). The
+two stay in sync, so an admin can pick visually or paste the exact code from
+their school's style guide.
+
+**2. Few choices, many results.** Admins set only 2–3 colors: **primary** (main
+buttons, headers), **secondary** (highlights, badges), and optionally
+**accent**. The app works out the rest (hover shades, light backgrounds,
+dark-mode versions, chart colors) automatically, so admins aren't asked for
+20 colors.
+
+**3. Live preview.** Show a mini version of the login page and a dashboard in
+the new colors before saving, plus **Reset to default**.
+
+**4. Readability guardrails.** Check contrast between text and its background
+(WCAG AA) and warn, or auto-adjust text to white or black, when a school color
+would make buttons or text hard to read. Many school colors (yellow, light
+gold) fail on white.
+
+**5. Scope.** Decide whether a theme applies district-wide, per school, or
+both, and that the login page shows the theme too (it's the first thing
+students see).
+
+**6. Later:** upload the school logo and mascot alongside the colors.
+
+### Open questions
+
+- District-wide theme, per-school themes, or per-school with a district
+  default?
+- Should teachers or students be able to switch back to the default theme
+  (e.g. for readability)?
+- Do status colors stay fixed (red = loss, green = gain, warnings) so they
+  keep their meaning regardless of school colors? Probably yes.
+- How do school themes work with dark mode: generate a dark version
+  automatically, or let admins set it?
+- Where are themes stored: a new database table, keyed by district or school?

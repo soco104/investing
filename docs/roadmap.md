@@ -198,3 +198,93 @@ students see).
 - Are uploaded SVGs allowed? They can contain scripts, so they'd need
   sanitizing, or limit uploads to PNG/JPG.
 - Who can change branding: district admins only, or school admins too?
+
+## Plan: Save everything that currently resets on refresh
+
+**Added:** 2026-11-12 · **Status:** planned, decisions made 2026-11-12
+
+In v0.2.2, these reset when the page is refreshed: student trades and
+allocations, messages and discussions, Quest Studio edits, the teacher's Market
+page controls, and the Privacy posture page. Refreshing also signs users out.
+This plan fixes them in order, one pull request and version each. These are
+numbered as v0.2.x updates; the next minor version (0.3.0) is reserved for a
+milestone the owner chooses.
+
+### Decisions
+
+- **Who can message whom:**
+
+  | From | Can message |
+  |---|---|
+  | Student | Other students in their classes, and their teachers |
+  | Teacher | All students in their classes, other teachers, and admins |
+  | Admin | Everyone |
+
+- **Teachers can see student conversations** for students in their classes,
+  and students are told this.
+- **Messages are kept for 90 days**, then deleted, unless a message is marked
+  to keep longer with a **Keep** checkbox on the message. **Any user** in the
+  conversation can check Keep: students may want to keep a conversation for
+  later reference, and teachers and admins for troubleshooting or auditing.
+- **Admin "view as student":** when an issue is reported (e.g. a teacher says a
+  student's messages aren't sending and gives their email), an admin can enter
+  that student's email and view the app as that student, with access to their
+  profile, to troubleshoot. The admin has **full control**: every feature the
+  student has (trading, messaging, quests, and so on).
+- **Teacher market changes** can be applied to the whole class, all classes
+  the teacher is assigned, a group of students, or one student.
+
+### Updates
+
+| Version | Update | Size |
+|---|---|---|
+| v0.2.3 | Stay signed in across refresh; real sign-out; Privacy posture saves; fix the guides' quest import/export claim (it only records an audit entry) | Small |
+| v0.2.4 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
+| v0.2.5 | Admin "view as student" by email, for troubleshooting | Medium |
+| v0.2.6 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
+| v0.2.7 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
+| v0.2.8 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |
+
+### Profanity filter upgrade (part of v0.2.8)
+
+Today's filter is a 7-word list checked only in the browser, so it's easy to
+skip, and it misses common variations ("fucking", "shitty", "f*ck", "sh1t",
+"fuuuck", "s h i t"). A separate 2-word server filter exists but isn't used.
+In v0.2.8:
+
+- **Run on the server** for every message and discussion post, so it can't be
+  bypassed.
+- **Use a maintained filter library** (e.g. the `obscenity` package) that
+  catches symbols, numbers, repeated letters, spacing, and word endings,
+  instead of a hand-made list.
+- **Add slurs and harassment terms.**
+- **District word list:** admins can add or remove words for their district.
+- **Flag, not just block:** messages suggesting bullying or that a student may
+  be at risk are flagged for review, not only bounced back to the student.
+  - **Flags go to the student's teacher first.**
+  - The teacher can **forward** a flagged message to the admins, and can add an
+    **email address** to the forward for someone outside the app (e.g. a
+    counselor or parent liaison).
+  - Every flag, forward, and email recipient is recorded in the audit log.
+  - Emailing requires an email delivery service, which the app doesn't have
+    yet (password resets need one too). Set one up before or with v0.2.8.
+  - Admins can limit which email domains forwards may go to (e.g. only the
+    district's own domain), since flagged messages contain student
+    information.
+- **Blocked messages go to the moderation queue**, so teachers and admins see
+  attempts, not just delivered messages.
+
+### Notes
+
+- **View as student** is audited (who, which student, when, why) and shows a
+  clear "Viewing as <student>" banner with an exit button. Every action taken
+  while viewing as a student (a trade, a message) is recorded as done by the
+  admin on the student's behalf, so it's always possible to tell what the
+  student did versus what the admin did. Messages sent this way show the
+  student and the teacher that an admin sent them.
+- **Per-student market changes** mean students in the same class can see
+  different prices for the same symbol. That's fine for a simulation, but
+  class leaderboards and comparisons should account for it. It also lays the
+  groundwork for the **teacher life events** goal above.
+- **Students are told** about teacher visibility and the 90-day rule in the
+  Inbox and in the User Manual.

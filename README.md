@@ -129,6 +129,10 @@ Day-to-day usage guidance for students, teachers, and admins lives in
 Implementation history and release notes live in
 [`docs/patch-notes.md`](docs/patch-notes.md).
 
+## Roadmap
+
+Future-state goals under evaluation live in [`docs/roadmap.md`](docs/roadmap.md).
+
 ## Product Guardrails
 
 - Simulated money only in the MVP

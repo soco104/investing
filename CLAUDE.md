@@ -40,5 +40,8 @@ does that automatically when a new version reaches `main`.
 - The owner is a beginner-level coder: explain git and deploy steps plainly.
 - Work on a branch and open a pull request; merging to `main` deploys to the
   live site.
+- Never merge pull requests, even docs-only ones. The owner reviews and merges
+  every one.
+- Future goals live in `docs/roadmap.md`. Check it when planning related work.
 - Before opening a PR, run `npx vitest run` and `npx eslint` on changed files.
   `npx tsc --noEmit` has some pre-existing errors; don't add new ones.

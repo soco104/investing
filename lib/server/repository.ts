@@ -214,8 +214,10 @@ export async function findActiveSession(sessionTokenHash: string) {
     return null;
   }
 
-  const [row] = await getSql()<Array<{ user_id: string }>>`
-    select user_id
+  const [row] = await getSql()<
+    Array<{ id: string; user_id: string; view_as_user_id: string | null }>
+  >`
+    select id, user_id, view_as_user_id
     from auth_sessions
     where session_token_hash = ${sessionTokenHash}
       and revoked_at is null
@@ -224,6 +226,25 @@ export async function findActiveSession(sessionTokenHash: string) {
   `;
 
   return row ?? null;
+}
+
+/** Points an admin's session at a student ("view as"), or clears it. */
+export async function setSessionViewAs(
+  sessionTokenHash: string,
+  viewAs: { reason: string; userId: string } | null
+) {
+  if (!hasProductionDatabase()) {
+    throw new Error("View as student needs a database.");
+  }
+
+  await getSql()`
+    update auth_sessions set
+      view_as_user_id = ${viewAs?.userId ?? null},
+      view_as_reason = ${viewAs?.reason ?? null},
+      view_as_started_at = ${viewAs ? new Date() : null}
+    where session_token_hash = ${sessionTokenHash}
+      and revoked_at is null
+  `;
 }
 
 export async function recordAudit(event: AuditEvent) {

@@ -41,6 +41,7 @@ import {
   Trash2,
   Upload,
   UserCog,
+  UserRoundSearch,
   UsersRound,
   WalletCards,
   Wrench,
@@ -777,11 +778,14 @@ function portfolioToScreens(portfolio: ServerPortfolio) {
             : `${item.amountCents < 0 ? "-" : ""}${formatCurrency(Math.abs(item.amountCents) / 100)}`,
         date: shortDate(item.createdAt),
         id: item.id,
-        note:
-          item.note ||
-          (item.ticker && item.quantityUnits !== null && item.priceCents !== null
+        note: [
+          item.ticker && item.quantityUnits !== null && item.priceCents !== null
             ? `${formatShares(item.quantityUnits)} ${item.ticker} at ${formatCurrency(item.priceCents / 100)}`
-            : ""),
+            : "",
+          item.note,
+        ]
+          .filter(Boolean)
+          .join(" · "),
         vehicle: item.ticker ?? "Portfolio",
       })
     ),
@@ -871,6 +875,8 @@ type AuthenticatedUser = {
   role: AdminUser["role"];
   className: string;
   permissions: AdminUser["permissions"];
+  // Set while an admin is viewing the app as this student.
+  actingAdmin?: { email: string; firstName: string; lastName: string };
 };
 
 type SupportCase = {
@@ -1708,6 +1714,12 @@ const adminModules = [
     detail: "Store integration secrets in the backend vault and manage rotations.",
     status: "Secret-backed",
     icon: KeyRound,
+  },
+  {
+    title: "View as student",
+    detail: "Use the app as a specific student to troubleshoot an issue they reported.",
+    status: "Audited",
+    icon: UserRoundSearch,
   },
   {
     title: "School year",
@@ -3559,6 +3571,16 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+        {authenticatedUser.actingAdmin ? (
+          <ViewingAsBanner
+            adminName={
+              `${authenticatedUser.actingAdmin.firstName} ${authenticatedUser.actingAdmin.lastName}`.trim() ||
+              authenticatedUser.actingAdmin.email
+            }
+            studentEmail={authenticatedUser.email}
+            studentName={`${authenticatedUser.firstName} ${authenticatedUser.lastName}`.trim()}
+          />
+        ) : null}
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -4662,7 +4684,19 @@ export default function Home() {
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {adminModules.map((module) => (
-                  module.title === "School year" ? (
+                  module.title === "View as student" ? (
+                    <ViewAsStudentDialog
+                      key={module.title}
+                      trigger={
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border bg-background p-4 text-left transition hover:border-[#28666e] hover:bg-[#f7fbf9] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          <AdminModuleCardContent module={module} />
+                        </button>
+                      }
+                    />
+                  ) : module.title === "School year" ? (
                     <SchoolYearDialog
                       key={module.title}
                       trigger={
@@ -10133,6 +10167,174 @@ const emailStatusLabels: Record<string, string> = {
   not_configured: "Not sent: email not set up",
   sent: "Sent",
 };
+
+/**
+ * Admin: start viewing the app as a student (by email, with a reason). The
+ * page reloads as that student; a banner offers Exit.
+ */
+function ViewAsStudentDialog({ trigger }: { trigger: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [reason, setReason] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function start() {
+    if (!email.trim() || !reason.trim()) {
+      setNotice("Enter the student's email and a reason.");
+      return;
+    }
+
+    setPending(true);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/admin/view-as", {
+        body: JSON.stringify({ reason: reason.trim(), studentEmail: email.trim() }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        setNotice(result.message ?? "Couldn't start viewing as that student.");
+        return;
+      }
+
+      // Reload so every screen loads as the student.
+      window.location.assign("/");
+    } catch {
+      setNotice("Couldn't start viewing as that student.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        setNotice("");
+      }}
+    >
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>View as student</DialogTitle>
+          <DialogDescription>
+            Use the app as this student, with their full features, to
+            troubleshoot. Anything you do (like a trade) is saved to their
+            account and marked as done by you on their behalf. Starting,
+            exiting, and every action are recorded in the audit log.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="view-as-email">Student email</Label>
+            <Input
+              id="view-as-email"
+              type="email"
+              placeholder="student@school.edu"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="view-as-reason">Reason</Label>
+            <Textarea
+              id="view-as-reason"
+              placeholder="e.g. Teacher reports the student's messages aren't sending"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </div>
+          {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            disabled={pending}
+            onClick={() => void start()}
+            className="bg-[#28666e] text-white hover:bg-[#22565d]"
+          >
+            {pending ? "Starting…" : "Start viewing as student"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Shown on every screen while an admin is viewing as a student. */
+function ViewingAsBanner({
+  adminName,
+  studentEmail,
+  studentName,
+}: {
+  adminName: string;
+  studentEmail: string;
+  studentName: string;
+}) {
+  const [pending, setPending] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  async function exit() {
+    setPending(true);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/admin/view-as", {
+        credentials: "same-origin",
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const result = (await response.json()) as { message?: string };
+        setNotice(result.message ?? "Couldn't exit. Try again.");
+        return;
+      }
+
+      window.location.assign("/");
+    } catch {
+      setNotice("Couldn't exit. Try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div
+      role="status"
+      aria-label="Viewing as student"
+      className="bg-[#7a3b00] text-white"
+    >
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm sm:px-6 lg:px-8">
+        <p>
+          <span className="font-semibold">
+            Viewing as {studentName || studentEmail}
+          </span>{" "}
+          ({studentEmail}) · admin: {adminName}. Actions you take are saved to this
+          student&apos;s account and marked as yours.
+        </p>
+        <div className="flex items-center gap-3">
+          {notice ? <span>{notice}</span> : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => void exit()}
+            className="border-white/70 bg-transparent text-white hover:bg-white/10 hover:text-white"
+          >
+            {pending ? "Exiting…" : "Exit"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const monthNames = [
   "January", "February", "March", "April", "May", "June",

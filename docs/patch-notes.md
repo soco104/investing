@@ -2,6 +2,21 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.7 — 2026-11-12
+
+### View as Student (Admins)
+
+- Admins can now **view the app as a specific student** to troubleshoot a
+  reported problem: Admin portal → **View as student**, enter the student's
+  email and a reason. The app reloads as that student, with all their
+  features.
+- A banner at the top shows you're viewing as the student. Click **Exit** to go
+  back to your own account. There's no time limit.
+- Anything you do while viewing (like a trade) is saved to the student's
+  account and shown in their portfolio history as done **by you on the
+  student's behalf**. Starting, exiting, and every action are recorded in the
+  audit log. Students aren't notified when an admin views their account.
+
 ## v0.2.6 — 2026-11-12
 
 ### Student Profiles and Portfolios

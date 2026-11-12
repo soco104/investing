@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.6; the version you are using is shown
+district admins. It describes version 0.2.7; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -62,8 +62,15 @@ an Admin) can use the **Assume role** menu at the top right to switch between
 the Student, Teacher, and Admin views. The menu only lists views the account
 has permission to use.
 
-Note: when an Admin views the Student portal, the screens show sample student
-data, not a specific student's account.
+In the Student view, teachers and admins see their own **Practice** portfolio,
+not a student's.
+
+### When an Admin Helps With Your Account
+
+If you report a problem, an admin may use **View as student** to see the app as
+you and fix it. Anything they do in your account, such as a trade, appears in
+your portfolio history marked "By admin [name] on the student's behalf", so you
+can always tell their actions from yours.
 
 ### Forgot Your Password?
 
@@ -295,6 +302,8 @@ Admins can:
 - Review monitoring, logs, and integration health.
 - Trigger password resets.
 - Set the school year dates.
+- View the app as a specific student to troubleshoot (see the Admin Guide,
+  "View as Student").
 - Apply audited corrections to a student's portfolio cash, and approve or deny
   teachers' portfolio reset requests.
 - Import/export learning quests.

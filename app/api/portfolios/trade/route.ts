@@ -1,3 +1,4 @@
+import { recordAuditEvent } from "@/lib/server/audit";
 import { userFromRequest } from "@/lib/server/auth";
 import { executeTrade, portfolioErrorResponse } from "@/lib/server/portfolios";
 
@@ -33,6 +34,22 @@ export async function POST(request: Request) {
       side: body.side,
       ticker: body.ticker,
     });
+
+    if (user.actingAdmin) {
+      await recordAuditEvent({
+        action: "view_as.action",
+        actor: user.actingAdmin,
+        context: {
+          action: `trade.${body.side}`,
+          shares: Number(body.shares),
+          studentEmail: user.email,
+          ticker: body.ticker,
+        },
+        reason: "Action while viewing as student",
+        targetId: body.portfolioId,
+        targetType: "portfolio",
+      });
+    }
 
     return Response.json({ ok: true, portfolio });
   } catch (error) {

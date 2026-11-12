@@ -420,6 +420,19 @@ export async function getProfilePortfolios(user: AuthenticatedUser) {
   return Promise.all(rows.map((row) => getPortfolioDetail(row.id)));
 }
 
+/** Who actually did it: the admin when viewing as the student. */
+function actorId(user: AuthenticatedUser) {
+  return user.actingAdmin?.id ?? user.id;
+}
+
+/** Marks actions an admin took while viewing as the student. */
+function onBehalfNote(user: AuthenticatedUser) {
+  if (!user.actingAdmin) return "";
+
+  const name = `${user.actingAdmin.firstName} ${user.actingAdmin.lastName}`.trim();
+  return `By admin ${name || user.actingAdmin.email} on the student's behalf`;
+}
+
 async function requireOwnedWritablePortfolio(sql: Sql, portfolioId: string, user: AuthenticatedUser) {
   const portfolio = await loadPortfolioRow(sql, portfolioId, true);
 
@@ -477,10 +490,11 @@ export async function executeTrade(
 
     await writeState(tx, portfolio.id, before, result.state);
     await recordActivity(tx, {
-      actorUserId: user.id,
+      actorUserId: actorId(user),
       amountCents: result.amountCents,
       cashAfterCents: result.state.cashCents,
       kind: input.side,
+      note: onBehalfNote(user),
       portfolioId: portfolio.id,
       priceCents: prices[ticker],
       quantityUnits: result.quantityUnits,
@@ -515,13 +529,14 @@ export async function saveAllocationTargets(
         targets_json = excluded.targets_json, updated_at = excluded.updated_at
     `;
     await recordActivity(tx, {
-      actorUserId: user.id,
+      actorUserId: actorId(user),
       cashAfterCents: Number(portfolio.cash_cents),
       kind: "allocation",
       note:
-        total === 100
+        (total === 100
           ? "Saved a balanced target mix"
-          : `Saved draft targets (${total}%) for teacher review`,
+          : `Saved draft targets (${total}%) for teacher review`) +
+        (user.actingAdmin ? `. ${onBehalfNote(user)}` : ""),
       portfolioId: portfolio.id,
     });
   });

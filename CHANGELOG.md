@@ -7,6 +7,19 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Patch** (0.2.0 → 0.2.1): a bug fix or small tweak.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.1] - 2026-11-12
+
+### Added
+- `docs/roadmap.md` with two future goals: teacher life events (with a graded
+  student debrief report) and school branding (colors and logos).
+- Patch notes are now part of every change, newest at the top of
+  `docs/patch-notes.md`.
+
+### Changed
+- Every change now gets a version and patch notes, including small docs and
+  process updates.
+- Pull requests are always reviewed and merged by the owner.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added
@@ -31,5 +44,6 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.1]: https://github.com/soco104/investing/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/soco104/investing/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/soco104/investing/releases/tag/v0.1.0

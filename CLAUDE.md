@@ -5,10 +5,12 @@ deployed on DigitalOcean App Platform).
 
 ## Versioning (required for every change)
 
-Every change that ships gets a version bump, following semantic versioning:
+Every change gets a version bump and patch notes, **including small ones**
+(docs, roadmap, process, config). Nothing merges untracked. Semantic versioning:
 
 - **Minor** (0.2.0 → 0.3.0): a new feature or noticeable change.
-- **Patch** (0.2.0 → 0.2.1): a bug fix or small tweak.
+- **Patch** (0.2.0 → 0.2.1): a bug fix, small tweak, or docs/process/roadmap
+  update.
 - **Major** (→ 1.0.0): only when the owner says so (e.g. launching with real
   schools).
 
@@ -29,8 +31,8 @@ In the same pull request as the change:
    admins: what changed and how to use it, plus any settings to change.
 4. Put the version in the PR title, e.g. `v0.3.0: Add class leaderboard`.
 
-Changes that only touch docs or repo process (nothing in the running app)
-don't need a version bump.
+If several small changes go in one pull request, they share one version and
+one patch notes entry.
 
 Don't create tags or GitHub releases by hand: `.github/workflows/release.yml`
 does that automatically when a new version reaches `main`.

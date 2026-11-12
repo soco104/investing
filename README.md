@@ -124,6 +124,24 @@ password resets, portfolio corrections, and learning quest import/export.
 Day-to-day usage guidance for students, teachers, and admins lives in
 [`docs/user-manual.md`](docs/user-manual.md).
 
+## Testing
+
+```bash
+npm run lint                 # ESLint
+npm run typecheck:baseline   # no new TypeScript errors
+npm test                     # unit tests (Vitest)
+DATABASE_URL=postgres://postgres@127.0.0.1:5432/futurefund_test npm run test:e2e
+                             # browser tests (Playwright) against PostgreSQL
+```
+
+The browser tests reset the demo data in the database they're given, so use a
+scratch database. Results go to `playwright-report/` (open `index.html` for
+screenshots of every test).
+
+All of these run automatically on every pull request, and a test report is
+posted on the pull request. Bugs are tracked as GitHub issues with the `bug`
+label. Past test reports are in [`docs/test-reports/`](docs/test-reports/).
+
 ## Patch Notes
 
 Implementation history and release notes live in

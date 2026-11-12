@@ -50,3 +50,7 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+
+# Browser test results
+playwright-report/
+test-results/

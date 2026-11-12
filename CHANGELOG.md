@@ -7,6 +7,17 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.4] - 2026-11-12
+
+### Fixed
+- Refreshing the page no longer signs users out: the app restores the session
+  (valid for 8 hours) on load.
+- **Sign out** now ends the session on the server and clears the session
+  cookie.
+- The Privacy posture page now saves (with a Save button and audit entry) and
+  shows the saved setting when reopened. The server now accepts the same
+  posture values the page offers and validates the contact email.
+
 ## [0.2.3] - 2026-11-12
 
 ### Added
@@ -79,6 +90,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.4]: https://github.com/soco104/investing/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/soco104/investing/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/soco104/investing/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/soco104/investing/compare/v0.2.0...v0.2.1

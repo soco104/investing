@@ -2,6 +2,21 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.4 — 2026-11-12
+
+### Signing In and Out
+
+- **You now stay signed in when you refresh the page**, for up to 8 hours
+  after signing in.
+- **Sign out** now fully ends your session, so refreshing afterward shows the
+  login page. On shared classroom computers, remember to sign out.
+
+### Privacy Posture
+
+- The Privacy posture page now **saves**. Choose a posture, enter the privacy
+  contact's email, and click **Save**. The setting stays in place after a
+  refresh, and each change is recorded in the audit log.
+
 ## v0.2.3 — 2026-11-12
 
 ### Email

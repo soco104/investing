@@ -2,8 +2,17 @@ import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
 import { createPrivacyPosture } from "@/lib/server/repository";
 
+import { isValidEmailAddress } from "@/lib/server/email";
+
+// Must match the options on the Admin portal's Privacy posture page.
+const privacyPostureValues = [
+  "standard",
+  "state-restricted",
+  "district-custom",
+] as const;
+
 type PrivacyPostureRequest = {
-  posture: "standard" | "strict" | "state_specific";
+  posture: (typeof privacyPostureValues)[number];
   privacyContactEmail: string;
   reason?: string;
   stateCode?: string;
@@ -17,10 +26,18 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as PrivacyPostureRequest;
+  const privacyContactEmail = body.privacyContactEmail?.trim() ?? "";
 
-  if (!body.posture || !body.privacyContactEmail) {
+  if (!privacyPostureValues.includes(body.posture)) {
     return Response.json(
-      { message: "posture and privacyContactEmail are required.", ok: false },
+      { message: "Choose a privacy posture.", ok: false },
+      { status: 400 }
+    );
+  }
+
+  if (!isValidEmailAddress(privacyContactEmail)) {
+    return Response.json(
+      { message: "Enter a valid privacy contact email.", ok: false },
       { status: 400 }
     );
   }
@@ -30,7 +47,7 @@ export async function POST(request: Request) {
     actor: user,
     context: {
       posture: body.posture,
-      privacyContactEmail: body.privacyContactEmail,
+      privacyContactEmail,
       stateCode: body.stateCode,
     },
     reason: body.reason,
@@ -40,7 +57,7 @@ export async function POST(request: Request) {
   await createPrivacyPosture({
     actor: user,
     posture: body.posture,
-    privacyContactEmail: body.privacyContactEmail,
+    privacyContactEmail,
     stateCode: body.stateCode,
   });
 

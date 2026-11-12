@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.3; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.4; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -10,21 +10,23 @@ change that affects what it describes.
 - **Saved on the server and audited:** users (create, import, edit, enable,
   disable), permissions, schools, market integrations and integration tests,
   Market Simulator class settings, Credential Vault entries, support cases,
-  password resets (emailed to the user), email test sends, and portfolio
-  corrections. Quest import/export records an audit entry only; the quests
+  password resets (emailed to the user), email test sends, privacy posture,
+  and portfolio corrections. Quest import/export records an audit entry only; the quests
   themselves are not stored yet.
-- **On screen but not saved yet** (lost on refresh): the Privacy posture page,
-  and everything outside the Admin portal: student trades and allocations,
+- **On screen but not saved yet** (lost on refresh): everything outside the
+  Admin portal: student trades and allocations,
   messages and discussions, Quest Studio edits, and the teacher's Market page
   price and scenario controls.
 - **Sample data:** the Monitoring pages (open errors, slow calls, integration
   health), and the student and teacher dashboards and analytics, show built-in
   sample data.
 - **Server endpoints with no screen yet:** moderation review, retention
-  requests, backup/restore tests, incidents, privacy, SSO settings, and the
-  audit log (sections 13, 17, 18, 19, and 20).
+  requests, backup/restore tests, incidents, SSO settings, and the audit log
+  (sections 17, 18, 19, and 20).
 
-Refreshing the page signs the user out; they need to sign in again.
+**Sessions:** users stay signed in across page refreshes for up to 8 hours
+after signing in. **Sign out** ends the session on the server. Resetting a
+user's password signs them out everywhere.
 
 ## 1. Admin Responsibilities
 
@@ -566,8 +568,11 @@ Use the Privacy posture page to select the required district posture for student
 privacy compliance. This is a configuration aid and does not replace legal
 review.
 
-In this version, the Privacy posture page is not saved: a selection resets on
-refresh. The server endpoint below exists but the page does not use it yet.
+Choose the posture and enter the privacy contact's email, then click **Save**.
+Changes are a draft until saved ("Unsaved changes" shows next to the button);
+saved changes are recorded in the audit log, and the page shows the saved
+setting the next time it's opened. Each save is kept, so earlier settings
+remain in the database as history.
 
 The page tracks:
 
@@ -591,8 +596,10 @@ Production endpoint:
 
 - `POST /api/admin/privacy`
 
-The endpoint requires `Admin portal` permission and audits posture, privacy
-contact, state code, actor, timestamp, and reason.
+The endpoint requires `Admin portal` permission, accepts only the three
+postures on the page (`standard`, `state-restricted`, `district-custom`) and a
+valid contact email, and audits posture, privacy contact, state code, actor,
+timestamp, and reason.
 
 ## 14. Support Cases
 
@@ -997,7 +1004,6 @@ operating procedures:
 
 - Replace local demo auth with district SSO for live school users, and set
   `DEMO_LOGINS` to `false`.
-- Keep users signed in across page refreshes (sessions are not restored yet).
 - Save the pages that are not saved yet (see "What Is Saved in This Version").
 - Set up email (section 15a) and confirm a test email arrives.
 - Continue wiring student, teacher, quest, portfolio, and messaging reads to

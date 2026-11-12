@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.3; the version you are using is shown
+district admins. It describes version 0.2.4; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -11,10 +11,12 @@ yet. Know which is which before using it with a class:
 
 **Saved** (kept after you refresh or sign out):
 
-- Signing in.
+- Signing in. You stay signed in when you refresh the page (see Staying Signed
+  In below).
 - Everything in the Admin portal: users, permissions, schools, market
   integrations, the Market Simulator's class settings, the Credential Vault,
-  support cases, password resets, email, and portfolio corrections. (Quest
+  support cases, password resets, email, privacy posture, and portfolio
+  corrections. (Quest
   import/export records an audit entry, but the quests themselves are not
   stored yet.)
 
@@ -29,7 +31,6 @@ yet. Know which is which before using it with a class:
 Student and teacher dashboards, portfolios, class analytics, and messages start
 from built-in sample data rather than each person's real records.
 
-**Refreshing the page signs you out.** Sign in again to continue.
 
 ## Sign In
 
@@ -74,9 +75,16 @@ Ask your teacher or district admin to reset it. You'll get an email titled
 
 If the link has expired or was already used, ask for a new reset.
 
+### Staying Signed In
+
+Refreshing the page or closing and reopening the tab keeps you signed in, for
+up to 8 hours after you sign in. After that, you'll be asked to sign in again.
+
 ### Signing Out
 
-Click **Sign out** at the top right.
+Click **Sign out** at the top right. This ends your session, so refreshing the
+page afterward shows the login page. On a shared or classroom computer, always
+sign out when you're done.
 
 ## Student Experience
 

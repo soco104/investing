@@ -263,6 +263,7 @@ export async function listAdminState() {
       adminUsers: [],
       credentials: [],
       marketIntegrations: [],
+      privacyPosture: null,
       schools: [],
       supportCases: [],
     };
@@ -276,6 +277,7 @@ export async function listAdminState() {
     marketIntegrations,
     credentials,
     classMarketConfigs,
+    privacyRows,
   ] =
     await Promise.all([
       sql`
@@ -332,6 +334,16 @@ export async function listAdminState() {
       order by updated_at desc
       limit 100
     `,
+      // Each save adds a row (keeping history); the newest one is current.
+      sql<
+        Array<{ posture: string; privacy_contact_email: string; updated_at: Date }>
+      >`
+      select posture, privacy_contact_email, updated_at
+      from privacy_posture_settings
+      where district_id = ${defaultDistrictId}
+      order by updated_at desc
+      limit 1
+    `,
     ]);
 
   return {
@@ -339,6 +351,7 @@ export async function listAdminState() {
     classMarketConfigs,
     credentials,
     marketIntegrations,
+    privacyPosture: privacyRows[0] ?? null,
     schools,
     supportCases,
   };

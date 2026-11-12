@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.7; the version you are using is shown
+district admins. It describes version 0.2.8; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -15,6 +15,8 @@ yet. Know which is which before using it with a class:
   In below).
 - Student portfolios: cash, stocks, trades, allocation targets, and the
   portfolio history for every class and school year.
+- Teacher market controls: price raises and lowers and the Strait of Hormuz
+  scenario, until the teacher undoes them or resets the market.
 - Everything in the Admin portal: users, permissions, schools, market
   integrations, the Market Simulator's class settings, the Credential Vault,
   support cases, password resets, email, privacy posture, and portfolio
@@ -26,8 +28,6 @@ yet. Know which is which before using it with a class:
 
 - Inbox messages and discussion posts.
 - Quests created or edited in Quest Studio.
-- The teacher's quick Market page controls (raise/lower prices, Strait of
-  Hormuz scenario).
 
 Some screens still show built-in sample data rather than real records: the
 teacher's class analytics and Active Students view, messages, quests, and the
@@ -219,8 +219,8 @@ Teachers can:
 - Import or export quest templates when permitted.
 - View teacher profiles showing managed classes, authored quests, and inbox.
 - Message students and participate in classroom discussions.
-- Use quick Market page controls to move prices and trigger a classroom
-  scenario.
+- Use the Market page's Teacher market controls to move prices and trigger a
+  classroom scenario for a class, all their classes, a group, or one student.
 
 ### Active Students
 
@@ -258,15 +258,38 @@ starting cash, and allowed symbols) are set by an admin on the Admin portal's
 **Market Simulator** page. There is not yet a teacher screen for these
 settings; ask your admin to change them.
 
-Teachers can use the Market page for quick classroom scenario controls. They
-can raise or lower selected symbol prices and trigger the initial Strait of
-Hormuz blockade scenario. The scenario creates a major oil-price shock against
-teacher-selected symbols, raising energy or oil-service symbols and lowering
-travel symbols that are negatively affected by fuel costs.
+Teachers change their students' prices from the **Teacher market controls**
+panel on the Market page:
 
-In this version, these quick controls are not saved: they affect only the
-teacher's current screen and reset when the page is refreshed. Students trade
-at the class's saved market prices, not the teacher's on-screen changes.
+1. **Class market:** pick one of your classes. Only classes whose **Teacher
+   controls** setting is on are listed (an admin sets this in Market
+   Simulator). Admins can pick any class.
+2. **Who it applies to:**
+   - **This class:** every student in the class.
+   - **All my classes:** every class you can change. A symbol that isn't in a
+     class's market is skipped for that class, and the message says so.
+   - **A group of students:** tick the students' names.
+   - **One student:** pick the student.
+3. **Raise** or **Lower** next to a symbol moves its price 3%. Each click is a
+   separate change, and changes stack.
+4. **Strait of Hormuz scenario:** enter the affected symbols (comma-separated)
+   and the oil spike % (1–60), then click **Trigger scenario**. Energy and
+   oil-service symbols rise by the spike; travel symbols (like JETS) fall by
+   about half of it. The whole scenario is one change.
+
+Changes are saved and take effect right away: students see the new price and
+your news line (for example "Teacher update: SPY moved up 3%.") on their
+Market page, and their trades use the changed price. The prices in the panel
+are what the whole class sees; a change for a group or one student only
+changes those students' prices.
+
+**Active changes** lists every change in effect for the class, who made it and
+who it applies to. Click **Undo** to remove a change (a scenario is undone as
+a whole), or **Reset to normal** to remove them all. Undone changes are kept
+as records. Every change, undo and reset is recorded in the audit log.
+
+Changes don't change any student's cash or shares; they change the price.
+Students who already own a symbol see its value move with the price.
 
 ### Requesting a Portfolio Reset
 

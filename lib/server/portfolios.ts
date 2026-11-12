@@ -21,10 +21,11 @@ import {
   type SchoolYearSettings,
 } from "@/lib/school-year";
 import type { AuthenticatedUser } from "@/lib/server/auth";
+import { PortfolioError } from "@/lib/server/portfolios-errors";
+import { adjustedClassMarket } from "@/lib/server/teacher-market";
 import {
   defaultDistrictId,
   getClassMarketConfig,
-  getClassMarketState,
   getSql,
   hasProductionDatabase,
   id,
@@ -39,14 +40,7 @@ import {
  * kept as read-only records the student can look back on.
  */
 
-export class PortfolioError extends Error {
-  constructor(
-    message: string,
-    readonly status: number
-  ) {
-    super(message);
-  }
-}
+export { PortfolioError };
 
 function requireDatabase() {
   if (!hasProductionDatabase()) {
@@ -135,15 +129,19 @@ type PortfolioRow = {
 
 type Sql = ReturnType<typeof getSql> | TransactionSql;
 
-async function marketPrices(className: string) {
-  const state = await getClassMarketState(className);
+/**
+ * Prices this student trades at: the class simulator price with any active
+ * teacher market changes applied (v0.2.8).
+ */
+async function marketPrices(className: string, studentUserId: string | null) {
+  const { state, symbols } = await adjustedClassMarket(className, studentUserId);
   const prices: Record<string, number> = {};
 
-  for (const symbol of state.symbols) {
-    prices[symbol.ticker] = priceToCents(symbol.simulatedPrice);
+  for (const symbol of symbols) {
+    prices[symbol.ticker] = priceToCents(symbol.price);
   }
 
-  return { prices, state };
+  return { prices, state, symbols };
 }
 
 async function loadState(sql: Sql, portfolio: PortfolioRow): Promise<PortfolioState> {
@@ -310,9 +308,9 @@ export async function getPortfolioDetail(portfolioId: string) {
 
   if (!portfolio) throw new PortfolioError("Portfolio not found.", 404);
 
-  const [state, { prices, state: market }, gradeLevel, readOnly] = await Promise.all([
+  const [state, { prices, state: market, symbols: adjustedSymbols }, gradeLevel, readOnly] = await Promise.all([
     loadState(sql, portfolio),
-    marketPrices(portfolio.class_name),
+    marketPrices(portfolio.class_name, portfolio.user_id),
     getClassGradeLevel(portfolio.class_name),
     isReadOnly(portfolio),
   ]);
@@ -391,10 +389,11 @@ export async function getPortfolioDetail(portfolioId: string) {
     market: {
       scenarioLabel: market.scenarioLabel,
       simulationMode: market.config.simulationMode,
-      symbols: market.symbols.map((symbol) => ({
-        changePercent: symbol.simulatedChangePercent,
+      symbols: adjustedSymbols.map((symbol) => ({
+        changePercent: symbol.changePercent,
         name: symbol.name,
-        priceCents: priceToCents(symbol.simulatedPrice),
+        news: symbol.news ?? null,
+        priceCents: priceToCents(symbol.price),
         ticker: symbol.ticker,
       })),
     },
@@ -465,7 +464,7 @@ export async function executeTrade(
   await getSql().begin(async (tx) => {
     const portfolio = await requireOwnedWritablePortfolio(tx, input.portfolioId, user);
     const [{ prices, state: market }, gradeLevel, before] = await Promise.all([
-      marketPrices(portfolio.class_name),
+      marketPrices(portfolio.class_name, portfolio.user_id),
       getClassGradeLevel(portfolio.class_name),
       loadState(tx, portfolio),
     ]);
@@ -613,7 +612,7 @@ export async function applyPortfolioCorrection(input: {
       throw new PortfolioError("That correction would make the cash balance negative.", 400);
     }
 
-    const { prices } = await marketPrices(portfolio.class_name);
+    const { prices } = await marketPrices(portfolio.class_name, portfolio.user_id);
     const state = await loadState(tx, portfolio);
     const newState = { ...state, cashCents: after };
 

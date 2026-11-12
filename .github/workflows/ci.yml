@@ -1,0 +1,149 @@
+# Runs every check on each pull request (and on main after a merge), and posts
+# a test report on the pull request with links to the evidence.
+#
+# Checks: lint, type-check baseline, unit tests (Vitest), browser tests
+# (Playwright, against a real PostgreSQL database).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, type check, unit and browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: futurefund_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      CI: "true"
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/futurefund_test
+      # Test-only value for the demo security question (not the real answer).
+      DEMO_SECURITY_ANSWER: CiTestCity
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm run install:ci
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Type check (no new errors)
+        id: typecheck
+        continue-on-error: true
+        shell: bash  # with pipefail, so a failing check isn't hidden by tee
+        run: |
+          npm run -s typecheck:baseline | tee typecheck.txt
+          echo "summary=$(head -1 typecheck.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Unit tests
+        id: unit
+        continue-on-error: true
+        run: >-
+          npx vitest run --reporter=default --reporter=json
+          --outputFile.json=test-results/unit-results.json
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        id: e2e
+        continue-on-error: true
+        run: npm run test:e2e
+
+      - name: Build test report
+        if: always()
+        env:
+          CHECK_LINT: ${{ steps.lint.outcome }}
+          CHECK_TYPECHECK: ${{ steps.typecheck.outcome }}
+          CHECK_UNIT: ${{ steps.unit.outcome }}
+          CHECK_E2E: ${{ steps.e2e.outcome }}
+          TYPECHECK_SUMMARY: ${{ steps.typecheck.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/test-report.mjs > /dev/null
+          cat test-results/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evidence (browser test report with screenshots)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Post report on the pull request
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Update the existing report comment if there is one, else add one.
+          comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '.[] | select(.body | contains("<!-- futurefund-test-report -->")) | .id' | tail -1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$comment_id" -F body=@test-results/report.md > /dev/null
+          else
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@test-results/report.md > /dev/null
+          fi
+
+      - name: Fail if any check failed
+        if: always()
+        env:
+          OUTCOMES: >-
+            ${{ steps.lint.outcome }} ${{ steps.typecheck.outcome }}
+            ${{ steps.unit.outcome }} ${{ steps.e2e.outcome }}
+        run: |
+          for outcome in $OUTCOMES; do
+            if [ "$outcome" != "success" ]; then
+              echo "At least one check failed. See the test report above."
+              exit 1
+            fi
+          done

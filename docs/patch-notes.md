@@ -2,6 +2,25 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.5 — 2026-11-12
+
+No changes to how the app works in this update. This update adds automatic
+testing, so problems are caught before they reach the live site.
+
+### Testing and Quality
+
+- **Every pull request is now tested automatically** before it can be merged:
+  code checks, unit tests, and browser tests that sign in and click through
+  the app like a real user, against a real database.
+- **A test report is posted on every pull request**, showing what was tested
+  and what passed or failed, with screenshots of every browser test as
+  evidence.
+- **Bugs are now tracked** as issues on GitHub (label: `bug`), each linked to
+  the version that fixed it. Six bugs found in v0.2.0–v0.2.4 have been logged
+  (all fixed).
+- **Test report for v0.2.0–v0.2.4** with evidence and the bug list:
+  `docs/test-reports/2026-11-12-v0.2.0-v0.2.4.md`.
+
 ## v0.2.4 — 2026-11-12
 
 ### Signing In and Out

@@ -55,5 +55,24 @@ does that automatically when a new version reaches `main`.
 - Never merge pull requests, even docs-only ones. The owner reviews and merges
   every one.
 - Future goals live in `docs/roadmap.md`. Check it when planning related work.
-- Before opening a PR, run `npx vitest run` and `npx eslint` on changed files.
-  `npx tsc --noEmit` has some pre-existing errors; don't add new ones.
+
+## Testing (required for every change)
+
+- **CI runs on every pull request** (`.github/workflows/ci.yml`): lint, the
+  type-check baseline, unit tests, and browser tests against PostgreSQL. It
+  posts a test report on the PR. Don't ask the owner to merge until CI passes.
+- **Before opening a PR, run locally:** `npm run lint`,
+  `npm run typecheck:baseline` (no new TypeScript errors; if you fix some,
+  lower `scripts/typescript-baseline.json`), `npm test`, and
+  `npm run test:e2e` (needs `DATABASE_URL` for a scratch PostgreSQL database).
+- **Every change that affects what users see or do adds browser tests** in
+  `tests/e2e/` for the new or changed flow, alongside unit tests for server
+  code. The browser suite is the regression suite: never delete a test to make
+  CI pass; fix the app or update the test to the new intended behavior and
+  say so in the PR.
+- **Every bug found** (by tests, review, or the owner) gets a GitHub issue
+  with the `bug` label, stating the version that introduced it, how it was
+  found, and the fix. Close it with the PR that fixes it, add a regression
+  test named after the issue (e.g. "… (regression: issue #10)"), and list it
+  under **Fixed** in the changelog and patch notes.
+- **PR descriptions** summarize what was tested and link the CI test report.

@@ -240,18 +240,19 @@ milestone the owner chooses.
 |---|---|---|
 | v0.2.3 ✅ | Email system (Resend), Admin Email page, password resets that work end to end, guides' quest import/export claim corrected | Done |
 | v0.2.4 ✅ | Stay signed in across refresh; real sign-out; Privacy posture saves | Done |
-| v0.2.5 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
-| v0.2.6 | Admin "view as student" by email, for troubleshooting | Medium |
-| v0.2.7 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
-| v0.2.8 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
-| v0.2.9 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |
+| v0.2.5 ✅ | Automated testing: browser test suite, CI with a test report on every pull request, bug log (GitHub issues) | Done |
+| v0.2.6 | Student portfolios saved: cash, holdings, trades, allocations, activity; Market page uses server prices; portfolio corrections apply to real portfolios | Large |
+| v0.2.7 | Admin "view as student" by email, for troubleshooting | Medium |
+| v0.2.8 | Teacher market controls saved, with targeting (class, all classes, group, one student) and reset | Medium–large |
+| v0.2.9 | Quests saved; assigned quests shown to students; import/export stores quests | Medium–large |
+| v0.2.10 | Messages and discussions saved, following the rules above; upgraded server-side profanity filter (see below) and moderation queue; 90-day deletion with **Keep** | Large |
 
-### Profanity filter upgrade (part of v0.2.9)
+### Profanity filter upgrade (part of v0.2.10)
 
 Today's filter is a 7-word list checked only in the browser, so it's easy to
 skip, and it misses common variations ("fucking", "shitty", "f*ck", "sh1t",
 "fuuuck", "s h i t"). A separate 2-word server filter exists but isn't used.
-In v0.2.9:
+In v0.2.10:
 
 - **Run on the server** for every message and discussion post, so it can't be
   bypassed.

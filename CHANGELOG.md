@@ -7,6 +7,26 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.5] - 2026-11-12
+
+### Added
+- Browser test suite (Playwright, `tests/e2e/`, 13 tests) covering sign-in,
+  the security question and lockout, staying signed in, sign-out, role
+  switching, privacy posture, the Email page, and password resets, including
+  regression tests for issues #10–#14. Run with `npm run test:e2e`.
+- CI on every pull request: lint, type-check baseline, unit tests, and
+  browser tests against PostgreSQL, with a test report posted on the pull
+  request and screenshots of every browser test as downloadable evidence.
+- Type-check baseline (`npm run typecheck:baseline`): fails on new TypeScript
+  errors.
+- Bug log: GitHub issues with the `bug` label (#10–#15 logged for bugs found
+  in v0.2.0–v0.2.4).
+- Test report for v0.2.0–v0.2.4 in `docs/test-reports/`.
+
+### Changed
+- `CLAUDE.md`: testing rules for every change (browser tests, CI must pass,
+  bugs logged as issues with regression tests).
+
 ## [0.2.4] - 2026-11-12
 
 ### Fixed
@@ -90,6 +110,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.5]: https://github.com/soco104/investing/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/soco104/investing/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/soco104/investing/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/soco104/investing/compare/v0.2.1...v0.2.2

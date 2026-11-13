@@ -22,6 +22,36 @@ declares.
 | v0.2.17 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
 | v0.2.18+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
 
+### v0.2.15 plan: grading quest submissions with a rubric
+
+**Planned:** 2026-11-13 · **Status:** decisions recorded; not started (waiting
+for the owner's go)
+
+**What it does:** on a quest's Submissions list, a teacher gives points for
+each scoring rule (0 up to the rule's maximum) and optional feedback; the app
+totals it. The list shows each student as Not submitted, Submitted, Graded or
+Released, marks late answers, and shows the class average. Regrading is
+allowed and audited. One new table for grades; quest import and export carry
+grades too.
+
+**Decided (2026-11-13):**
+
+1. **Draft, then release.** A saved grade is a draft the student can't see.
+   The teacher releases one grade, or all graded ones for the class at once.
+2. **No grading before the due date unless the teacher chooses to.** Early
+   grading shows a warning, and a grade is marked "Answer changed since
+   grading" if the student edits their answer afterwards.
+3. **Missing submissions get no grade automatically.** They show as "Not
+   submitted"; a teacher can enter a zero by hand.
+4. **Who can grade:** the class's teachers grade; **teachers and admins can
+   adjust grades**. **Students can only view**, and what they get is a
+   **report of their grade on their submission** (total, points per rule they
+   are allowed to see, feedback), never the teacher or admin grading view.
+
+**Not in this version:** a gradebook across all quests and grade export
+(with the college credit summary later); messaging the student when a grade
+is released (with the debrief work in v0.2.17).
+
 ### v0.2.14 running list
 
 **Started:** 2026-11-13 · **Status:** shipped as v0.2.14. Small changes the

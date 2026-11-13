@@ -4,6 +4,32 @@ Future-state goals. These are directions to evaluate, not committed work. When
 an item is picked up, it gets a plan (with draft patch notes) and a version
 like any other change.
 
+## Proposed version order
+
+**Updated:** 2026-11-12 · **Status:** proposed, not committed. The owner can
+reorder this at any time; each item still gets its own plan and patch notes
+when it is picked up. Version 0.3.0 is reserved for a milestone the owner
+declares.
+
+| Proposed | Item | Size | Notes |
+|---|---|---|---|
+| v0.2.11 | **Stock info page with dummy data:** click a symbol for a chart, key numbers and company basics, with Basic (grades 6-8) and Full (grades 9-12) info levels | Medium | Smallest live-market piece; needs nothing else first |
+| v0.2.12 | **Running market:** per-class clock, simulated price movement, market-hours setting, Pause/Resume (no trading while paused), fast forward at 2x/5x/10x, Market Speed label | Large | The core live-market change |
+| v0.2.13 | **Rewind:** view-only history with a time selector | Medium | Needs the running market's price history |
+| v0.2.14 | **Grading quest submissions with a rubric** | Medium | Left out of v0.2.9 on purpose; the debrief item needs it |
+| v0.2.15 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
+| v0.2.16 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
+| v0.2.17+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
+
+**Not yet slotted:**
+
+- **Real data feeds for the stock info pages** (Large): needs the common data
+  format designed first, and a provider chosen by the owner or a school.
+- **Separate admin sign-in** (Small to medium): best after email setup, since
+  it uses emailed codes.
+- **School branding** (Large): independent of the rest; can move up any time.
+- **College credit portfolio summary** (Large): after grading exists.
+
 ## Goal: Teacher "wrenches" — life events that test portfolio management
 
 **Added:** 2026-11-12 · **Status:** to evaluate
@@ -124,6 +150,125 @@ messages, reports, and grades needs server-side storage first.
 - The Hormuz scenario and price raise/lower currently live in the browser
   (`app/page.tsx`). Do new events need to move into the server-side engine so
   they persist and apply to every student?
+
+## Goal: A live market — running clock, pause, rewind, and stock info pages
+
+**Added:** 2026-11-12 · **Status:** to evaluate
+
+Today the market is **static**: prices only change when a teacher raises or
+lowers them, triggers a scenario, or the scheduled poll fetches a new quote.
+The goal is a market that **runs like a live one**, that a teacher can control
+in class, with a stock info page behind every symbol.
+
+### Where things stand
+
+- `lib/server/market-engine.ts` builds each class's market from the latest
+  quote per symbol plus the teacher's scenario and adjustments. There is no
+  continuous price movement.
+- Quotes are stored in `market_quotes` (ticker, fetched time), so some history
+  exists, but it is only a record of polls, not a price series to replay.
+- A scheduled job (`market-poll`) calls `POST /api/market/poll` to refresh
+  quotes from the configured provider.
+
+### Ideas to evaluate
+
+**1. A running market.** Prices move on their own over time, per class, so
+students see a market that is "open", not a snapshot. **Real time by default,
+with a fast-forward option for teachers** (decided 2026-11-12). Fast forward is
+just a faster class clock (e.g. 1x, 5x, 30x), so it should not add storage or
+database writes. Until real feeds are in,
+movement is simulated (random drift scaled by the class's volatility
+multiplier and scenario), seeded so a class sees the same prices.
+
+**2. Teacher controls: Pause and Resume.** A prominent button on the teacher's
+Market page freezes the class's market, for a discussion or a quiz. While
+paused, students see a "Market paused by your teacher" banner and **trades are
+not allowed while the market is paused** (decided 2026-11-12). Resuming picks up
+where it stopped. Audited, like other teacher market changes.
+
+**3. Rewind and replay (view-only).** A teacher can look back at historical
+data to show what happened: "look at what the market did when we triggered the
+rate shock." **View-only, decided 2026-11-12:** it never undoes trades or
+reverts changes; it only shows the past.
+
+- A **time selector** lets the teacher choose the timeframe to view (e.g.
+  today, past week, a custom range, or "when we triggered the scenario").
+- Likely cheap to build: if prices are calculated from the class's market seed
+  and the time (rather than stored tick by tick), history costs almost no
+  storage, and only teacher changes and scenario events need recording.
+
+**4. Stock info page.** Clicking a symbol in the market opens a popup or page.
+Headlines are shown as they are (not filtered), but the page is **grade-gated**
+(decided 2026-11-12): each class has a **Stock info level** that defaults from
+its grade level, which the teacher can override.
+
+- **Basic (grades 6-8):** price, a simple chart, and a plain-language company
+  description. No news, ratios or fundamentals.
+- **Full (grades 9-12):** adds news, key figures (market cap, P/E) and longer
+  price ranges.
+
+The page contains:
+
+- A price chart (with the rewind range) and key numbers (price, day change,
+  range, volume).
+- Company basics: name, sector, short description.
+- Later: news headlines, and key figures such as market cap and P/E.
+- A **Trade** button and the student's own holding in that stock.
+
+At first this is filled with **dummy data**, so the page layout and flow can
+be built and tested before any live feed exists.
+
+**5. Real information from API feeds (later).** The app gathers real data for
+the symbols in each teacher's market, and fills the info pages with it:
+
+- A job fetches company profile, quotes, and news for the symbols in use only
+  (from the class's allowed symbols), not the whole market.
+- Stored in the database and refreshed on a schedule, so students never wait
+  on an outside call and the app stays within provider limits.
+- Uses the existing Market APIs admin page and Credential Vault for providers
+  and keys (e.g. Finnhub, already supported for quotes).
+- Admins can see which provider, when it last refreshed, and any failures
+  (the Monitoring pages already track integration health).
+
+### Suggested order
+
+1. Stock info page with dummy data (clickable symbols, chart, basics).
+2. Price history stored per symbol, with the simulated running market.
+3. Teacher Pause and Resume.
+4. Rewind and replay.
+5. Real data feeds filling the info pages.
+
+### Decided
+
+- Paused market: no trading.
+- Rewind: view-only history, with a time selector.
+- Time: real time by default, with teacher fast-forward at **2x, 5x and 10x**.
+- **Students see the market speed.** The Market screen shows a **Market
+  Speed** label in the upper left (e.g. 1x, 2x, 5x, 10x, or Paused), so
+  students always know when a teacher has sped up the clock.
+- News headlines: shown unfiltered, but the info page is grade-gated.
+- **Market hours are a teacher setting that follows the market sources the
+  class uses.** A class on a single market (e.g. only NASDAQ or the Dow) runs
+  only while that market is open. A class using several markets around the
+  world is simplest as a **24-hour simulation**. The teacher can define this.
+- **Prices per class** follow the class's market source selection, and can be
+  adjusted by the teacher or an admin (identical across a class by default;
+  the v0.2.8 per-student market changes still apply on top).
+- **Data providers are the school's and teachers' choice** (paid or free). The
+  app stays **provider-agnostic**: it only populates data from whichever
+  source the teacher or school configures, through the Market APIs admin page.
+- **Stock info level:** a teacher setting, which admins can also change.
+
+### Open questions
+
+- How a class on several markets is shown when some are closed (a 24-hour
+  sim hides this; a mixed class that wants real hours would need a clear
+  "market closed" per symbol).
+- How different providers' data shapes (quotes, profiles, news) are mapped
+  into one common format, so the info pages work with any source. This needs
+  design before the real feeds are built.
+- What the info page shows when a configured source has no news or profile
+  data (free sources often lack some of it).
 
 ## Goal: School branding — colors and logos
 

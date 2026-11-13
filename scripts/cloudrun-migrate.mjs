@@ -345,6 +345,29 @@ try {
     )
   `;
 
+  // Quest grades (v0.2.15). One grade per student per assignment: points for
+  // each scoring rule, a total, and feedback. A grade is a 'draft' (hidden
+  // from the student) until a teacher releases it. submission_id is empty when
+  // a teacher records a grade for a student who didn't submit.
+  await sql`
+    create table if not exists quest_grades (
+      id text primary key,
+      assignment_id text not null references quest_assignments(id),
+      student_user_id text not null references app_users(id),
+      submission_id text references quest_submissions(id),
+      scores_json text not null,
+      total_points integer not null,
+      max_points integer not null,
+      feedback text not null default '',
+      status text not null default 'draft',
+      graded_by_user_id text not null references app_users(id),
+      graded_at timestamp not null,
+      released_by_user_id text references app_users(id),
+      released_at timestamp,
+      unique (assignment_id, student_user_id)
+    )
+  `;
+
   // Messages (v0.2.10). A conversation is a one-to-one thread ('direct') or a
   // class discussion room ('room'). Messages are deleted after 90 days unless
   // someone ticked Keep (see lib/message-rules.ts and the cleanup job).

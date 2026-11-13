@@ -17,10 +17,41 @@ declares.
 | v0.2.12 ✅ | **Running market:** per-class clock, simulated price movement, market-hours setting, Pause/Resume (no trading while paused), fast forward at 2x/5x/10x, Market Speed label | Done | Calculated prices (nothing stored per tick); clock changes logged for rewind. Per-class "own run" switch left for later |
 | v0.2.13 ✅ | **Rewind:** view-only history with a time selector | Done | Market history popup for teachers and admins; see "Known limit" under the live market goal |
 | v0.2.14 ✅ | **Small changes (running list):** Buy max, Stocks value card, demo students and messages, New message picker, staff-only check; see "v0.2.14 running list" below | Done | Shipped together as one version |
-| v0.2.15 | **Grading quest submissions with a rubric** | Medium | Left out of v0.2.9 on purpose; the debrief item needs it |
+| v0.2.15 ✅ | **Grading quest submissions with a rubric** | Done | Draft then release; student grade report; see "v0.2.15 plan" below |
 | v0.2.16 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
 | v0.2.17 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
 | v0.2.18+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
+
+### v0.2.15 plan: grading quest submissions with a rubric
+
+**Planned:** 2026-11-13 · **Status:** shipped as v0.2.15
+
+**What it does:** on a quest's Submissions list, a teacher gives points for
+each scoring rule (0 up to the rule's maximum) and optional feedback; the app
+totals it. The list shows each student as Not submitted, Submitted, Graded or
+Released, and shows the class average. Regrading is allowed and audited. One
+new table for grades. (Two things in the first plan turned out not to apply:
+there are no late answers to mark, because submissions lock at the due date,
+and quest import and export only carry quest definitions, so grades aren't
+exported.)
+
+**Decided (2026-11-13):**
+
+1. **Draft, then release.** A saved grade is a draft the student can't see.
+   The teacher releases one grade, or all graded ones for the class at once.
+2. **No grading before the due date unless the teacher chooses to.** Early
+   grading shows a warning, and a grade is marked "Answer changed since
+   grading" if the student edits their answer afterwards.
+3. **Missing submissions get no grade automatically.** They show as "Not
+   submitted"; a teacher can enter a zero by hand.
+4. **Who can grade:** the class's teachers grade; **teachers and admins can
+   adjust grades**. **Students can only view**, and what they get is a
+   **report of their grade on their submission** (total, points per rule they
+   are allowed to see, feedback), never the teacher or admin grading view.
+
+**Not in this version:** a gradebook across all quests and grade export
+(with the college credit summary later); messaging the student when a grade
+is released (with the debrief work in v0.2.17).
 
 ### v0.2.14 running list
 

@@ -7,6 +7,33 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.15] - 2026-11-13
+
+### Added
+- **Grading quest submissions.** In a quest's Submissions list, teachers give
+  points for each scoring rule (whole points, 0 up to the rule's maximum) and
+  optional feedback; the total adds up automatically.
+- **Draft, then release.** A saved grade is a draft the student can't see.
+  **Release grade** shows it to one student; **Release all graded** releases
+  every draft for the class.
+- **Student grade report.** Once released, the student's quest shows a
+  read-only "Your grade" report: feedback, plus the total and per-rule points
+  the quest's score visibility allows. Students never get the grading view.
+- **Status and average.** Each student shows as Not submitted, Submitted,
+  Graded (draft) or Released, and each class shows its average.
+- **Early grading is a choice.** Before the due date the form asks the
+  teacher to tick "Grade before the due date". If the student edits their
+  answer afterwards, the grade is marked "Answer changed since grading".
+- **Grades for missing work** are never automatic; a teacher can enter one
+  (such as zeros) by hand.
+- Teachers of the class and admins can grade and change grades. Audit entries
+  `quest.graded`, `quest.grade_changed` (with the old and new totals) and
+  `quest.grade_released`.
+
+### Changed
+- The Submissions list shows the status badge and a separate "Edited" badge
+  (was "Submitted · edited").
+
 ## [0.2.14] - 2026-11-13
 
 ### Added
@@ -345,6 +372,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.15]: https://github.com/soco104/investing/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/soco104/investing/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/soco104/investing/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/soco104/investing/compare/v0.2.11...v0.2.12

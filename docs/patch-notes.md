@@ -2,6 +2,42 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.15 — 2026-11-13
+
+### Grading Quests (Teachers)
+
+- Open a quest under **Monitor quests** to see **Submissions**. Each student
+  now has a **Grade** box. Click **Grade**, give points for each scoring rule
+  (whole points up to the rule's maximum), and add **feedback** if you like.
+  The total adds up for you.
+- Grades are saved as **drafts** that students can't see. Click **Release
+  grade** for one student, or **Release all graded** for the class.
+- You can **Change grade** later. If it was already released, the student
+  sees the new grade straight away.
+- Each student shows as **Not submitted**, **Submitted**, **Graded (draft)**
+  or **Released**, and each class shows its **average**.
+- **Before the due date** students can still change their answer, so the form
+  asks you to tick **Grade before the due date** first. If a student edits
+  their answer after you graded it, you'll see **Answer changed since
+  grading**.
+- A student who didn't submit gets no grade automatically. Click **Enter a
+  grade** if you want to record one, such as zeros.
+
+### Quest Grades (Students)
+
+- When your teacher releases your grade, the quest shows **Graded** on your
+  list, and opening it shows **Your grade**: your teacher's feedback, and your
+  points if the quest shares them. You'll see points per scoring rule only for
+  quests set to show the full breakdown, and never rules your teacher keeps
+  hidden.
+
+### Admins
+
+- Admins can grade and change grades for any class. Every grade, change and
+  release is in the audit log.
+- **Settings to change:** none. What students see of their score still
+  follows each quest's **score visibility** setting (hidden, summary or full).
+
 ## v0.2.14 — 2026-11-13
 
 ### Market (Everyone)

@@ -35,7 +35,7 @@ export default async function globalSetup() {
     // Running market (v0.2.12): every class starts always open at 1x.
     await sql`truncate class_market_clocks, class_market_clock_events`;
     // Quests: keep only the seeded sample quests (and reset their assignments).
-    await sql`truncate quest_submission_comments, quest_submissions, quest_assignments`;
+    await sql`truncate quest_grades, quest_submission_comments, quest_submissions, quest_assignments`;
     await sql`delete from learning_quests where id not like 'quest-seed-%'`;
     // Messages (v0.2.10): start with no conversations, flags or contacts.
     await sql`

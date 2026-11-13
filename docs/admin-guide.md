@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.14; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.15; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -18,7 +18,8 @@ change that affects what it describes.
 - **Saved, not audited:** student portfolios (cash, stocks, trades, allocation
   targets, value history), for every class and school year; teachers' reset
   requests (the request itself is audited). Each portfolio keeps its own
-  activity history. Students' quest submissions and the comments on them.
+  activity history. Students' quest submissions, the comments on them, and
+  their grades.
 - **Saved and audited (messages):** inbox messages and discussion posts (kept
   90 days unless someone ticks Keep), flags, forwards, allowed email domains,
   alternate contacts and requests, and cleanup runs. Message text itself is not
@@ -365,6 +366,16 @@ How quests are stored and protected:
 - Comments can be posted by the student who submitted, a teacher of that
   class, or an admin. Reflections and comments go through the profanity
   filter.
+- Grading (v0.2.15): teachers of the class and admins give points for each
+  scoring rule and optional feedback from the quest's Submissions list. A
+  grade is a draft, hidden from the student, until someone releases it (one
+  student, or all drafts for a class). Grades can be changed at any time; a
+  released grade stays released. Grading before the due date needs an explicit
+  tick, and a grade is marked when the student edits their answer afterwards.
+  Students get a read-only report limited by the quest's score visibility,
+  never the grading view. Audited as `quest.graded`, `quest.grade_changed`
+  (old and new totals) and `quest.grade_released`. Quest export and import
+  cover quest definitions only, not submissions or grades.
 - Saving, copying and assigning are audited (`quest.saved`, `quest.copied`,
   `quest.assigned`). Submissions and comments made while an admin is viewing
   as a student are recorded as `view_as.action`, and comments made that way

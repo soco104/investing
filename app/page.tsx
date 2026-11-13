@@ -90,9 +90,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { MarketHistoryDialog } from "./market-history-ui";
+import { ClassGradeSummary, GradePanel, StatusBadge, StudentGradeReportCard, type TeacherGrade } from "./quest-grading-ui";
 import { StockInfoDialog } from "./stock-info-ui";
 import { defaultInfoLevel } from "@/lib/stock-info";
 import { maxWholeShares } from "@/lib/portfolio-rules";
+import type { StudentGradeReport, StudentStatus } from "@/lib/quest-grading";
 import { CLOCK_SPEEDS, tradingBlockedReason, type ClockView } from "@/lib/market-clock";
 import { AdminMessagingPage, FlaggedMessagesPanel, MessagesPanel, ParentContactRequestPanel } from "./messages-ui";
 import { APP_VERSION } from "@/lib/version";
@@ -11597,10 +11599,22 @@ function SubmissionComments({
 
 type SubmissionsView = {
   classes: Array<{
+    assignmentId: string;
+    averagePercent: number | null;
+    beforeDue: boolean;
     className: string;
+    draftCount: number;
     dueAt: string | null;
-    students: Array<{ email: string; name: string; submission: QuestSubmission | null }>;
+    students: Array<{
+      email: string;
+      grade: TeacherGrade | null;
+      name: string;
+      status: StudentStatus;
+      submission: QuestSubmission | null;
+    }>;
   }>;
+  // The quest's scoring rules, for the grading form (v0.2.15).
+  criteria: Array<{ id: string; label: string; points: number }>;
   title: string;
 };
 
@@ -11647,18 +11661,24 @@ function QuestSubmissionsPanel({ questId }: { questId: string }) {
             {classroom.students.filter((student) => student.submission).length} of{" "}
             {classroom.students.length} submitted
           </p>
+          <ClassGradeSummary
+            assignmentId={classroom.assignmentId}
+            averagePercent={classroom.averagePercent}
+            className={classroom.className}
+            draftCount={classroom.draftCount}
+            onChanged={() => setVersion((current) => current + 1)}
+          />
           <ul className="mt-2 grid gap-2">
             {classroom.students.map((student) => (
               <li key={student.email} className="rounded-md border border-border bg-card p-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">{student.name}</span>
-                  <Badge variant="outline" className="rounded-md">
-                    {student.submission
-                      ? student.submission.updatedAt !== student.submission.submittedAt
-                        ? "Submitted · edited"
-                        : "Submitted"
-                      : "Not submitted"}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {student.submission && student.submission.updatedAt !== student.submission.submittedAt ? (
+                      <Badge variant="outline" className="rounded-md">Edited</Badge>
+                    ) : null}
+                    <StatusBadge status={student.status} />
+                  </div>
                 </div>
                 {student.submission ? (
                   <>
@@ -11670,6 +11690,16 @@ function QuestSubmissionsPanel({ questId }: { questId: string }) {
                     />
                   </>
                 ) : null}
+                <GradePanel
+                  assignmentId={classroom.assignmentId}
+                  beforeDue={classroom.beforeDue}
+                  criteria={view.criteria}
+                  grade={student.grade}
+                  hasSubmission={Boolean(student.submission)}
+                  studentEmail={student.email}
+                  studentName={student.name}
+                  onChanged={() => setVersion((current) => current + 1)}
+                />
               </li>
             ))}
           </ul>
@@ -11685,6 +11715,8 @@ type AssignedQuest = {
   className: string;
   criteria: Array<{ id: string; label: string; points: number }>;
   dueAt: string | null;
+  // The student's grade report, once the teacher has released it (v0.2.15).
+  grade: StudentGradeReport | null;
   marketMode: string;
   marketSymbols: string;
   marketWindow: string;
@@ -11748,7 +11780,17 @@ function StudentAssignedQuests() {
                   </p>
                 </div>
                 <Badge variant="outline" className="rounded-md">
-                  {quest.submission ? (quest.canEdit ? "Submitted" : "Submitted · locked") : quest.canEdit ? "To do" : "Past due"}
+                  {quest.grade
+                    ? quest.grade.totalPoints !== null && quest.grade.maxPoints
+                      ? `Graded · ${quest.grade.totalPoints} of ${quest.grade.maxPoints}`
+                      : "Graded"
+                    : quest.submission
+                      ? quest.canEdit
+                        ? "Submitted"
+                        : "Submitted · locked"
+                      : quest.canEdit
+                        ? "To do"
+                        : "Past due"}
                 </Badge>
               </div>
               <div className="mt-3 flex items-center gap-2 text-sm font-medium text-[#28666e]">
@@ -11803,6 +11845,7 @@ function StudentAssignedQuestDialog({
       </DialogHeader>
       <div className="space-y-4 text-sm">
         <p className="leading-6">{quest.objective}</p>
+        {quest.grade ? <StudentGradeReportCard report={quest.grade} /> : null}
         {quest.marketMode !== "none" ? (
           <p className="rounded-md bg-[#e8f0ed] px-3 py-2 text-[#24493f]">
             Market: {quest.marketSymbols || "class symbols"} · {quest.marketWindow}

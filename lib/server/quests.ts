@@ -8,9 +8,17 @@ import {
   type QuestCriterion,
   type QuestInput,
 } from "@/lib/quest-rules";
+import {
+  answerChangedSinceGrading,
+  classAveragePercent,
+  isBeforeDue,
+  studentGradeReport,
+  studentStatus,
+} from "@/lib/quest-grading";
 import type { AuthenticatedUser } from "@/lib/server/auth";
 import { moderateTextMessage } from "@/lib/server/moderation";
 import { PortfolioError as QuestError } from "@/lib/server/portfolios-errors";
+import { gradesFor } from "@/lib/server/quest-grading";
 import { getSql, hasProductionDatabase, id } from "@/lib/server/repository";
 
 /**
@@ -336,6 +344,7 @@ export async function listStudentQuests(user: AuthenticatedUser) {
     order by a.due_at asc nulls last, a.assigned_at desc
   `;
   const comments = await commentsFor(rows.flatMap((row) => (row.submission_id ? [row.submission_id] : [])));
+  const grades = await gradesFor(rows.map((row) => row.assignment_id), user.id);
   const now = new Date();
 
   return rows.map((row) => {
@@ -348,6 +357,9 @@ export async function listStudentQuests(user: AuthenticatedUser) {
       className: row.class_name,
       criteria: studentCriteria(quest),
       dueAt,
+      // The student's report on their grade: null until a teacher releases it,
+      // then only what the quest's score visibility allows (v0.2.15).
+      grade: studentGradeReport(quest, grades.get(`${row.assignment_id}|${user.id}`) ?? null),
       marketMode: quest.marketMode,
       marketSymbols: quest.marketSymbols,
       marketWindow: quest.marketWindow,
@@ -463,9 +475,10 @@ export async function listSubmissions(user: AuthenticatedUser, questId: string) 
           submission_id: string | null;
           submitted_at: Date | null;
           updated_at: Date | null;
+          user_id: string;
         }>
       >`
-        select distinct on (a.id, u.id) a.id as assignment_id, u.email, u.first_name, u.last_name,
+        select distinct on (a.id, u.id) a.id as assignment_id, u.id as user_id, u.email, u.first_name, u.last_name,
           s.id as submission_id, s.reflection, s.submitted_at, s.updated_at
         from quest_assignments a
         join role_assignments ra on ra.scope = a.class_name and ra.role = 'Student'
@@ -476,28 +489,59 @@ export async function listSubmissions(user: AuthenticatedUser, questId: string) 
       `
     : [];
   const comments = await commentsFor(rows.flatMap((row) => (row.submission_id ? [row.submission_id] : [])));
+  const grades = await gradesFor(ids);
+  const now = new Date();
+  const gradeOf = (row: { assignment_id: string; updated_at: Date | null; user_id: string }) => {
+    const grade = grades.get(`${row.assignment_id}|${row.user_id}`);
+
+    return grade
+      ? {
+          ...grade,
+          answerChanged: answerChangedSinceGrading(
+            row.updated_at ? new Date(row.updated_at).toISOString() : null,
+            grade.gradedAt
+          ),
+        }
+      : null;
+  };
 
   return {
-    classes: assignments.map((a) => ({
-      className: a.class_name,
-      dueAt: a.due_at ? new Date(a.due_at).toISOString() : null,
-      students: rows
-        .filter((row) => row.assignment_id === a.id)
-        .sort((x, y) => `${x.last_name} ${x.first_name}`.localeCompare(`${y.last_name} ${y.first_name}`))
-        .map((row) => ({
-          email: row.email,
-          name: `${row.first_name} ${row.last_name}`.trim(),
-          submission: row.submission_id
-            ? {
-                comments: comments.get(row.submission_id) ?? [],
-                id: row.submission_id,
-                reflection: row.reflection ?? "",
-                submittedAt: new Date(row.submitted_at as Date).toISOString(),
-                updatedAt: new Date(row.updated_at as Date).toISOString(),
-              }
-            : null,
-        })),
-    })),
+    classes: assignments.map((a) => {
+      const dueAt = a.due_at ? new Date(a.due_at).toISOString() : null;
+      const classRows = rows.filter((row) => row.assignment_id === a.id);
+      const classGrades = classRows.flatMap((row) => {
+        const grade = grades.get(`${row.assignment_id}|${row.user_id}`);
+        return grade ? [grade] : [];
+      });
+
+      return {
+        assignmentId: a.id,
+        averagePercent: classAveragePercent(classGrades),
+        beforeDue: isBeforeDue(dueAt, now),
+        className: a.class_name,
+        draftCount: classGrades.filter((grade) => grade.status === "draft").length,
+        dueAt,
+        students: classRows
+          .sort((x, y) => `${x.last_name} ${x.first_name}`.localeCompare(`${y.last_name} ${y.first_name}`))
+          .map((row) => ({
+            email: row.email,
+            grade: gradeOf(row),
+            name: `${row.first_name} ${row.last_name}`.trim(),
+            status: studentStatus(Boolean(row.submission_id), grades.get(`${row.assignment_id}|${row.user_id}`) ?? null),
+            submission: row.submission_id
+              ? {
+                  comments: comments.get(row.submission_id) ?? [],
+                  id: row.submission_id,
+                  reflection: row.reflection ?? "",
+                  submittedAt: new Date(row.submitted_at as Date).toISOString(),
+                  updatedAt: new Date(row.updated_at as Date).toISOString(),
+                }
+              : null,
+          })),
+      };
+    }),
+    // The quest's scoring rules, for the grading form.
+    criteria: toQuestInput(quest).criteria,
     title: quest.title,
   };
 }

@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.12; the version you are using is shown
+district admins. It describes version 0.2.13; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -377,6 +377,21 @@ class's running market.
 - **Market hours:** **Always open (24 hours)**, the default, or **U.S. market
   hours** (9:30 AM to 4:00 PM Eastern on weekdays; holidays are not skipped).
   Outside those hours students see **Closed** and can't trade.
+
+**Market history (rewind):** click **Market history** in the Market clock box
+to look back at the selected class's prices. It is view-only: nothing you do
+there changes prices, trades or portfolios.
+
+- **Timeframe:** **Last hour**, **Today**, **Past 7 days** or **Past 30 days**,
+  or set your own **From** and **To** and click **Show this timeframe** (up to
+  31 days). History begins when the running market was first used.
+- **Symbol:** pick one symbol to see its price in dollars, or **All symbols**
+  to compare them by percent change.
+- **What happened:** your price changes and scenarios (and their undos),
+  pauses, resumes and speed changes are numbered on the chart and listed
+  below it with their times. A paused stretch shows as a flat line.
+- The chart shows what the whole class saw. A change for one student or a
+  group is listed but doesn't move the line.
 
 The clock always applies to the whole class. Your own practice portfolio
 follows your first class's market, so its clock affects your practice trading

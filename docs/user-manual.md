@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.11; the version you are using is shown
+district admins. It describes version 0.2.12; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -193,13 +193,26 @@ gains and red for losses. Each row includes the symbol, price, movement, a
 trade box, the daily range, and classroom news for that symbol. The label at
 the top shows which portfolio you're trading in.
 
+**The market runs on its own.** Prices move through the day, and the page
+updates by itself every few seconds. The **Market Speed** label in the upper
+left shows how the market is running:
+
+- **1x, 2x, 5x or 10x:** running, at normal speed or sped up by your teacher.
+- **Paused:** your teacher has paused the market (for a discussion, say).
+- **Closed:** your class follows U.S. market hours and the market is closed.
+
+While the market is **Paused** or **Closed**, prices hold still and **trading
+is off**: the Buy and Sell buttons are disabled until it starts again.
+
 **To trade:**
 
 1. Set how many shares: click **−** or **+** to change the amount by one, or
    type a number in the box.
 2. Click **Buy** or **Sell**.
 
-Trades use the class's current price and are checked by the server: you can't
+Trades use the class's price at the moment you click (prices keep moving, so
+it can be a few cents different from a moment earlier) and are checked by the
+server: you can't
 spend more cash than you have, or sell more shares than you own. A message
 above the table confirms each trade or explains why it didn't go through.
 
@@ -352,6 +365,22 @@ panel on the Market page:
    and the oil spike % (1–60), then click **Trigger scenario**. Energy and
    oil-service symbols rise by the spike; travel symbols (like JETS) fall by
    about half of it. The whole scenario is one change.
+
+**Market clock:** the box under the class picker controls the selected
+class's running market.
+
+- **Pause market** freezes prices and turns off trading for the class;
+  students see a "Market paused by your teacher" banner. **Resume market**
+  carries on from the same moment.
+- **Speed:** 1x, 2x, 5x or 10x. Faster speeds make prices move as if more time
+  were passing. Students see the speed in the **Market Speed** label.
+- **Market hours:** **Always open (24 hours)**, the default, or **U.S. market
+  hours** (9:30 AM to 4:00 PM Eastern on weekdays; holidays are not skipped).
+  Outside those hours students see **Closed** and can't trade.
+
+The clock always applies to the whole class. Your own practice portfolio
+follows your first class's market, so its clock affects your practice trading
+too. Every clock change is saved and audited.
 
 **Stock info level:** choose what students in the selected class see when
 they click a symbol: **Default for the grade**, **Basic**, or **Full** (see

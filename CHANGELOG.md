@@ -7,6 +7,34 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.12] - 2026-11-13
+
+### Added
+- **Running market.** Each class market now runs on its own clock: prices
+  move through the day and the Market screen refreshes every 5 seconds.
+  Prices are calculated from the class's simulated time, not stored, and the
+  class's volatility setting scales the movement. Scenarios and teacher price
+  changes still apply on top.
+- **Market Speed label** in the upper left of the Market screen for everyone:
+  1x, 2x, 5x, 10x, **Paused** or **Closed**.
+- **Pause and Resume** in Teacher market controls. While paused, prices hold,
+  students see a "Market paused by your teacher" banner, and the server
+  refuses trades.
+- **Speed:** teachers run the class market at 1x, 2x, 5x or 10x.
+- **Market hours** per class: **Always open** (the default) or **U.S. market
+  hours** (9:30 AM to 4:00 PM Eastern, weekdays). When closed, prices hold and
+  trading is off.
+- Audit entries `market_clock.paused`, `market_clock.resumed`,
+  `market_clock.speed_changed`, `market_clock.hours_changed`, and a log of
+  clock changes kept for the future rewind feature.
+
+### Changed
+- A trade now uses the price at the moment the server receives it, which can
+  differ by a few cents from the price on screen a moment earlier. The
+  confirmation message shows the price used.
+- All classes share one price run. A class's prices drift from other classes'
+  once its teacher pauses or changes its speed.
+
 ## [0.2.11] - 2026-11-12
 
 ### Added
@@ -269,6 +297,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.12]: https://github.com/soco104/investing/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/soco104/investing/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/soco104/investing/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/soco104/investing/compare/v0.2.8...v0.2.9

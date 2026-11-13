@@ -43,6 +43,7 @@ export async function GET(request: Request) {
 
   return Response.json({
     classMarket: classMarketState,
+    clock: classMarketState.clock,
     mode: classMarketState.config.simulationMode,
     source: classMarketState.engineMode,
     telemetry: {

@@ -80,7 +80,7 @@ export async function controllableClasses(user: AuthenticatedUser) {
   return results;
 }
 
-async function requireControllable(user: AuthenticatedUser, className: string) {
+export async function requireControllable(user: AuthenticatedUser, className: string) {
   const allowed = await controllableClasses(user);
 
   if (!allowed.includes(className)) {
@@ -151,11 +151,11 @@ export async function teacherMarketView(user: AuthenticatedUser, className: stri
   const selected = className && classes.includes(className) ? className : classes[0] ?? null;
 
   if (!selected) {
-    return { classes, className: null, market: [], changes: [], students: [] };
+    return { classes, className: null, clock: null, market: [], changes: [], students: [] };
   }
 
   const sql = getSql();
-  const [{ symbols }, rows, students] = await Promise.all([
+  const [{ state, symbols }, rows, students] = await Promise.all([
     adjustedClassMarket(selected, null),
     activeRows(selected),
     sql<Array<{ email: string; first_name: string; id: string; last_name: string }>>`
@@ -189,6 +189,7 @@ export async function teacherMarketView(user: AuthenticatedUser, className: stri
     }),
     classes,
     className: selected,
+    clock: state.clock,
     market: symbols,
     students: students.map((s) => ({
       email: s.email,

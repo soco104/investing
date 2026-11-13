@@ -45,7 +45,7 @@ import {
   WalletCards,
   Wrench,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { StockInfoDialog } from "./stock-info-ui";
 import { defaultInfoLevel } from "@/lib/stock-info";
+import { CLOCK_SPEEDS, tradingBlockedReason, type ClockView } from "@/lib/market-clock";
 import { AdminMessagingPage, FlaggedMessagesPanel, MessagesPanel, ParentContactRequestPanel } from "./messages-ui";
 import { APP_VERSION } from "@/lib/version";
 
@@ -647,6 +648,9 @@ type MarketQuote = {
   ticker: string;
 };
 
+// How often the Market screen asks for new prices while it is open.
+const LIVE_MARKET_REFRESH_MS = 5000;
+
 type StockHolding = {
   averageCost: number;
   name: string;
@@ -685,6 +689,8 @@ type ServerPortfolio = {
   id: string;
   kind: "class" | "practice";
   market: {
+    // The class's market clock (v0.2.12): speed, paused, open.
+    clock?: ClockView;
     scenarioLabel: string;
     simulationMode: string;
     symbols: Array<{ changePercent: number; name: string; news?: string | null; priceCents: number; ticker: string }>;
@@ -720,8 +726,28 @@ function portfolioLabel(portfolio: ServerPortfolio) {
 }
 
 /** Turns a saved portfolio into the shapes the existing screens use. */
-function portfolioToScreens(portfolio: ServerPortfolio) {
+/** Server prices, with descriptive text from the classroom sample feed. */
+function marketSymbolsToQuotes(symbols: ServerPortfolio["market"]["symbols"]) {
   const sampleByTicker = new Map(initialMarketQuotes.map((quote) => [quote.ticker, quote]));
+
+  return symbols.map((symbol): MarketQuote => {
+    const sample = sampleByTicker.get(symbol.ticker);
+    const price = symbol.priceCents / 100;
+
+    return {
+      changePercent: symbol.changePercent,
+      dayHigh: roundMoney(Math.max(price, price * (1 + Math.abs(symbol.changePercent) / 200))),
+      dayLow: roundMoney(Math.min(price, price * (1 - Math.abs(symbol.changePercent) / 200))),
+      name: symbol.name,
+      news: symbol.news ?? sample?.news ?? "Classroom simulation market input.",
+      price,
+      sector: sample?.sector ?? "Class market",
+      ticker: symbol.ticker,
+    };
+  });
+}
+
+function portfolioToScreens(portfolio: ServerPortfolio) {
 
   return {
     activity: portfolio.activity.map(
@@ -773,20 +799,7 @@ function portfolioToScreens(portfolio: ServerPortfolio) {
       })
     ),
     // Server prices, with descriptive text from the classroom sample feed.
-    quotes: portfolio.market.symbols.map((symbol): MarketQuote => {
-      const sample = sampleByTicker.get(symbol.ticker);
-      const price = symbol.priceCents / 100;
-      return {
-        changePercent: symbol.changePercent,
-        dayHigh: roundMoney(Math.max(price, price * (1 + Math.abs(symbol.changePercent) / 200))),
-        dayLow: roundMoney(Math.min(price, price * (1 - Math.abs(symbol.changePercent) / 200))),
-        name: symbol.name,
-        news: symbol.news ?? sample?.news ?? "Classroom simulation market input.",
-        price,
-        sector: sample?.sector ?? "Class market",
-        ticker: symbol.ticker,
-      };
-    }),
+    quotes: marketSymbolsToQuotes(portfolio.market.symbols),
   };
 }
 
@@ -1874,6 +1887,46 @@ export default function Home() {
     };
   }, [authenticatedUser]);
 
+  // Running market (v0.2.12): while the Market tab is open, fetch the
+  // portfolio's current prices and clock every few seconds.
+  const [liveMarketTick, setLiveMarketTick] = useState(0);
+  const refreshLiveMarket = useCallback(() => setLiveMarketTick((tick) => tick + 1), []);
+
+  useEffect(() => {
+    if (!authenticatedUser || activeTab !== "market" || !activePortfolioId) {
+      return;
+    }
+
+    let cancelled = false;
+    const portfolioId = activePortfolioId;
+    const load = () => {
+      if (document.hidden) return;
+
+      fetch(`/api/portfolios/live?portfolioId=${encodeURIComponent(portfolioId)}`, { credentials: "same-origin" })
+        .then(async (response) => {
+          const result = (await response.json()) as { market?: ServerPortfolio["market"] };
+
+          if (cancelled || !response.ok || !result.market) return;
+
+          const market = result.market;
+
+          setProfilePortfolios(
+            (current) => current?.map((item) => (item.id === portfolioId ? { ...item, market } : item)) ?? current
+          );
+          setMarketQuotes(marketSymbolsToQuotes(market.symbols));
+        })
+        .catch(() => undefined);
+    };
+
+    load();
+    const timer = window.setInterval(load, LIVE_MARKET_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activePortfolioId, activeTab, authenticatedUser, liveMarketTick]);
+
   useEffect(() => {
     if (authenticatedUser?.role !== "Admin") {
       return;
@@ -2262,8 +2315,13 @@ export default function Home() {
       const shareText = `${shares.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${
         shares === 1 ? "share" : "shares"
       }`;
+      // Prices keep moving (v0.2.12), so say which price the trade got.
+      const filled = result.portfolio.activity
+        .filter((item) => item.kind === action && item.ticker === ticker && item.priceCents !== null)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+      const priceText = filled?.priceCents != null ? ` Price: ${formatCurrency(filled.priceCents / 100)} a share.` : "";
       setMarketNotice(
-        action === "buy" ? `Bought ${shareText} of ${ticker}.` : `Sold ${shareText} of ${ticker}.`
+        `${action === "buy" ? "Bought" : "Sold"} ${shareText} of ${ticker}.${priceText}`
       );
     } catch {
       setMarketNotice("The trade could not be completed. Try again in a moment.");
@@ -3624,6 +3682,8 @@ export default function Home() {
                 portfolioTitle={activePortfolio ? portfolioLabel(activePortfolio) : null}
                 readOnly={activePortfolio?.readOnly ?? false}
                 infoClassName={activePortfolio?.kind === "class" ? activePortfolio.className : null}
+                clock={activePortfolio?.market.clock ?? null}
+                onMarketChanged={refreshLiveMarket}
               />
             ) : null}
           </TabsContent>
@@ -4761,6 +4821,8 @@ function LoginPage({
 }
 
 function MarketPage({
+  clock,
+  onMarketChanged,
   infoClassName,
   allowFractional,
   portfolioError,
@@ -4787,7 +4849,12 @@ function MarketPage({
   readOnly: boolean;
   // The class whose Stock info level applies (null for practice portfolios).
   infoClassName: string | null;
+  // The market clock for the portfolio on screen (null until it has loaded).
+  clock: ClockView | null;
+  onMarketChanged: () => void;
 }) {
+  // Paused or closed: prices hold and trading is off (v0.2.12).
+  const tradingBlocked = clock ? tradingBlockedReason(clock) : null;
   // The symbol whose stock info popup is open (v0.2.11).
   const [infoTicker, setInfoTicker] = useState<string | null>(null);
   // Teachers and admins get the saved market controls (v0.2.8).
@@ -4820,6 +4887,16 @@ function MarketPage({
       <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
+            {clock ? (
+              <p
+                data-testid="market-speed"
+                className={`mb-2 inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm font-semibold ${
+                  clock.tradingAllowed ? "bg-[#e8f0ed] text-[#24493f]" : "bg-[#fff3da] text-[#7a4b00]"
+                }`}
+              >
+                Market Speed: {clock.label}
+              </p>
+            ) : null}
             <p className="text-sm font-medium text-muted-foreground">
               Classroom market feed
             </p>
@@ -4850,6 +4927,16 @@ function MarketPage({
         ) : null}
         {portfolioError ? (
           <p className="mt-3 rounded-md bg-accent px-3 py-2 text-sm">{portfolioError}</p>
+        ) : null}
+        {tradingBlocked ? (
+          <p
+            role="status"
+            data-testid="market-blocked"
+            className="mt-3 rounded-md border border-[#e0a100]/40 bg-[#fff3da] px-3 py-2 text-sm font-medium text-[#7a4b00]"
+          >
+            {clock?.status === "paused" ? (isTeacher ? "Market paused. " : "Market paused by your teacher. ") : "Market closed. "}
+            Prices are holding still and trading is off until it starts again.
+          </p>
         ) : null}
       </div>
 
@@ -4979,7 +5066,7 @@ function MarketPage({
                         <Button
                           type="button"
                           size="sm"
-                          disabled={readOnly || tradingTicker !== null}
+                          disabled={readOnly || tradingBlocked !== null || tradingTicker !== null}
                           onClick={() => void trade(quote.ticker, "buy")}
                           className="bg-[#0fa35a] text-white hover:bg-[#0c874b]"
                         >
@@ -4989,7 +5076,7 @@ function MarketPage({
                           type="button"
                           size="sm"
                           variant="outline"
-                          disabled={readOnly || tradingTicker !== null}
+                          disabled={readOnly || tradingBlocked !== null || tradingTicker !== null}
                           onClick={() => void trade(quote.ticker, "sell")}
                           className="border-[#ff6b6b]/60 bg-transparent text-[#ffb0b0] hover:bg-[#351111]"
                         >
@@ -5042,7 +5129,7 @@ function MarketPage({
         <StocksInfoBox holdings={holdings} quotes={quotes} />
 
         {isTeacher ? (
-          <TeacherMarketControls />
+          <TeacherMarketControls onMarketChanged={onMarketChanged} />
         ) : (
           <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
             <h3 className="text-lg font-semibold">Trading notes</h3>
@@ -5077,6 +5164,8 @@ type TeacherMarketView = {
   students: Array<{ email: string; name: string }>;
   // Stock info level for the selected class (v0.2.11).
   infoLevel?: { gradeLevel: number | null; level: "basic" | "full"; setting: "basic" | "full" | null } | null;
+  // The selected class's market clock (v0.2.12).
+  clock?: ClockView | null;
 };
 
 type TeacherTargetType = "class" | "all_classes" | "students" | "student";
@@ -5104,7 +5193,7 @@ const nativeSelectClass =
  * Strait of Hormuz scenario, for this class, all my classes, a group of
  * students, or one student. Every change can be undone; nothing is deleted.
  */
-function TeacherMarketControls() {
+function TeacherMarketControls({ onMarketChanged }: { onMarketChanged: () => void }) {
   const [view, setView] = useState<TeacherMarketView | null>(null);
   const [className, setClassName] = useState<string | null>(null);
   const [targetType, setTargetType] = useState<TeacherTargetType>("class");
@@ -5185,6 +5274,7 @@ function TeacherMarketControls() {
 
       setNotice(success(result));
       await load(className);
+      onMarketChanged();
     } catch {
       setNotice("That market change couldn't be saved. Try again in a moment.");
     } finally {
@@ -5276,6 +5366,82 @@ function TeacherMarketControls() {
             <option value="student">One student</option>
           </select>
         </div>
+        {view.clock ? (
+          <div className="space-y-3 rounded-md border border-border p-3 md:col-span-2" data-testid="market-clock-controls">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">
+                Market clock for {view.className}:{" "}
+                <span data-testid="class-clock-label">
+                  {view.clock.label === "Paused" || view.clock.label === "Closed"
+                    ? view.clock.label
+                    : `Running at ${view.clock.label}`}
+                </span>
+              </p>
+              {view.clock.status === "paused" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={pending}
+                  className="bg-[#28666e] text-white hover:bg-[#22565d]"
+                  onClick={() =>
+                    void send({ action: "clock", className: view.className, op: "resume" }, () => `${view.className} market resumed. Students can trade again.`)
+                  }
+                >
+                  Resume market
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() =>
+                    void send({ action: "clock", className: view.className, op: "pause" }, () => `${view.className} market paused. Prices are frozen and students can't trade.`)
+                  }
+                >
+                  Pause market
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Market speed">
+              <span className="text-sm text-muted-foreground">Speed</span>
+              {CLOCK_SPEEDS.map((speed) => (
+                <Button
+                  key={speed}
+                  type="button"
+                  size="sm"
+                  variant={view.clock?.speed === speed ? "default" : "outline"}
+                  aria-pressed={view.clock?.speed === speed}
+                  disabled={pending}
+                  onClick={() =>
+                    void send({ action: "clock", className: view.className, op: "speed", speed }, () => `${view.className} market speed set to ${speed}x. Students see the speed on their Market screen.`)
+                  }
+                >
+                  {speed}x
+                </Button>
+              ))}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="teacher-market-hours">Market hours</Label>
+              <select
+                id="teacher-market-hours"
+                className={nativeSelectClass}
+                disabled={pending}
+                value={view.clock.hours}
+                onChange={(event) =>
+                  void send({ action: "clock", className: view.className, hours: event.target.value, op: "hours" }, () => `Market hours saved for ${view.className}.`)
+                }
+              >
+                <option value="always">Always open (24 hours)</option>
+                <option value="us_market">U.S. market hours (9:30 AM to 4:00 PM Eastern, weekdays)</option>
+              </select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              While the market is paused or closed, prices hold still and students can&apos;t trade. The clock applies
+              to the whole class, whoever the price changes below apply to.
+            </p>
+          </div>
+        ) : null}
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="teacher-info-level">Stock info level</Label>
           <select

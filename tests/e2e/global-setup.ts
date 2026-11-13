@@ -32,6 +32,8 @@ export default async function globalSetup() {
         portfolio_corrections, student_portfolios, market_adjustments
     `;
     await sql`update class_market_configs set teacher_controls_enabled = true`;
+    // Running market (v0.2.12): every class starts always open at 1x.
+    await sql`truncate class_market_clocks, class_market_clock_events`;
     // Quests: keep only the seeded sample quests (and reset their assignments).
     await sql`truncate quest_submission_comments, quest_submissions, quest_assignments`;
     await sql`delete from learning_quests where id not like 'quest-seed-%'`;

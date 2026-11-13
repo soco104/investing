@@ -1,3 +1,6 @@
+import { clockView, defaultClock, type ClockView, type MarketClock } from "@/lib/market-clock";
+import { motionPercent, SHARED_MARKET_SEED } from "@/lib/market-motion";
+
 export type MarketEngineQuote = {
   changePercent: number;
   lessonUse?: string;
@@ -19,6 +22,8 @@ export type ClassMarketConfig = {
 
 export type ClassMarketState = {
   className: string;
+  // The class's market clock right now (v0.2.12): speed, paused, open.
+  clock: ClockView;
   config: ClassMarketConfig;
   disclosure: string;
   engineMode: "central-simulator";
@@ -134,9 +139,15 @@ export function getDefaultClassMarketConfig(className: string) {
 
 export function buildClassMarketState(input: {
   className: string;
+  // The class's saved clock; without one the market is open and runs at 1x.
+  clock?: MarketClock | null;
   config?: ClassMarketConfig | null;
+  nowMs?: number;
   quotes?: MarketEngineQuote[];
 }) {
+  const nowMs = input.nowMs ?? Date.now();
+  const clock = clockView(input.clock ?? defaultClock(nowMs), nowMs);
+  const simMs = new Date(clock.simTime).getTime();
   const config = input.config ?? getDefaultClassMarketConfig(input.className);
   const sourceQuotes = input.quotes?.length ? input.quotes : fallbackMarketQuotes;
   const allowedSymbols = new Set(
@@ -149,6 +160,7 @@ export function buildClassMarketState(input: {
 
   return {
     className: input.className,
+    clock,
     config,
     disclosure:
       "Educational simulation only. Class markets are centrally generated and cannot place trades or provide financial advice.",
@@ -157,14 +169,17 @@ export function buildClassMarketState(input: {
     scenarioLabel: scenarioLabels[config.eventScenario],
     symbols: usableQuotes.map((quote) => {
       const offset = deterministicOffset(`${input.className}:${quote.ticker}`);
+      // The day's starting move (provider change, scenario, class offset)...
+      const basePercent =
+        quote.changePercent * config.volatilityMultiplier +
+        scenarioDrift[config.eventScenario] +
+        offset;
+      // ...then the running market's movement at the class's simulated time.
+      const motion = motionPercent(SHARED_MARKET_SEED, quote.ticker, simMs, config.volatilityMultiplier);
       const simulatedChangePercent =
         config.simulationMode === "frozen"
           ? 0
-          : roundPercent(
-              quote.changePercent * config.volatilityMultiplier +
-                scenarioDrift[config.eventScenario] +
-                offset
-            );
+          : roundPercent(((1 + basePercent / 100) * (1 + motion / 100) - 1) * 100);
 
       return {
         ...quote,

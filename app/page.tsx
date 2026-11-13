@@ -89,6 +89,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { StockInfoDialog } from "./stock-info-ui";
+import { defaultInfoLevel } from "@/lib/stock-info";
 import { AdminMessagingPage, FlaggedMessagesPanel, MessagesPanel, ParentContactRequestPanel } from "./messages-ui";
 import { APP_VERSION } from "@/lib/version";
 
@@ -927,6 +929,8 @@ type ClassMarketConfig = {
   // Set by admins; null = read from the class name. Grade 10+ can trade
   // fractional shares.
   gradeLevel?: number | null;
+  // "basic" or "full"; null = follow the grade level (v0.2.11).
+  stockInfoLevel?: "basic" | "full" | null;
 };
 
 type CredentialRecord = {
@@ -1947,6 +1951,7 @@ export default function Home() {
               starting_cash_cents: number;
               teacher_controls_enabled: boolean;
               grade_level?: number | null;
+              stock_info_level?: string | null;
               volatility_multiplier: number;
             }>;
           };
@@ -2064,6 +2069,10 @@ export default function Home() {
               teacherControlsEnabled: config.teacher_controls_enabled,
               volatilityMultiplier: Number(config.volatility_multiplier),
               gradeLevel: config.grade_level ?? null,
+              stockInfoLevel:
+                config.stock_info_level === "basic" || config.stock_info_level === "full"
+                  ? config.stock_info_level
+                  : null,
             }))
           );
         }
@@ -3614,6 +3623,7 @@ export default function Home() {
                 portfolioError={portfolioLoadError}
                 portfolioTitle={activePortfolio ? portfolioLabel(activePortfolio) : null}
                 readOnly={activePortfolio?.readOnly ?? false}
+                infoClassName={activePortfolio?.kind === "class" ? activePortfolio.className : null}
               />
             ) : null}
           </TabsContent>
@@ -4751,6 +4761,7 @@ function LoginPage({
 }
 
 function MarketPage({
+  infoClassName,
   allowFractional,
   portfolioError,
   portfolioTitle,
@@ -4774,7 +4785,11 @@ function MarketPage({
   portfolioError: string;
   portfolioTitle: string | null;
   readOnly: boolean;
+  // The class whose Stock info level applies (null for practice portfolios).
+  infoClassName: string | null;
 }) {
+  // The symbol whose stock info popup is open (v0.2.11).
+  const [infoTicker, setInfoTicker] = useState<string | null>(null);
   // Teachers and admins get the saved market controls (v0.2.8).
   const isTeacher = role === "Teacher" || role === "Admin";
   // How many shares each row's Buy/Sell will trade (typed or set with −/+).
@@ -4889,7 +4904,14 @@ function MarketPage({
                   className="border-[#1f3a2c] hover:bg-[#0d1c13]"
                 >
                   <TableCell className="font-semibold text-white">
-                    {quote.ticker}
+                    <button
+                      type="button"
+                      className="rounded-sm underline decoration-dotted underline-offset-4 hover:text-[#8cffb0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8cffb0]"
+                      aria-label={`Stock info for ${quote.ticker}`}
+                      onClick={() => setInfoTicker(quote.ticker)}
+                    >
+                      {quote.ticker}
+                    </button>
                     {holding ? (
                       <span className="ml-2 rounded-sm bg-[#102c1b] px-1.5 py-0.5 text-xs text-[#8cffb0]">
                         {holding.quantity} held
@@ -4989,6 +5011,33 @@ function MarketPage({
         </Table>
       </section>
 
+      <StockInfoDialog
+        className={infoClassName}
+        heldText={(() => {
+          const held = infoTicker ? holdingsByTicker.get(infoTicker) : undefined;
+          const price = quotes.find((quote) => quote.ticker === infoTicker)?.price ?? 0;
+
+          return held
+            ? `${held.quantity} ${held.quantity === 1 ? "share" : "shares"} worth ${formatCurrency(held.quantity * price)}`
+            : null;
+        })()}
+        ticker={infoTicker}
+        onClose={() => setInfoTicker(null)}
+        onTrade={
+          readOnly
+            ? null
+            : (symbol) => {
+                // Jump to that row's share box, ready to buy or sell.
+                window.setTimeout(() => {
+                  const box = document.querySelector<HTMLInputElement>(`input[aria-label="Shares of ${symbol}"]`);
+                  box?.scrollIntoView({ block: "center" });
+                  box?.focus();
+                  box?.select();
+                }, 150);
+              }
+        }
+      />
+
       <section className="grid gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
         <StocksInfoBox holdings={holdings} quotes={quotes} />
 
@@ -5026,6 +5075,8 @@ type TeacherMarketView = {
   className: string | null;
   market: Array<{ changePercent: number; name: string; news?: string; price: number; ticker: string }>;
   students: Array<{ email: string; name: string }>;
+  // Stock info level for the selected class (v0.2.11).
+  infoLevel?: { gradeLevel: number | null; level: "basic" | "full"; setting: "basic" | "full" | null } | null;
 };
 
 type TeacherTargetType = "class" | "all_classes" | "students" | "student";
@@ -5224,6 +5275,30 @@ function TeacherMarketControls() {
             <option value="students">A group of students</option>
             <option value="student">One student</option>
           </select>
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="teacher-info-level">Stock info level</Label>
+          <select
+            id="teacher-info-level"
+            className={nativeSelectClass}
+            disabled={pending}
+            value={view.infoLevel?.setting ?? ""}
+            onChange={(event) =>
+              void send(
+                { action: "infoLevel", className: view.className, level: event.target.value || null },
+                () => `Stock info level saved for ${view.className}.`
+              )
+            }
+          >
+            <option value="">
+              Default for the grade ({defaultInfoLevel(view.infoLevel?.gradeLevel) === "full" ? "Full" : "Basic"})
+            </option>
+            <option value="basic">Basic: price, simple chart, plain description</option>
+            <option value="full">Full: adds key figures, sector, news, more chart ranges</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            What students in {view.className} see when they click a symbol. Teachers and admins always see Full.
+          </p>
         </div>
       </div>
 
@@ -7913,6 +7988,7 @@ function MarketEngineAdminPage({
               <TableHead>Volatility</TableHead>
               <TableHead>Starting cash</TableHead>
               <TableHead>Grade level</TableHead>
+              <TableHead>Stock info level</TableHead>
               <TableHead>Teacher controls</TableHead>
               <TableHead>Symbols</TableHead>
               <TableHead>Actions</TableHead>
@@ -8023,6 +8099,22 @@ function MarketEngineAdminPage({
                         {grade >= 10 ? " (fractional)" : ""}
                       </option>
                     ))}
+                  </select>
+                </TableCell>
+                <TableCell>
+                  <select
+                    aria-label={`Stock info level for ${config.className}`}
+                    className="h-9 w-32 rounded-md border border-input bg-transparent px-2 text-sm"
+                    value={config.stockInfoLevel ?? ""}
+                    onChange={(event) =>
+                      updateDraftConfig(config.className, {
+                        stockInfoLevel: (event.target.value || null) as "basic" | "full" | null,
+                      })
+                    }
+                  >
+                    <option value="">Grade default</option>
+                    <option value="basic">Basic</option>
+                    <option value="full">Full</option>
                   </select>
                 </TableCell>
                 <TableCell>

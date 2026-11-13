@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.10; the version you are using is shown
+district admins. It describes version 0.2.11; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -210,6 +210,21 @@ trade whole shares only. The note at the top of the page says which applies.
 Trades are saved: they appear in your portfolio's activity and value history,
 and in your profile's **Stocks** box.
 
+**Stock info:** click a symbol (it's underlined) to open its stock info popup.
+It shows the price, today's change, a price chart, and a plain-language
+"What is this?" description, plus how much of it you own. **Trade** closes the
+popup and takes you to that symbol's share box. Depending on your class's
+**Stock info level**, you see one of two versions:
+
+- **Basic** (the default for grades 6–8): the essentials above, with a
+  one-month chart.
+- **Full** (the default for grades 9–12): adds chart ranges (1 day, 1 week,
+  1 month, 1 year), key figures (market cap, P/E ratio, volume, 52-week high
+  and low), the sector, and news headlines.
+
+The stock info is **sample data** for classroom practice in this version (the
+popup is labelled), not real company data.
+
 ### Messaging and Discussions
 
 Messaging is text-only, and messages are saved.
@@ -337,6 +352,12 @@ panel on the Market page:
    and the oil spike % (1–60), then click **Trigger scenario**. Energy and
    oil-service symbols rise by the spike; travel symbols (like JETS) fall by
    about half of it. The whole scenario is one change.
+
+**Stock info level:** choose what students in the selected class see when
+they click a symbol: **Default for the grade**, **Basic**, or **Full** (see
+Market Page above). It saves as soon as you pick, and it doesn't depend on who
+the price changes apply to. You always see the Full version yourself. Admins
+can also change this for any class.
 
 Changes are saved and take effect right away: students see the new price and
 your news line (for example "Teacher update: SPY moved up 3%.") on their

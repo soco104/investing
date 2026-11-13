@@ -477,6 +477,11 @@ try {
   await sql`
     alter table class_market_configs add column if not exists grade_level integer
   `;
+  // Stock info level per class (v0.2.11): 'basic' or 'full'. Null = use the
+  // default for the class's grade level (Full for grades 9-12).
+  await sql`
+    alter table class_market_configs add column if not exists stock_info_level text
+  `;
 
   // Student portfolios: one per student, per class, per school year (kind
   // 'class'), plus 'practice' portfolios for staff. Never deleted: past years

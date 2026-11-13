@@ -13,7 +13,7 @@ declares.
 
 | Proposed | Item | Size | Notes |
 |---|---|---|---|
-| v0.2.11 | **Stock info page with dummy data:** click a symbol for a chart, key numbers and company basics, with Basic (grades 6-8) and Full (grades 9-12) info levels | Medium | Smallest live-market piece; needs nothing else first |
+| v0.2.11 ✅ | **Stock info page with dummy data:** click a symbol for a chart, key numbers and company basics, with Basic (grades 6-8) and Full (grades 9-12) info levels | Done | Popup with sample data; teacher and admin Stock info level setting |
 | v0.2.12 | **Running market:** per-class clock, simulated price movement, market-hours setting, Pause/Resume (no trading while paused), fast forward at 2x/5x/10x, Market Speed label | Large | The core live-market change |
 | v0.2.13 | **Rewind:** view-only history with a time selector | Medium | Needs the running market's price history |
 | v0.2.14 | **Grading quest submissions with a rubric** | Medium | Left out of v0.2.9 on purpose; the debrief item needs it |

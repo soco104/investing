@@ -2,6 +2,32 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.11 — 2026-11-12
+
+### Stock Info (Everyone)
+
+- Click any symbol on the **Market** screen to open its **stock info** popup:
+  price, today's change, a price chart, and a plain-language description of
+  what it is. It also shows how much of it you own, with a **Trade** button
+  that takes you to that symbol's share box.
+- The information is **sample data** for now (the popup says so). Real company
+  data comes in a later version.
+
+### Stock Info Level (Teachers and Admins)
+
+- Each class has a **Stock info level**. **Basic** (the default for grades
+  6–8) shows the essentials. **Full** (the default for grades 9–12) adds longer
+  chart ranges, key figures such as market cap and P/E, sector, and news
+  headlines.
+- Teachers: change it for your class with **Stock info level** under
+  **Teacher market controls** on the Market page. It saves as soon as you pick.
+- Admins: change it for any class in **Market Simulator** (the **Stock info
+  level** column), then save the class.
+- Teachers and admins always see the Full version themselves.
+- **Settings to change:** none required. Check that each class's grade level is
+  set (Admin → Market Simulator), since the default level comes from it. A
+  class with no grade level gets Basic.
+
 ## v0.2.10 — 2026-11-12
 
 ### Messages and Discussions (Everyone)

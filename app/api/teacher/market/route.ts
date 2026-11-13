@@ -1,6 +1,7 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
 import { portfolioErrorResponse } from "@/lib/server/portfolios";
+import { getClassInfoLevel, saveClassInfoLevel } from "@/lib/server/stock-info";
 import {
   clearChange,
   createChange,
@@ -19,7 +20,10 @@ export async function GET(request: Request) {
 
   try {
     const className = new URL(request.url).searchParams.get("className");
-    return Response.json({ ok: true, ...(await teacherMarketView(user, className)) });
+    const view = await teacherMarketView(user, className);
+    const infoLevel = view.className ? await getClassInfoLevel(view.className) : null;
+
+    return Response.json({ ok: true, ...view, infoLevel });
   } catch (error) {
     return portfolioErrorResponse(error);
   }
@@ -32,7 +36,8 @@ type Body =
       target: ChangeTarget;
     }
   | { action: "undo"; changeId: string }
-  | { action: "reset"; className: string };
+  | { action: "reset"; className: string }
+  | { action: "infoLevel"; className: string; level: "basic" | "full" | null };
 
 function validTarget(target: unknown): target is ChangeTarget {
   if (!target || typeof target !== "object") return false;
@@ -122,6 +127,22 @@ export async function POST(request: Request) {
       });
 
       return Response.json({ ok: true, ...result });
+    }
+
+    if (body.action === "infoLevel" && typeof body.className === "string") {
+      const level = body.level === "basic" || body.level === "full" ? body.level : null;
+      const infoLevel = await saveClassInfoLevel(user, body.className, level);
+
+      await recordAuditEvent({
+        action: "class_market.info_level_updated",
+        actor: user,
+        context: { level: infoLevel.level, setting: infoLevel.setting ?? "grade default" },
+        reason: "Stock info level changed",
+        targetId: body.className,
+        targetType: "class_market",
+      });
+
+      return Response.json({ infoLevel, ok: true });
     }
 
     return Response.json({ message: "Unknown market action.", ok: false }, { status: 400 });

@@ -316,3 +316,41 @@ kept as read-only records since v0.2.6). The goal is a summary they can
 - Who can generate and share the report: the student, the teacher, or both?
 - How long are records kept after a student graduates or leaves the district?
 
+
+## Goal: Separate admin sign-in with stronger protection
+
+**Added:** 2026-11-12 · **Status:** to evaluate
+
+Admins (and teachers, who can read student conversations and handle flags) can
+see far more than students, so their sign-in deserves more protection than the
+regular login. Ideas, from smallest to largest:
+
+1. **A separate admin sign-in page** (e.g. `/admin-login`) on the same app and
+   accounts, so students never see admin or demo options.
+2. **Stricter admin rules:** a second factor (an emailed code once email is
+   set up), shorter sessions, lockout after failed attempts, and optionally
+   limiting admin sign-in to certain networks.
+3. **A separate admin site** on its own subdomain. The strongest separation,
+   but a second deployment to run.
+
+Suggested starting point: 1 and 2 together.
+
+### Open questions
+
+- Should teachers get the stricter sign-in too?
+- Should demo logins stay on the main page or move to a separate demo page?
+- Will admins sign in on school networks where emailed codes are awkward?
+
+## To do (owner): Finish email setup
+
+**Added:** 2026-11-12 · **Status:** waiting on the owner
+
+Flagged-message forwards to outside addresses, password reset emails and the
+Admin Email page need email sending turned on. This is setup, not code:
+
+1. Create a Resend account and verify the sending domain.
+2. In the DigitalOcean console, set `RESEND_API_KEY` (as Encrypted) and
+   `EMAIL_FROM` on the web component.
+3. Add the district's domain(s) under **Admin → Messaging → Allowed email
+   domains**.
+4. Use the Admin **Email** page to send a test email to yourself.

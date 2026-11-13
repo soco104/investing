@@ -2,6 +2,7 @@ import { recordAuditEvent } from "@/lib/server/audit";
 import { userFromRequest } from "@/lib/server/auth";
 import { normalizeClassMarketConfig } from "@/lib/server/market-engine";
 import { portfolioErrorResponse, saveClassGradeLevel } from "@/lib/server/portfolios";
+import { saveClassInfoLevel } from "@/lib/server/stock-info";
 import {
   getClassMarketState,
   upsertClassMarketConfig,
@@ -17,6 +18,8 @@ type ClassMarketMutationRequest = {
   gradeLevel?: number | null;
   reason?: string;
   simulationMode?: string;
+  // "basic", "full", or null to follow the grade level (v0.2.11).
+  stockInfoLevel?: "basic" | "full" | null;
   startingCashCents?: number;
   teacherControlsEnabled?: boolean;
   volatilityMultiplier?: number;
@@ -98,6 +101,7 @@ export async function POST(request: Request) {
       teacherControlsEnabled: config.teacherControlsEnabled,
       volatilityMultiplier: config.volatilityMultiplier,
       ...("gradeLevel" in body ? { gradeLevel: body.gradeLevel ?? null } : {}),
+      ...("stockInfoLevel" in body ? { stockInfoLevel: body.stockInfoLevel ?? "grade default" } : {}),
     },
     reason: body.reason ?? "Class market configuration update",
     targetId: className,
@@ -109,6 +113,14 @@ export async function POST(request: Request) {
   if ("gradeLevel" in body) {
     try {
       await saveClassGradeLevel(className, body.gradeLevel ?? null);
+    } catch (error) {
+      return portfolioErrorResponse(error);
+    }
+  }
+
+  if ("stockInfoLevel" in body) {
+    try {
+      await saveClassInfoLevel(user, className, body.stockInfoLevel ?? null);
     } catch (error) {
       return portfolioErrorResponse(error);
     }

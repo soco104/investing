@@ -42,7 +42,7 @@ export default async function globalSetup() {
         alternate_contact_requests, student_alternate_contacts, maintenance_runs
     `;
     await sql`delete from district_settings`;
-    await sql`update class_market_configs set grade_level = null`;
+    await sql`update class_market_configs set grade_level = null, stock_info_level = null`;
   } finally {
     await sql.end();
   }

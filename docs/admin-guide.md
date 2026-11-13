@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.10; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.11; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -11,7 +11,7 @@ change that affects what it describes.
   disable), permissions, schools, market integrations and integration tests,
   Market Simulator class settings, Credential Vault entries, support cases,
   password resets (emailed to the user), email test sends, privacy posture,
-  school year dates, class grade levels, portfolio corrections, portfolio
+  school year dates, class grade levels, class stock info levels, portfolio corrections, portfolio
   reset decisions, teacher market changes (each change, undo and reset), and
   learning quests (saved, copied, assigned, imported, exported).
 - **Saved, not audited:** student portfolios (cash, stocks, trades, allocation
@@ -527,6 +527,14 @@ Class market settings include:
 - Starting cash (used when a student's portfolio for the class is created)
 - Grade level (grade 10 and above can trade fractional shares; leave it on
   "From name" to read it from class names like "7th Grade Finance A")
+- Stock info level: what students see in the stock info popup when they click
+  a symbol on the Market page. **Grade default** follows the grade level
+  (**Full** for grades 9-12; **Basic** for younger grades or when no grade is
+  known). **Basic** shows price, a one-month chart and a plain description.
+  **Full** adds key figures, sector, news headlines and more chart ranges.
+  The class's teachers can also change it from **Teacher market controls**;
+  each change is audited. Teachers and admins always see Full. The popup's
+  content is sample data in this version.
 - Teacher controls enabled/disabled. When on, the class's teachers can use
   the **Teacher market controls** panel on the Market page to raise or lower
   symbols and trigger the Strait of Hormuz scenario for the class, all their

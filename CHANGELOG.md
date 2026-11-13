@@ -7,6 +7,22 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.11] - 2026-11-12
+
+### Added
+- **Stock info popup.** Click any symbol on the Market screen to see its
+  price, today's change, a price chart and a plain-language description, plus
+  how much of it you own and a **Trade** button that jumps to its share box.
+  All of it is **sample data** for now, and the popup says so.
+- **Stock info level** per class: **Basic** (the default for grades 6-8, and
+  for classes with no grade level) or **Full** (the default for grades 9-12),
+  which adds key figures (market cap, P/E, volume, 52-week range), sector,
+  news headlines and more chart ranges (1 day, 1 week, 1 month, 1 year).
+  Teachers set it for their classes in **Teacher market controls**; admins set
+  it for any class in **Market Simulator**. Teachers and admins always see
+  Full. The server sends only what the class's level allows.
+- Audit entry `class_market.info_level_updated`.
+
 ## [0.2.10] - 2026-11-12
 
 ### Added
@@ -253,6 +269,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.11]: https://github.com/soco104/investing/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/soco104/investing/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/soco104/investing/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/soco104/investing/compare/v0.2.7...v0.2.8

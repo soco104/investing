@@ -24,6 +24,7 @@ export type AuditAction =
   | "credential.deleted"
   | "credential.rotated"
   | "class_market.updated"
+  | "class_market.info_level_updated"
   | "market_change.created"
   | "market_change.undone"
   | "market_change.reset"

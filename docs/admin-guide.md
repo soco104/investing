@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.11; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.12; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -12,7 +12,8 @@ change that affects what it describes.
   Market Simulator class settings, Credential Vault entries, support cases,
   password resets (emailed to the user), email test sends, privacy posture,
   school year dates, class grade levels, class stock info levels, portfolio corrections, portfolio
-  reset decisions, teacher market changes (each change, undo and reset), and
+  reset decisions, teacher market changes (each change, undo and reset),
+  market clock changes (pause, resume, speed, hours), and
   learning quests (saved, copied, assigned, imported, exported).
 - **Saved, not audited:** student portfolios (cash, stocks, trades, allocation
   targets, value history), for every class and school year; teachers' reset
@@ -527,6 +528,17 @@ Class market settings include:
 - Starting cash (used when a student's portfolio for the class is created)
 - Grade level (grade 10 and above can trade fractional shares; leave it on
   "From name" to read it from class names like "7th Grade Finance A")
+- Market clock (v0.2.12): each class market runs on its own clock. Prices
+  are calculated from the class's simulated time and its volatility
+  multiplier, so nothing is stored as prices move. From **Teacher market
+  controls** on the Market page, the class's teachers (when Teacher controls
+  are on) and admins can **Pause** and **Resume** the market, set its
+  **Speed** (1x, 2x, 5x, 10x) and its **Market hours** (Always open, the
+  default, or U.S. market hours: 9:30 AM to 4:00 PM Eastern on weekdays,
+  holidays not skipped). While paused or closed, prices hold and the server
+  refuses trades. Every clock change is audited. Classes in the `Frozen
+  market` simulation mode don't move at all. All classes share one price run;
+  a class drifts from the others once it is paused or its speed is changed.
 - Stock info level: what students see in the stock info popup when they click
   a symbol on the Market page. **Grade default** follows the grade level
   (**Full** for grades 9-12; **Basic** for younger grades or when no grade is

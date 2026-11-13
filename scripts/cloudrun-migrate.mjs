@@ -483,6 +483,44 @@ try {
     alter table class_market_configs add column if not exists stock_info_level text
   `;
 
+  // Running market (v0.2.12). One clock per class: whether it is running or
+  // paused, its speed, its hours, and the anchors simulated time is worked
+  // out from. Prices are calculated from the clock, never stored.
+  await sql`
+    create table if not exists class_market_clocks (
+      district_id text not null,
+      class_name text not null,
+      status text not null default 'running',
+      speed integer not null default 1,
+      hours text not null default 'always',
+      sim_anchor_ms bigint not null,
+      real_anchor_ms bigint not null,
+      updated_by_user_id text,
+      updated_at timestamp not null,
+      primary key (district_id, class_name)
+    )
+  `;
+  // Every clock change, kept so history can be replayed later (rewind).
+  await sql`
+    create table if not exists class_market_clock_events (
+      id text primary key,
+      district_id text not null,
+      class_name text not null,
+      action text not null,
+      status text not null,
+      speed integer not null,
+      hours text not null,
+      sim_ms bigint not null,
+      real_ms bigint not null,
+      actor_user_id text,
+      created_at timestamp not null
+    )
+  `;
+  await sql`
+    create index if not exists class_market_clock_events_class_idx
+    on class_market_clock_events (district_id, class_name, real_ms)
+  `;
+
   // Student portfolios: one per student, per class, per school year (kind
   // 'class'), plus 'practice' portfolios for staff. Never deleted: past years
   // are the student's multi-year record. Money in cents; quantities in units

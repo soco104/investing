@@ -1,3 +1,4 @@
+import { isClockHours, isClockSpeed, type MarketClock } from "@/lib/market-clock";
 import postgres from "postgres";
 
 import type { AppErrorEvent, PerformanceEvent } from "@/lib/observability";
@@ -488,12 +489,14 @@ export async function getClassMarketState(
   className: string,
   options: { recordSnapshot?: boolean } = {}
 ) {
-  const [config, quotes] = await Promise.all([
+  const [config, quotes, clock] = await Promise.all([
     getClassMarketConfig(className),
     listLatestMarketQuotes(className),
+    getClassMarketClock(className),
   ]);
   const state = buildClassMarketState({
     className,
+    clock,
     config,
     quotes: quotes.map((quote) => ({
       changePercent: Number(quote.change_percent),
@@ -508,6 +511,30 @@ export async function getClassMarketState(
   }
 
   return state;
+}
+
+/** The class's saved market clock (v0.2.12), or null when it has never been changed. */
+export async function getClassMarketClock(className: string): Promise<MarketClock | null> {
+  if (!hasProductionDatabase()) {
+    return null;
+  }
+
+  const [row] = await getSql()<
+    Array<{ hours: string; real_anchor_ms: string; sim_anchor_ms: string; speed: number; status: string }>
+  >`
+    select status, speed, hours, sim_anchor_ms, real_anchor_ms from class_market_clocks
+    where district_id = ${defaultDistrictId} and class_name = ${className}
+  `;
+
+  if (!row) return null;
+
+  return {
+    hours: isClockHours(row.hours) ? row.hours : "always",
+    realAnchorMs: Number(row.real_anchor_ms),
+    simAnchorMs: Number(row.sim_anchor_ms),
+    speed: isClockSpeed(row.speed) ? row.speed : 1,
+    status: row.status === "paused" ? "paused" : "running",
+  };
 }
 
 export async function recordClassMarketSnapshot(state: ClassMarketState) {

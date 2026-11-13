@@ -1,6 +1,7 @@
 import { recordAuditEvent } from "@/lib/server/audit";
 import { requirePermission } from "@/lib/server/auth";
 import { portfolioErrorResponse } from "@/lib/server/portfolios";
+import { changeClassClock, parseClockAction } from "@/lib/server/market-clock";
 import { getClassInfoLevel, saveClassInfoLevel } from "@/lib/server/stock-info";
 import {
   clearChange,
@@ -37,7 +38,8 @@ type Body =
     }
   | { action: "undo"; changeId: string }
   | { action: "reset"; className: string }
-  | { action: "infoLevel"; className: string; level: "basic" | "full" | null };
+  | { action: "infoLevel"; className: string; level: "basic" | "full" | null }
+  | { action: "clock"; className: string; hours?: string; op: string; speed?: number };
 
 function validTarget(target: unknown): target is ChangeTarget {
   if (!target || typeof target !== "object") return false;
@@ -127,6 +129,34 @@ export async function POST(request: Request) {
       });
 
       return Response.json({ ok: true, ...result });
+    }
+
+    if (body.action === "clock" && typeof body.className === "string") {
+      const clockAction = parseClockAction(body as { hours?: unknown; op?: unknown; speed?: unknown });
+
+      if (!clockAction) {
+        return Response.json({ message: "Choose pause, resume, a speed of 1, 2, 5 or 10, or market hours.", ok: false }, { status: 400 });
+      }
+
+      const clock = await changeClassClock(user, body.className, clockAction);
+
+      await recordAuditEvent({
+        action:
+          clockAction.type === "pause"
+            ? "market_clock.paused"
+            : clockAction.type === "resume"
+              ? "market_clock.resumed"
+              : clockAction.type === "speed"
+                ? "market_clock.speed_changed"
+                : "market_clock.hours_changed",
+        actor: user.actingAdmin ?? user,
+        context: { hours: clock.hours, simTime: clock.simTime, speed: clock.speed, status: clock.status },
+        reason: "Class market clock changed",
+        targetId: body.className,
+        targetType: "class_market",
+      });
+
+      return Response.json({ clock, ok: true });
     }
 
     if (body.action === "infoLevel" && typeof body.className === "string") {

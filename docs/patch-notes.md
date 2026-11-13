@@ -2,6 +2,41 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.12 — 2026-11-13
+
+### Running Market (Everyone)
+
+- The class market now **runs on its own**: prices move through the day and
+  the Market screen updates by itself every few seconds.
+- A **Market Speed** label in the upper left of the Market screen shows how
+  fast the market is running (1x, 2x, 5x or 10x), or **Paused** or **Closed**.
+- When your teacher pauses the market, or the market is closed, prices hold
+  still and **trading is off** until it starts again.
+- Because prices keep moving, a trade uses the price at the moment you click,
+  which can be a few cents different from what you saw a moment before. The
+  confirmation message shows the price you got.
+
+### Market Clock (Teachers)
+
+- **Pause market** and **Resume market** under Teacher market controls freeze
+  and restart your class's market, for a discussion or a quiz. Students see a
+  "Market paused by your teacher" banner.
+- **Speed:** run the market at 1x, 2x, 5x or 10x. Students always see the
+  current speed.
+- **Market hours:** choose **Always open** (the default) or **U.S. market
+  hours** (9:30 AM to 4:00 PM Eastern, weekdays; holidays are not skipped).
+- The clock applies to the whole class. Your own practice portfolio follows
+  your first class's market, so pausing that class pauses your practice
+  trading too.
+
+### Admins
+
+- Admins can use the same controls for any class. Pause, resume, speed and
+  hours changes are in the audit log.
+- **Settings to change:** none required. Classes start as Always open at 1x.
+  Classes set to the **Frozen** simulation mode stay still, as before, and a
+  class with **Teacher controls** turned off can't be paused by its teacher.
+
 ## v0.2.11 — 2026-11-12
 
 ### Stock Info (Everyone)

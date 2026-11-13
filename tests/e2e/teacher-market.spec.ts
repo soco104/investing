@@ -9,6 +9,12 @@ const teacher = accounts.teacher;
 const student = accounts.student;
 const studentClass = "7th Grade Finance A";
 
+// Since v0.2.12 the market runs on its own, so a price read a few seconds
+// later has moved slightly. A 3% teacher change is still easy to tell apart.
+function expectNear(actual: number, expected: number) {
+  expect(Math.abs(actual / expected - 1)).toBeLessThan(0.005);
+}
+
 type Symbol = { name: string; news?: string | null; priceCents: number; ticker: string };
 
 async function openTeacherControls(page: Page, className = studentClass) {
@@ -66,12 +72,12 @@ test.describe("Teacher market controls", () => {
     const changes = panel.getByRole("list", { name: "Active changes" });
     await expect(changes).toContainText("Raised SPY 3%");
     await expect(changes).toContainText("Whole class");
-    expect(await classPrice(page, "SPY")).toBeCloseTo(before * 1.03, 1);
+    expectNear(await classPrice(page, "SPY"), before * 1.03);
 
     // The student trades at the raised price and sees the teacher's news.
     const raised = (await studentSymbols(browser, "Teacher update: SPY moved up 3%.")).get("SPY");
     expect(raised?.news).toBe("Teacher update: SPY moved up 3%.");
-    expect((raised?.priceCents ?? 0) / 100).toBeCloseTo(before * 1.03, 1);
+    expectNear((raised?.priceCents ?? 0) / 100, before * 1.03);
 
     // The change survives a refresh (it's saved), then Undo removes it.
     await page.reload();
@@ -85,7 +91,7 @@ test.describe("Teacher market controls", () => {
 
     const restored = (await studentSymbols(browser)).get("SPY");
     expect(restored?.news ?? null).not.toBe("Teacher update: SPY moved up 3%.");
-    expect((restored?.priceCents ?? 0) / 100).toBeCloseTo(before, 1);
+    expectNear((restored?.priceCents ?? 0) / 100, before);
   });
 
   test("a change for one student leaves the class price alone; reset to normal", async ({
@@ -105,10 +111,10 @@ test.describe("Teacher market controls", () => {
     await expect(panel.getByRole("list", { name: "Active changes" })).toContainText("Avery Johnson");
 
     // Class-wide price is unchanged; only Avery's price moved.
-    expect(await classPrice(page, "QQQ")).toBeCloseTo(before, 1);
+    expectNear(await classPrice(page, "QQQ"), before);
     const avery = (await studentSymbols(browser)).get("QQQ");
     expect(avery?.news).toBe("Teacher update: QQQ moved down 3%.");
-    expect((avery?.priceCents ?? 0) / 100).toBeCloseTo(before * 0.97, 1);
+    expectNear((avery?.priceCents ?? 0) / 100, before * 0.97);
 
     await panel.getByRole("button", { name: "Reset to normal" }).click();
     await expect(panel.getByRole("status")).toContainText(`${studentClass} is back to normal prices.`);

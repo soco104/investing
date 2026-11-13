@@ -1,3 +1,4 @@
+import { tradingBlockedReason } from "@/lib/market-clock";
 import type { TransactionSql } from "postgres";
 
 import {
@@ -387,6 +388,7 @@ export async function getPortfolioDetail(portfolioId: string) {
     id: portfolio.id,
     kind: portfolio.kind,
     market: {
+      clock: market.clock,
       scenarioLabel: market.scenarioLabel,
       simulationMode: market.config.simulationMode,
       symbols: adjustedSymbols.map((symbol) => ({
@@ -406,6 +408,33 @@ export async function getPortfolioDetail(portfolioId: string) {
 }
 
 /** The user's whole profile: every portfolio, newest school year first. */
+/**
+ * Just the live market for one of the user's portfolios: current prices and
+ * the clock. The Market screen polls this every few seconds (v0.2.12).
+ */
+export async function getPortfolioLiveMarket(user: AuthenticatedUser, portfolioId: string) {
+  requireDatabase();
+
+  const portfolio = await loadPortfolioRow(getSql(), portfolioId);
+
+  if (!portfolio || portfolio.user_id !== user.id) throw new PortfolioError("Portfolio not found.", 404);
+
+  const { state: market, symbols } = await marketPrices(portfolio.class_name, portfolio.user_id);
+
+  return {
+    clock: market.clock,
+    scenarioLabel: market.scenarioLabel,
+    simulationMode: market.config.simulationMode,
+    symbols: symbols.map((symbol) => ({
+      changePercent: symbol.changePercent,
+      name: symbol.name,
+      news: symbol.news ?? null,
+      priceCents: priceToCents(symbol.price),
+      ticker: symbol.ticker,
+    })),
+  };
+}
+
 export async function getProfilePortfolios(user: AuthenticatedUser) {
   requireDatabase();
   await ensureCurrentPortfolios(user);
@@ -468,6 +497,11 @@ export async function executeTrade(
       getClassGradeLevel(portfolio.class_name),
       loadState(tx, portfolio),
     ]);
+    // No trading while the class market is paused or closed (v0.2.12).
+    const blocked = tradingBlockedReason(market.clock);
+
+    if (blocked) throw new PortfolioError(blocked, 409);
+
     const symbol = market.symbols.find((item) => item.ticker === ticker);
 
     if (!symbol) {

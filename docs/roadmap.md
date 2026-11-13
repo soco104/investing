@@ -125,6 +125,93 @@ messages, reports, and grades needs server-side storage first.
   (`app/page.tsx`). Do new events need to move into the server-side engine so
   they persist and apply to every student?
 
+## Goal: A live market — running clock, pause, rewind, and stock info pages
+
+**Added:** 2026-11-12 · **Status:** to evaluate
+
+Today the market is **static**: prices only change when a teacher raises or
+lowers them, triggers a scenario, or the scheduled poll fetches a new quote.
+The goal is a market that **runs like a live one**, that a teacher can control
+in class, with a stock info page behind every symbol.
+
+### Where things stand
+
+- `lib/server/market-engine.ts` builds each class's market from the latest
+  quote per symbol plus the teacher's scenario and adjustments. There is no
+  continuous price movement.
+- Quotes are stored in `market_quotes` (ticker, fetched time), so some history
+  exists, but it is only a record of polls, not a price series to replay.
+- A scheduled job (`market-poll`) calls `POST /api/market/poll` to refresh
+  quotes from the configured provider.
+
+### Ideas to evaluate
+
+**1. A running market.** Prices move on their own over time, per class, so
+students see a market that is "open", not a snapshot. Until real feeds are in,
+movement is simulated (random drift scaled by the class's volatility
+multiplier and scenario), seeded so a class sees the same prices.
+
+**2. Teacher controls: Pause and Resume.** A prominent button on the teacher's
+Market page freezes the class's market, for a discussion or a quiz. While
+paused, students see a "Market paused by your teacher" banner and trades are
+disabled (or allowed at the frozen price, a teacher choice). Resuming picks up
+where it stopped. Audited, like other teacher market changes.
+
+**3. Rewind and replay.** Prices are recorded as a time series per symbol and
+per class, so a teacher can scrub back through the day (or earlier) to show
+what happened: "look at what the market did when we triggered the rate
+shock." Options to evaluate: view-only history for the class, or truly
+rewinding the class's market to an earlier point (with the effect on student
+portfolios needing care).
+
+**4. Stock info page.** Clicking a symbol in the market opens a popup or page
+with:
+
+- A price chart (with the rewind range) and key numbers (price, day change,
+  range, volume).
+- Company basics: name, sector, short description.
+- Later: news headlines, and key figures such as market cap and P/E.
+- A **Trade** button and the student's own holding in that stock.
+
+At first this is filled with **dummy data**, so the page layout and flow can
+be built and tested before any live feed exists.
+
+**5. Real information from API feeds (later).** The app gathers real data for
+the symbols in each teacher's market, and fills the info pages with it:
+
+- A job fetches company profile, quotes, and news for the symbols in use only
+  (from the class's allowed symbols), not the whole market.
+- Stored in the database and refreshed on a schedule, so students never wait
+  on an outside call and the app stays within provider limits.
+- Uses the existing Market APIs admin page and Credential Vault for providers
+  and keys (e.g. Finnhub, already supported for quotes).
+- Admins can see which provider, when it last refreshed, and any failures
+  (the Monitoring pages already track integration health).
+
+### Suggested order
+
+1. Stock info page with dummy data (clickable symbols, chart, basics).
+2. Price history stored per symbol, with the simulated running market.
+3. Teacher Pause and Resume.
+4. Rewind and replay.
+5. Real data feeds filling the info pages.
+
+### Open questions
+
+- When the market is paused, can students still trade at the frozen price?
+- Does "rewind" mean view-only history, or moving the class's live market back
+  in time? The second changes what students own and what trades mean.
+- How fast does time run: real time, or a sped-up trading day (e.g. one
+  "day" per class period)? Does the market follow real market hours?
+- Is the simulated movement the same for every class, or does each class get
+  its own run? Should students in one class always see identical prices?
+- How much history to keep, and for how long (it adds up quickly with many
+  symbols and classes)?
+- Which providers and data (news, fundamentals) are allowed under their terms
+  for a school app, and what do they cost at classroom scale?
+- Content review: are news headlines appropriate for grades 6-12, and does an
+  admin or teacher need to filter them?
+
 ## Goal: School branding — colors and logos
 
 **Added:** 2026-11-12 · **Status:** to evaluate

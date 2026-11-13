@@ -217,6 +217,9 @@ the symbols in each teacher's market, and fills the info pages with it:
 - Paused market: no trading.
 - Rewind: view-only history, with a time selector.
 - Time: real time by default, with teacher fast-forward at **2x, 5x and 10x**.
+- **Students see the market speed.** The Market screen shows a **Market
+  Speed** label in the upper left (e.g. 1x, 2x, 5x, 10x, or Paused), so
+  students always know when a teacher has sped up the clock.
 - News headlines: shown unfiltered, but the info page is grade-gated.
 - **Market hours are a teacher setting that follows the market sources the
   class uses.** A class on a single market (e.g. only NASDAQ or the Dow) runs
@@ -232,7 +235,6 @@ the symbols in each teacher's market, and fills the info pages with it:
 
 ### Open questions
 
-- Whether students are told when a teacher has sped up the clock.
 - How a class on several markets is shown when some are closed (a 24-hour
   sim hides this; a mixed class that wants real hours would need a clear
   "market closed" per symbol).

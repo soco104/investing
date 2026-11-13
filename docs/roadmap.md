@@ -216,20 +216,31 @@ the symbols in each teacher's market, and fills the info pages with it:
 
 - Paused market: no trading.
 - Rewind: view-only history, with a time selector.
-- Time: real time by default, teacher fast-forward option.
+- Time: real time by default, with teacher fast-forward at **2x, 5x and 10x**.
 - News headlines: shown unfiltered, but the info page is grade-gated.
+- **Market hours are a teacher setting that follows the market sources the
+  class uses.** A class on a single market (e.g. only NASDAQ or the Dow) runs
+  only while that market is open. A class using several markets around the
+  world is simplest as a **24-hour simulation**. The teacher can define this.
+- **Prices per class** follow the class's market source selection, and can be
+  adjusted by the teacher or an admin (identical across a class by default;
+  the v0.2.8 per-student market changes still apply on top).
+- **Data providers are the school's and teachers' choice** (paid or free). The
+  app stays **provider-agnostic**: it only populates data from whichever
+  source the teacher or school configures, through the Market APIs admin page.
+- **Stock info level:** a teacher setting, which admins can also change.
 
 ### Open questions
 
-- Fast-forward speeds to offer, and whether students are told when a teacher
-  has sped up the clock.
-- Does the market follow real market hours, or run all day?
-- Is the simulated movement the same for every class, or does each class get
-  its own run? Should students in one class always see identical prices?
-- Which providers and data (news, fundamentals) are allowed under their terms
-  for a school app, and what do they cost at classroom scale?
-- Should the Stock info level be a per-class teacher setting only, or can an
-  admin set a district default?
+- Whether students are told when a teacher has sped up the clock.
+- How a class on several markets is shown when some are closed (a 24-hour
+  sim hides this; a mixed class that wants real hours would need a clear
+  "market closed" per symbol).
+- How different providers' data shapes (quotes, profiles, news) are mapped
+  into one common format, so the info pages work with any source. This needs
+  design before the real feeds are built.
+- What the info page shows when a configured source has no news or profile
+  data (free sources often lack some of it).
 
 ## Goal: School branding — colors and logos
 

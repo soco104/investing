@@ -10,6 +10,9 @@ export const accounts = {
   student: { email: "avery.johnson@example.edu", password: "student-demo" },
   studentMaya: { email: "maya.patel@example.edu", password: "student-demo" },
   studentJordan: { email: "jordan.lee@example.edu", password: "student-demo" },
+  // Classmates added in v0.2.14. Noah and Sofia are in Avery's class.
+  studentNoah: { email: "noah.kim@example.edu", password: "student-demo" },
+  studentSofia: { email: "sofia.garcia@example.edu", password: "student-demo" },
   teacher: { email: "elena.rivera@example.edu", password: "teacher-demo" },
   admin: { email: "sam.gordon@example.edu", password: "admin-demo" },
 };

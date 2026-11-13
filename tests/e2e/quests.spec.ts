@@ -99,7 +99,8 @@ test.describe("Learning quests", () => {
     await page.reload();
     await page.getByRole("button", { name: new RegExp(title) }).click();
     const submissions = page.getByRole("region", { name: "Submissions" });
-    await expect(submissions).toContainText("1 of 1 submitted");
+    // Avery's class has three students since v0.2.14 (Noah and Sofia were added).
+    await expect(submissions).toContainText("1 of 3 submitted");
     await expect(submissions).toContainText("Submitted · edited");
     await expect(submissions).toContainText("I kept 25% in savings first.");
     await submissions.getByLabel("Add a comment").fill("Nice work. Why 25%?");

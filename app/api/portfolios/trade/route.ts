@@ -3,6 +3,8 @@ import { userFromRequest } from "@/lib/server/auth";
 import { executeTrade, portfolioErrorResponse } from "@/lib/server/portfolios";
 
 type TradeRequest = {
+  // Buy max: the server works out how many whole shares the cash covers.
+  max?: boolean;
   portfolioId?: string;
   shares?: number;
   side?: "buy" | "sell";
@@ -29,6 +31,7 @@ export async function POST(request: Request) {
 
   try {
     const portfolio = await executeTrade(user, {
+      max: body.max === true,
       portfolioId: body.portfolioId,
       shares: Number(body.shares),
       side: body.side,

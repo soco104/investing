@@ -57,7 +57,7 @@ test.describe("View as student", () => {
     await page.getByRole("tab", { name: "Market" }).click();
     await expect(page.getByText(/7th Grade Finance A ·/)).toBeVisible();
     const bnd = page.getByRole("row").filter({ has: page.getByLabel("Shares of BND") });
-    await bnd.getByRole("button", { name: "Buy" }).click();
+    await bnd.getByRole("button", { name: "Buy", exact: true }).click();
     await expect(page.getByText("Bought 1 share of BND.")).toBeVisible();
 
     // Exit: back to the admin's own account.

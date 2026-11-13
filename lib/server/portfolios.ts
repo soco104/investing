@@ -4,6 +4,7 @@ import type { TransactionSql } from "postgres";
 import {
   allowsFractionalShares,
   applyTrade,
+  maxWholeShares,
   defaultAllocationTargets,
   gradeLevelFromClassName,
   portfolioValueCents,
@@ -480,7 +481,8 @@ async function requireOwnedWritablePortfolio(sql: Sql, portfolioId: string, user
 
 export async function executeTrade(
   user: AuthenticatedUser,
-  input: { portfolioId: string; shares: number; side: TradeSide; ticker: string }
+  // max: buy as many whole shares as the portfolio's cash covers (v0.2.14).
+  input: { max?: boolean; portfolioId: string; shares: number; side: TradeSide; ticker: string }
 ) {
   requireDatabase();
 
@@ -508,11 +510,24 @@ export async function executeTrade(
       throw new PortfolioError(`${ticker || "That symbol"} isn't available in this class's market.`, 400);
     }
 
+    let shares = Number(input.shares);
+
+    if (input.max) {
+      if (input.side !== "buy") throw new PortfolioError("Buy max only works for buying.", 400);
+
+      // Worked out here, at the price the trade will use, because prices move.
+      shares = maxWholeShares(before.cashCents, prices[ticker]);
+
+      if (shares < 1) {
+        throw new PortfolioError(`You don't have enough cash to buy a whole share of ${ticker}.`, 400);
+      }
+    }
+
     const result = applyTrade(before, {
       allowFractional: portfolio.kind === "practice" || allowsFractionalShares(gradeLevel),
       name: symbol.name,
       priceCents: prices[ticker],
-      shares: Number(input.shares),
+      shares,
       side: input.side,
       ticker,
     });

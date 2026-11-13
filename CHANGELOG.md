@@ -7,6 +7,32 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.14] - 2026-11-13
+
+### Added
+- **Buy max** button on every Market row. It buys as many whole shares as the
+  portfolio's cash covers and shows that number on the button. The server
+  works the number out at the price the trade uses.
+- **Stocks value card** on the Market page now totals the shares owned and,
+  when clicked, jumps to the Stocks section further down.
+- **More demo students** (Noah Kim, Sofia Garcia, Liam Chen, Zoe Brooks), so
+  demo students have classmates to message.
+- **Demo messages:** every demo inbox has conversations, each class has a
+  discussion room, and there are two flagged messages (one open for the
+  teacher, one forwarded to the admins) to show the flag review.
+- A **"Teachers and admins only"** label on Teacher market controls.
+
+### Changed
+- **New message** picker: shows "Loading people…" while it loads, explains
+  when nobody is available or loading failed, lists students with their
+  class, and puts teachers first for students and students first for staff.
+
+### Checked
+- Staff-only features are hidden from students and refused by the server,
+  including when an admin uses View as student. A browser test now guards
+  this. Teacher market controls appear under "Assume role: Student" only
+  because that keeps you signed in as an admin or teacher.
+
 ## [0.2.13] - 2026-11-13
 
 ### Added
@@ -319,6 +345,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.14]: https://github.com/soco104/investing/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/soco104/investing/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/soco104/investing/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/soco104/investing/compare/v0.2.10...v0.2.11

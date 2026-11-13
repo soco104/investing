@@ -77,6 +77,12 @@ export function priceToCents(price: number) {
 }
 
 /** Cost of a quantity at a price, rounded to the nearest cent. */
+/** Buy max (v0.2.14): the most whole shares this much cash can buy. */
+export function maxWholeShares(cashCents: number, priceCents: number) {
+  if (!Number.isFinite(cashCents) || !Number.isFinite(priceCents) || priceCents <= 0 || cashCents <= 0) return 0;
+  return Math.floor(cashCents / priceCents);
+}
+
 export function tradeValueCents(quantityUnits: number, priceCents: number) {
   return Math.round((quantityUnits * priceCents) / UNITS_PER_SHARE);
 }

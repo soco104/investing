@@ -92,6 +92,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MarketHistoryDialog } from "./market-history-ui";
 import { StockInfoDialog } from "./stock-info-ui";
 import { defaultInfoLevel } from "@/lib/stock-info";
+import { maxWholeShares } from "@/lib/portfolio-rules";
 import { CLOCK_SPEEDS, tradingBlockedReason, type ClockView } from "@/lib/market-clock";
 import { AdminMessagingPage, FlaggedMessagesPanel, MessagesPanel, ParentContactRequestPanel } from "./messages-ui";
 import { APP_VERSION } from "@/lib/version";
@@ -2282,7 +2283,8 @@ export default function Home() {
 
   // Trades go to the server, which prices them from the class market and
   // checks cash, shares owned, whole vs fractional shares, and read-only years.
-  async function tradeStock(ticker: string, action: "buy" | "sell", shares = 1) {
+  // max = "Buy max": the server works out the most whole shares the cash covers.
+  async function tradeStock(ticker: string, action: "buy" | "sell", shares = 1, max = false) {
     if (!activePortfolio) {
       setMarketNotice("Your portfolio isn't available right now.");
       return;
@@ -2293,6 +2295,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/portfolios/trade", {
         body: JSON.stringify({
+          max,
           portfolioId: activePortfolio.id,
           shares,
           side: action,
@@ -2313,13 +2316,15 @@ export default function Home() {
       }
 
       applyPortfolio(result.portfolio);
-      const shareText = `${shares.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${
-        shares === 1 ? "share" : "shares"
-      }`;
       // Prices keep moving (v0.2.12), so say which price the trade got.
       const filled = result.portfolio.activity
         .filter((item) => item.kind === action && item.ticker === ticker && item.priceCents !== null)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+      // Buy max: the server decided how many shares, so report what it bought.
+      const filledShares = max && filled?.quantityUnits != null ? filled.quantityUnits / 10_000 : shares;
+      const shareText = `${filledShares.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${
+        filledShares === 1 ? "share" : "shares"
+      }`;
       const priceText = filled?.priceCents != null ? ` Price: ${formatCurrency(filled.priceCents / 100)} a share.` : "";
       setMarketNotice(
         `${action === "buy" ? "Bought" : "Sold"} ${shareText} of ${ticker}.${priceText}`
@@ -4843,7 +4848,7 @@ function MarketPage({
   quotes: MarketQuote[];
   role: AdminUser["role"];
   stockHoldingsValue: number;
-  onTrade: (ticker: string, action: "buy" | "sell", shares: number) => Promise<void>;
+  onTrade: (ticker: string, action: "buy" | "sell", shares: number, max?: boolean) => Promise<void>;
   allowFractional: boolean;
   portfolioError: string;
   portfolioTitle: string | null;
@@ -4879,9 +4884,19 @@ function MarketPage({
       setTradingTicker(null);
     }
   }
+  // Buy max (v0.2.14): spend the cash on as many whole shares as it covers.
+  async function buyMax(ticker: string) {
+    setTradingTicker(ticker);
+    try {
+      await onTrade(ticker, "buy", 0, true);
+    } finally {
+      setTradingTicker(null);
+    }
+  }
   const holdingsByTicker = new Map(
     holdings.map((holding) => [holding.ticker, holding])
   );
+  const totalSharesHeld = holdings.reduce((total, holding) => total + holding.quantity, 0);
 
   return (
     <section className="space-y-6">
@@ -4952,7 +4967,10 @@ function MarketPage({
           icon={<TrendingUp className="size-5" />}
           label="Stocks value"
           value={formatCurrency(stockHoldingsValue)}
-          detail={`${holdings.length} symbols held`}
+          detail={`${totalSharesHeld.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${
+            totalSharesHeld === 1 ? "share" : "shares"
+          } in ${holdings.length} ${holdings.length === 1 ? "stock" : "stocks"}. Click to see them.`}
+          onClick={() => document.getElementById("market-stocks")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         />
         <SummaryCard
           icon={<LineChart className="size-5" />}
@@ -5083,6 +5101,24 @@ function MarketPage({
                         >
                           Sell
                         </Button>
+                        {(() => {
+                          const affordable = maxWholeShares(Math.round(cash * 100), Math.round(quote.price * 100));
+
+                          return (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              aria-label={`Buy max ${quote.ticker}: ${affordable} whole ${affordable === 1 ? "share" : "shares"}`}
+                              title={`Spend your cash on ${affordable} whole ${affordable === 1 ? "share" : "shares"} of ${quote.ticker}`}
+                              disabled={readOnly || tradingBlocked !== null || tradingTicker !== null || affordable < 1}
+                              onClick={() => void buyMax(quote.ticker)}
+                              className="border-[#8cffb0]/60 bg-transparent text-[#8cffb0] hover:bg-[#102c1b]"
+                            >
+                              Buy max ({affordable.toLocaleString()})
+                            </Button>
+                          );
+                        })()}
                       </div>
                     </div>
                   </TableCell>
@@ -5127,7 +5163,9 @@ function MarketPage({
       />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
-        <StocksInfoBox holdings={holdings} quotes={quotes} />
+        <div id="market-stocks" className="scroll-mt-24">
+          <StocksInfoBox holdings={holdings} quotes={quotes} />
+        </div>
 
         {isTeacher ? (
           <TeacherMarketControls onMarketChanged={onMarketChanged} />
@@ -5330,8 +5368,14 @@ function TeacherMarketControls({ onMarketChanged }: { onMarketChanged: () => voi
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold">Teacher market controls</h3>
+          <h3 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+            Teacher market controls
+            <Badge variant="outline" className="rounded-md" data-testid="staff-only-badge">
+              Teachers and admins only
+            </Badge>
+          </h3>
           <p className="text-sm text-muted-foreground">
+            Students never see this box, even when you use Assume role: Student.{" "}
             Changes are saved and apply to your students&apos; prices right away. They stay
             until you undo them or reset the market to normal.
           </p>

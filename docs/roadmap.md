@@ -16,7 +16,7 @@ declares.
 | v0.2.11 ✅ | **Stock info page with dummy data:** click a symbol for a chart, key numbers and company basics, with Basic (grades 6-8) and Full (grades 9-12) info levels | Done | Popup with sample data; teacher and admin Stock info level setting |
 | v0.2.12 ✅ | **Running market:** per-class clock, simulated price movement, market-hours setting, Pause/Resume (no trading while paused), fast forward at 2x/5x/10x, Market Speed label | Done | Calculated prices (nothing stored per tick); clock changes logged for rewind. Per-class "own run" switch left for later |
 | v0.2.13 ✅ | **Rewind:** view-only history with a time selector | Done | Market history popup for teachers and admins; see "Known limit" under the live market goal |
-| v0.2.14 | **Small changes (running list):** fixes and tweaks collected while the owner reviews v0.2.10 to v0.2.13; see "v0.2.14 running list" below | Small each | Shipped together as one version with one set of patch notes |
+| v0.2.14 ✅ | **Small changes (running list):** Buy max, Stocks value card, demo students and messages, New message picker, staff-only check; see "v0.2.14 running list" below | Done | Shipped together as one version |
 | v0.2.15 | **Grading quest submissions with a rubric** | Medium | Left out of v0.2.9 on purpose; the debrief item needs it |
 | v0.2.16 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
 | v0.2.17 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
@@ -24,14 +24,19 @@ declares.
 
 ### v0.2.14 running list
 
-**Started:** 2026-11-13 · **Status:** collecting. Small changes the owner
-asks for while reviewing go here, and are built together as v0.2.14. Larger
-ideas go to "Not yet slotted" or their own goal instead. Bugs still get a
-GitHub issue with the `bug` label.
+**Started:** 2026-11-13 · **Status:** shipped as v0.2.14. Small changes the
+owner asked for while reviewing v0.2.10 to v0.2.13. (A new running list can
+be started the same way for a later version.)
 
 | # | Change | Area | Status |
 |---|---|---|---|
-| | *(nothing yet)* | | |
+| 1 | **Buy max** button: buys the most whole shares the cash covers, shown next to Buy and Sell | Market | Done |
+| 2 | Check that teacher and admin features aren't exposed to students (seen under Assume role: Student) | Security | Done: nothing exposed; test added; panel labelled staff-only |
+| 3 | **Stocks value** card links to the Stocks section and totals the shares owned | Market | Done |
+| 4 | More demo students, selectable in New message (teacher and classmates at a minimum) | Demo data, Messages | Done |
+| 5 | A demo flagged message to show flag review | Demo data | Done (one open, one forwarded to admins) |
+| 6 | Teachers can message any student in their classes and the admins, and see them in Send to | Messages | Done (already enforced; test added; students shown with class) |
+| 7 | Demo messages in all student, teacher and admin inboxes | Demo data | Done |
 
 **Not yet slotted:**
 
@@ -43,6 +48,8 @@ GitHub issue with the `bug` label.
 - **Separate admin sign-in** (Small to medium): best after email setup, since
   it uses emailed codes.
 - **School branding** (Large): independent of the rest; can move up any time.
+- **UI enhancement pass** (Medium to large): after the releases above; see
+  "Goal: Enhance the user interface".
 - **College credit portfolio summary** (Large): after grading exists.
 
 ## Goal: Teacher "wrenches" — life events that test portfolio management
@@ -296,6 +303,36 @@ settings). Left for later; not yet slotted into a version.
   design before the real feeds are built.
 - What the info page shows when a configured source has no news or profile
   data (free sources often lack some of it).
+
+## Goal: Enhance the user interface
+
+**Added:** 2026-11-13 · **Status:** to evaluate, after the planned releases
+(grading, life events, debrief)
+
+The app has grown feature by feature; this is a pass over how it looks and
+feels as a whole. Ideas to evaluate:
+
+- A consistent look across pages: spacing, card styles, headings, buttons,
+  and the leftover "MVP" badges and placeholder text.
+- Navigation: clearer tabs and page names, and less scrolling on long pages
+  such as Market (Teacher market controls sits far below the price table).
+- The Market page as a live market: price-change highlights as prices tick,
+  a clearer paused/closed state, small trend lines per row.
+- Phone and tablet layouts, since students often use school tablets.
+- Accessibility: contrast, keyboard use, and screen-reader labels checked
+  page by page.
+- Replace remaining built-in sample data screens (teacher class analytics,
+  sidebar figures) with real data or remove them.
+
+This pairs naturally with **School branding** (colors and logos), which needs
+the hard-coded colors converted to theme variables first; doing that
+conversion once would serve both.
+
+### Open questions
+
+- Which pages matter most to improve first (Market, dashboards, Inbox)?
+- Are there apps whose look and feel the owner likes as a reference?
+- Should the student and teacher views look different from each other?
 
 ## Goal: School branding — colors and logos
 

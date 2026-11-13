@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.13; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.14; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -1140,10 +1140,27 @@ Demo accounts (all also require the security question; see section 2):
 
 - Super user (all roles): `demo-user@demo.edu` / `demo-user`
 - Student: `avery.johnson@example.edu` / `student-demo`
+- More students, all with the password `student-demo`: `noah.kim@example.edu`
+  and `sofia.garcia@example.edu` (7th Grade Finance A, Avery's class),
+  `maya.patel@example.edu` and `liam.chen@example.edu` (7th Grade Finance B),
+  `jordan.lee@example.edu` and `zoe.brooks@example.edu` (8th Grade Investing
+  Lab)
 - Teacher: `elena.rivera@example.edu` / `teacher-demo`
 - Admin: `sam.gordon@example.edu` / `admin-demo`
 
 Running the seed again resets these accounts' passwords to the values above.
+
+**Demo messages (v0.2.14):** the seed also loads sample conversations into
+every demo inbox, a discussion room per class, and two flagged messages: one
+open on the teacher's dashboard and one already forwarded to the admins
+(Admin → Messaging). They use fixed ids and are only added when missing, so
+replies, Keep ticks and resolved flags are kept across deploys, and samples
+the 90-day cleanup removed return on the next deploy.
+
+**Assume role vs. View as student:** Assume role only changes which portal
+you look at; you stay signed in as yourself, so staff-only boxes such as
+Teacher market controls still show. **View as student** signs your session in
+as that student, with only what the student can see and do.
 
 ## 22. Daily Admin Checklist
 

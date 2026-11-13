@@ -75,7 +75,7 @@ test("a teacher pauses the market: prices freeze and students can't trade", asyn
   await student.page.getByRole("tab", { name: "Market" }).click();
   await expect(student.page.getByTestId("market-speed")).toHaveText("Market Speed: Paused");
   await expect(student.page.getByTestId("market-blocked")).toContainText("Market paused by your teacher");
-  await expect(student.page.getByRole("button", { name: "Buy" }).first()).toBeDisabled();
+  await expect(student.page.getByRole("button", { name: "Buy", exact: true }).first()).toBeDisabled();
 
   // Prices hold still while paused.
   const portfolioId = await classPortfolioId(student.page);
@@ -95,7 +95,7 @@ test("a teacher pauses the market: prices freeze and students can't trade", asyn
   await expect(student.page.getByTestId("market-speed")).toHaveText("Market Speed: 1x", { timeout: 15_000 });
   await expect(student.page.getByTestId("market-blocked")).toHaveCount(0);
   // Trading works again, and the confirmation says which price was used.
-  await student.page.getByRole("button", { name: "Buy" }).first().click();
+  await student.page.getByRole("button", { name: "Buy", exact: true }).first().click();
   await expect(student.page.getByText(/Bought 1 share of \w[\w-]*\. Price: \$[\d,.]+ a share\./)).toBeVisible();
   await teacher.context.close();
   await student.context.close();

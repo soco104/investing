@@ -84,6 +84,7 @@ export function MessagesPanel({
   const [notice, setNotice] = useState("");
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [contactsError, setContactsError] = useState("");
   const [recipient, setRecipient] = useState("");
   const [roomClass, setRoomClass] = useState(classNames[0] ?? "");
   const [roomTitle, setRoomTitle] = useState("");
@@ -209,6 +210,8 @@ export function MessagesPanel({
     }
   }
 
+  // Students first for staff; teachers first for students.
+  const groupOrder = staff ? ["Student", "Teacher", "Admin"] : ["Teacher", "Student", "Admin"];
   const grouped = (contacts ?? []).reduce<Record<string, Contact[]>>((groups, contact) => {
     (groups[contact.role] ??= []).push(contact);
     return groups;
@@ -252,7 +255,8 @@ export function MessagesPanel({
               variant="outline"
               onClick={() => {
                 setPickerOpen((open) => !open);
-                void loadContacts().catch((error: Error) => setNotice(error.message));
+                setContactsError("");
+                void loadContacts().catch((error: Error) => setContactsError(error.message));
               }}
             >
               New message
@@ -260,18 +264,47 @@ export function MessagesPanel({
             {pickerOpen ? (
               <div className="mt-3 space-y-2">
                 <Label htmlFor="new-message-recipient">Send to</Label>
-                <select id="new-message-recipient" className={selectClass} value={recipient} onChange={(event) => setRecipient(event.target.value)}>
-                  <option value="">Choose a person…</option>
-                  {Object.entries(grouped).map(([groupRole, people]) => (
-                    <optgroup key={groupRole} label={`${groupRole}s`}>
-                      {people.map((person) => (
-                        <option key={person.email} value={person.email}>
-                          {person.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
+                <select
+                  id="new-message-recipient"
+                  className={selectClass}
+                  value={recipient}
+                  disabled={contacts === null || contacts.length === 0}
+                  onChange={(event) => setRecipient(event.target.value)}
+                >
+                  <option value="">
+                    {contacts === null
+                      ? contactsError
+                        ? "Couldn't load people"
+                        : "Loading people…"
+                      : contacts.length === 0
+                        ? "No one to message yet"
+                        : "Choose a person…"}
+                  </option>
+                  {groupOrder
+                    .filter((groupRole) => grouped[groupRole]?.length)
+                    .map((groupRole) => (
+                      <optgroup key={groupRole} label={`${groupRole}s`}>
+                        {grouped[groupRole].map((person) => (
+                          <option key={person.email} value={person.email}>
+                            {person.name}
+                            {person.role === "Student" && person.classNames.length ? ` (${person.classNames.join(", ")})` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
                 </select>
+                {contactsError ? (
+                  <p role="alert" className="text-sm text-[#8a3025]">
+                    {contactsError} Close this and choose New message to try again.
+                  </p>
+                ) : null}
+                {contacts?.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {role === "Student"
+                      ? "You can message your teachers and classmates once you are in a class."
+                      : "There is nobody you can message yet."}
+                  </p>
+                ) : null}
                 <Button type="button" size="sm" disabled={!recipient} onClick={() => void startConversation(recipient)}>
                   Start conversation
                 </Button>

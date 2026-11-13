@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.13; the version you are using is shown
+district admins. It describes version 0.2.14; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -210,6 +210,14 @@ is off**: the Buy and Sell buttons are disabled until it starts again.
    type a number in the box.
 2. Click **Buy** or **Sell**.
 
+Or click **Buy max** to spend your cash on as many whole shares as it covers.
+The number in brackets on the button is how many that is; the confirmation
+shows how many you bought and at what price. Buy max is greyed out when you
+can't afford one whole share.
+
+The **Stocks value** card above the table shows what your shares are worth
+and how many you own. Click it to jump to the **Stocks** list lower down.
+
 Trades use the class's price at the moment you click (prices keep moving, so
 it can be a few cents different from a moment earlier) and are checked by the
 server: you can't
@@ -246,6 +254,8 @@ Messaging is text-only, and messages are saved.
   person and click **Start conversation**. You only see people you may message:
   students can message classmates and their teachers; teachers can message
   their students, other teachers and admins; admins can message everyone.
+  Students are listed with their class. If the list says "No one to message
+  yet", the account isn't in a class with anyone else.
 - **Discussion rooms** belong to a class. Teachers create them with **New
   discussion room**; the class can post in them.
 - **Keep:** messages are deleted after **90 days** unless someone in the
@@ -353,6 +363,9 @@ panel on the Market page:
 1. **Class market:** pick one of your classes. Only classes whose **Teacher
    controls** setting is on are listed (an admin sets this in Market
    Simulator). Admins can pick any class.
+   Only teachers and admins ever see this box (it is labelled **Teachers and
+   admins only**). It still shows when you use **Assume role: Student**,
+   because you are still signed in as yourself.
 2. **Who it applies to:**
    - **This class:** every student in the class.
    - **All my classes:** every class you can change. A symbol that isn't in a

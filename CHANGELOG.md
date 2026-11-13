@@ -7,6 +7,28 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.13] - 2026-11-13
+
+### Added
+- **Market history (rewind).** A **Market history** button in Teacher market
+  controls opens a view-only chart of the selected class's prices over a
+  chosen timeframe. Looking back never changes prices, trades or portfolios.
+- **Time selector:** Last hour, Today, Past 7 days, Past 30 days, or a custom
+  start and end (up to 31 days).
+- **Event markers:** teacher price changes and scenarios (and their undos),
+  pauses, resumes, speed and hours changes are numbered on the chart and
+  listed beneath it with their times.
+- **Symbol picker:** one symbol in dollars, or all symbols compared by percent
+  change.
+- Teachers can open history for their own classes; admins for any class.
+
+### Known limits
+- A class's scenario and volatility settings are not recorded over time, so
+  the history chart draws the past with the current settings (on the roadmap).
+- The chart shows the whole-class price. Changes made for one student or a
+  group are listed as events but don't move the line.
+- History begins when the running market was first used.
+
 ## [0.2.12] - 2026-11-13
 
 ### Added
@@ -297,6 +319,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.13]: https://github.com/soco104/investing/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/soco104/investing/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/soco104/investing/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/soco104/investing/compare/v0.2.9...v0.2.10

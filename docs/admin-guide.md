@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.12; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.13; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -539,6 +539,14 @@ Class market settings include:
   refuses trades. Every clock change is audited. Classes in the `Frozen
   market` simulation mode don't move at all. All classes share one price run;
   a class drifts from the others once it is paused or its speed is changed.
+- Market history (v0.2.13): the **Market history** button in Teacher market
+  controls shows a view-only chart of a class's prices over a timeframe (up
+  to 31 days), with teacher changes and clock changes marked. Teachers see
+  their own classes; admins any class. It is worked out again each time from
+  the saved clock changes and teacher changes, so it stores nothing new and
+  isn't audited (it changes nothing). **Known limit:** scenario and
+  volatility are not recorded over time, so if you change either for a class
+  here, its history is redrawn with the new setting.
 - Stock info level: what students see in the stock info popup when they click
   a symbol on the Market page. **Grade default** follows the grade level
   (**Full** for grades 9-12; **Basic** for younger grades or when no grade is

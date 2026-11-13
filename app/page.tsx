@@ -89,6 +89,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { MarketHistoryDialog } from "./market-history-ui";
 import { StockInfoDialog } from "./stock-info-ui";
 import { defaultInfoLevel } from "@/lib/stock-info";
 import { CLOCK_SPEEDS, tradingBlockedReason, type ClockView } from "@/lib/market-clock";
@@ -5203,6 +5204,8 @@ function TeacherMarketControls({ onMarketChanged }: { onMarketChanged: () => voi
   const [oilSpike, setOilSpike] = useState(18);
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
+  // Market rewind popup (v0.2.13).
+  const [historyOpen, setHistoryOpen] = useState(false);
   const requestId = useRef(0);
 
   function applyLoaded(current: number, result: TeacherMarketLoad) {
@@ -5435,6 +5438,19 @@ function TeacherMarketControls({ onMarketChanged }: { onMarketChanged: () => voi
                 <option value="always">Always open (24 hours)</option>
                 <option value="us_market">U.S. market hours (9:30 AM to 4:00 PM Eastern, weekdays)</option>
               </select>
+            </div>
+            <div>
+              <Button type="button" size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
+                Market history
+              </Button>
+              {historyOpen ? (
+                <MarketHistoryDialog
+                  className={view.className ?? ""}
+                  open
+                  symbols={view.market.map((symbol) => ({ name: symbol.name, ticker: symbol.ticker }))}
+                  onClose={() => setHistoryOpen(false)}
+                />
+              ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
               While the market is paused or closed, prices hold still and students can&apos;t trade. The clock applies

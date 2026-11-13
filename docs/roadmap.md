@@ -15,7 +15,7 @@ declares.
 |---|---|---|---|
 | v0.2.11 ✅ | **Stock info page with dummy data:** click a symbol for a chart, key numbers and company basics, with Basic (grades 6-8) and Full (grades 9-12) info levels | Done | Popup with sample data; teacher and admin Stock info level setting |
 | v0.2.12 ✅ | **Running market:** per-class clock, simulated price movement, market-hours setting, Pause/Resume (no trading while paused), fast forward at 2x/5x/10x, Market Speed label | Done | Calculated prices (nothing stored per tick); clock changes logged for rewind. Per-class "own run" switch left for later |
-| v0.2.13 | **Rewind:** view-only history with a time selector | Medium | Needs the running market's price history |
+| v0.2.13 ✅ | **Rewind:** view-only history with a time selector | Done | Market history popup for teachers and admins; see "Known limit" under the live market goal |
 | v0.2.14 | **Grading quest submissions with a rubric** | Medium | Left out of v0.2.9 on purpose; the debrief item needs it |
 | v0.2.15 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
 | v0.2.16 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
@@ -23,6 +23,9 @@ declares.
 
 **Not yet slotted:**
 
+- **Record market settings over time** (Small to medium): so Market history
+  replays scenario and volatility changes correctly (see "Known limit: market
+  settings aren't versioned" under the live market goal).
 - **Real data feeds for the stock info pages** (Large): needs the common data
   format designed first, and a provider chosen by the owner or a school.
 - **Separate admin sign-in** (Small to medium): best after email setup, since
@@ -258,6 +261,18 @@ the symbols in each teacher's market, and fills the info pages with it:
   app stays **provider-agnostic**: it only populates data from whichever
   source the teacher or school configures, through the Market APIs admin page.
 - **Stock info level:** a teacher setting, which admins can also change.
+
+### Known limit: market settings aren't versioned
+
+**Added:** 2026-11-13 (with v0.2.13's Market history)
+
+Scenario and volatility settings aren't versioned. If an admin changes a
+class's scenario or volatility in Market Simulator, the history chart redraws
+the past using the new setting. Teacher changes, pauses and speeds are all
+timestamped, so those replay correctly. Fixing this means recording settings
+changes over time (a dated log of each class's scenario, volatility, mode and
+allowed symbols, which Market history would read instead of the current
+settings). Left for later; not yet slotted into a version.
 
 ### Open questions
 

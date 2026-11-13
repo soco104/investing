@@ -2,6 +2,34 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.13 — 2026-11-13
+
+### Market History (Teachers)
+
+- **Market history** under Teacher market controls (in the Market clock box)
+  opens a chart of your class's prices over time, for looking back at what
+  happened in a lesson.
+- Pick the timeframe with **Last hour**, **Today**, **Past 7 days** or **Past
+  30 days**, or set your own **From** and **To** and click **Show this
+  timeframe** (up to 31 days).
+- Your price changes, scenarios, pauses and speed changes are numbered on the
+  chart and listed below it under **What happened**.
+- Choose one symbol to see its price in dollars, or **All symbols** to compare
+  them by percent change.
+- This is **view-only**: looking back never changes prices, trades or anyone's
+  portfolio, and the live market keeps running.
+- The chart shows what the whole class saw. A change you made for one student
+  or a group is listed, but doesn't move the line.
+
+### Admins
+
+- Admins can open Market history for any class.
+- **Settings to change:** none. History begins when the running market was
+  first used (v0.2.12).
+- **Good to know:** if you change a class's **scenario** or **volatility** in
+  Market Simulator, Market history redraws that class's past using the new
+  setting. Teacher changes, pauses and speeds replay exactly as they happened.
+
 ## v0.2.12 — 2026-11-13
 
 ### Running Market (Everyone)

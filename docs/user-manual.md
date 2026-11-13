@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.14; the version you are using is shown
+district admins. It describes version 0.2.15; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -18,7 +18,7 @@ yet. Know which is which before using it with a class:
 - Teacher market controls: price raises and lowers and the Strait of Hormuz
   scenario, until the teacher undoes them or resets the market.
 - Learning quests: quests saved in Quest Studio, imported quests, class
-  assignments and due dates, student submissions, and comments.
+  assignments and due dates, student submissions, comments, and grades.
 - Everything in the Admin portal: users, permissions, schools, market
   integrations, the Market Simulator's class settings, the Credential Vault,
   support cases, password resets, email, privacy posture, and portfolio
@@ -129,6 +129,11 @@ To turn in your work:
 2. Click **Submit**. Your teacher can see it right away.
 3. Until the end of the due date, you can change it and click **Save changes**.
    After the due date, your submission is locked and can't be changed.
+
+**Your grade.** When your teacher releases your grade, the quest shows
+**Graded** in your list. Open it to see **Your grade**: your teacher's
+feedback, and your points if the quest shares them. Some quests show points
+for each scoring rule; some show only the total or only feedback.
 
 Once you've submitted, a **Comments** section appears under your work. You and
 your teacher can post comments there at any time, including after the due
@@ -340,8 +345,30 @@ it's assigned to, how many scoring rules are hidden, and how many students
 have submitted. Click a quest to see **Submissions**: for each assigned class,
 every student, whether they've submitted (and whether they edited it), and
 what they wrote. Use the **Comments** box under a submission to reply; the
-student sees your comment when they open the quest. Grading submissions with
-the rubric is planned for a later update.
+student sees your comment when they open the quest.
+
+**Grading.** Each student in the Submissions list has a **Grade** box.
+
+1. Click **Grade** (or **Enter a grade** for a student who didn't submit).
+2. Give points for each scoring rule: whole points from 0 up to the rule's
+   maximum. The total adds up as you type.
+3. Add **Feedback for the student** if you like.
+4. If the due date hasn't passed, tick **Grade before the due date**. The
+   student can still change their answer until then; if they do, the grade is
+   marked **Answer changed since grading** so you can check it.
+5. Click **Save grade**. It is saved as a **draft** the student can't see.
+6. Click **Release grade** when you want the student to see it, or **Release
+   all graded** (next to the class average) to release every draft for the
+   class at once.
+
+Use **Change grade** to adjust a grade later. A released grade stays
+released, so the student sees the change straight away. Each student shows as
+**Not submitted**, **Submitted**, **Graded (draft)** or **Released**. A
+student who didn't submit gets no grade unless you enter one.
+
+What the student sees follows the quest's score visibility: **hidden** shows
+feedback only, **summary** adds the total, and **full** adds points for each
+rule you marked visible to students. Students never see the grading view.
 
 **Import and export** (if you have the Quest import/export permission):
 **Export** fills the box with your saved quests as JSON, to keep or share.

@@ -101,7 +101,9 @@ test.describe("Learning quests", () => {
     const submissions = page.getByRole("region", { name: "Submissions" });
     // Avery's class has three students since v0.2.14 (Noah and Sofia were added).
     await expect(submissions).toContainText("1 of 3 submitted");
-    await expect(submissions).toContainText("Submitted · edited");
+    // v0.2.15: the status badge and an "Edited" badge are now separate.
+    await expect(submissions).toContainText("Edited");
+    await expect(submissions.getByTestId("grade-status").first()).toBeVisible();
     await expect(submissions).toContainText("I kept 25% in savings first.");
     await submissions.getByLabel("Add a comment").fill("Nice work. Why 25%?");
     await submissions.getByRole("button", { name: "Post comment" }).click();

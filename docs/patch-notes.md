@@ -2,6 +2,49 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.14 — 2026-11-13
+
+### Market (Everyone)
+
+- **Buy max:** each row on the Market page has a **Buy max** button next to
+  Buy and Sell. The number in brackets is how many whole shares your cash
+  covers. Clicking it buys that many straight away, and the confirmation
+  shows how many you got and the price. It is greyed out when you can't
+  afford a whole share.
+- **Stocks value** card: now shows how many shares you own across how many
+  stocks. Click it to jump to the **Stocks** list further down the page.
+
+### Messages (Everyone)
+
+- **New message** now says "Loading people…" while the list loads, and tells
+  you if nobody is available. Students appear with their class.
+- Students see their teachers and classmates. Teachers see every student in
+  their classes, other teachers and the admins. Admins see everyone.
+
+### Demo Data (Admins)
+
+- Four more demo students (Noah Kim and Sofia Garcia in 7th Grade Finance A,
+  Liam Chen in 7th Grade Finance B, Zoe Brooks in 8th Grade Investing Lab),
+  all with the password `student-demo` and the security question.
+- Every demo inbox has sample conversations, each class has a discussion
+  room, and there are two **flagged messages** to try the review on: an open
+  one on the teacher's dashboard (a shared phone number) and one already
+  forwarded to the admins (Admin → Messaging).
+- These load when the app starts with demo logins on. Replies you add are
+  kept; sample messages removed by the 90-day cleanup come back on the next
+  deploy.
+
+### Staff-only Features (Teachers and Admins)
+
+- We checked that students can't see or use teacher or admin features, on
+  screen or directly through the server, including when an admin uses **View
+  as student**. Nothing was exposed.
+- **Assume role: Student** is different: you stay signed in as yourself, so
+  **Teacher market controls** still shows on the Market page. It is now
+  labelled **Teachers and admins only**. To see exactly what a student sees,
+  admins should use **View as student**.
+- **Settings to change:** none.
+
 ## v0.2.13 — 2026-11-13
 
 ### Market History (Teachers)

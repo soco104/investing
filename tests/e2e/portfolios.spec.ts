@@ -64,7 +64,7 @@ test.describe("Student portfolios", () => {
     await bnd.getByRole("button", { name: "One fewer BND share" }).click();
     await expect(amount).toHaveValue("3");
 
-    await bnd.getByRole("button", { name: "Buy" }).click();
+    await bnd.getByRole("button", { name: "Buy", exact: true }).click();
     await expect(page.getByText("Bought 3 shares of BND.")).toBeVisible();
 
     await page.reload();
@@ -97,7 +97,7 @@ test.describe("Student portfolios", () => {
 
     const spy = row(page, "SPY");
     await spy.getByLabel("Shares of SPY").fill("1000");
-    await spy.getByRole("button", { name: "Buy" }).click();
+    await spy.getByRole("button", { name: "Buy", exact: true }).click();
     await expect(page.getByText("Not enough cash for that trade.")).toBeVisible();
 
     await spy.getByLabel("Shares of SPY").fill("5");
@@ -106,7 +106,7 @@ test.describe("Student portfolios", () => {
 
     const bnd = row(page, "BND");
     await bnd.getByLabel("Shares of BND").fill("0.5");
-    await bnd.getByRole("button", { name: "Buy" }).click();
+    await bnd.getByRole("button", { name: "Buy", exact: true }).click();
     await expect(page.getByText("This class trades whole shares only.")).toBeVisible();
   });
 
@@ -128,7 +128,7 @@ test.describe("Student portfolios", () => {
 
       const bnd = row(page, "BND");
       await bnd.getByLabel("Shares of BND").fill("0.5");
-      await bnd.getByRole("button", { name: "Buy" }).click();
+      await bnd.getByRole("button", { name: "Buy", exact: true }).click();
       await expect(page.getByText("Bought 0.5 shares of BND.")).toBeVisible();
       await expect(row(page, "BND")).toContainText("1.5 held");
       await page.close();
@@ -211,14 +211,16 @@ test.describe("Corrections and resets", () => {
     await teacher.getByRole("button", { name: "Request portfolio reset" }).click();
     const dialog = teacher.getByRole("dialog");
     await dialog.getByRole("combobox").click();
-    await teacher.getByRole("option", { name: new RegExp(studentClass) }).first().click();
+    // The class has several students since v0.2.14, so pick Avery by name.
+    await teacher.getByRole("option", { name: new RegExp(`Avery Johnson · ${studentClass}`) }).click();
     await dialog.getByLabel("Reason").fill(reason);
     await dialog.getByRole("button", { name: "Send request" }).click();
     await expect(dialog.getByText(/Request sent/)).toBeVisible();
 
     // A second request for the same portfolio is refused while one is pending.
     await dialog.getByRole("combobox").click();
-    await teacher.getByRole("option", { name: new RegExp(studentClass) }).first().click();
+    // The class has several students since v0.2.14, so pick Avery by name.
+    await teacher.getByRole("option", { name: new RegExp(`Avery Johnson · ${studentClass}`) }).click();
     await dialog.getByLabel("Reason").fill("again");
     await dialog.getByRole("button", { name: "Send request" }).click();
     await expect(dialog.getByText(/already a pending reset request/)).toBeVisible();

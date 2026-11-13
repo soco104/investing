@@ -9,6 +9,7 @@ import {
   validateAllocationTargets,
   defaultAllocationTargets,
   type PortfolioState,
+  maxWholeShares,
 } from "@/lib/portfolio-rules";
 
 const empty: PortfolioState = { cashCents: 100_000, holdings: [] };
@@ -151,5 +152,20 @@ describe("allocation targets", () => {
       )
     ).toBeNull();
     expect(validateAllocationTargets("nope")).toBeNull();
+  });
+});
+
+describe("maxWholeShares (Buy max)", () => {
+  it("is the most whole shares the cash covers", () => {
+    expect(maxWholeShares(1_000_00, 73_53)).toBe(13);
+    expect(maxWholeShares(73_53, 73_53)).toBe(1);
+    expect(maxWholeShares(73_52, 73_53)).toBe(0);
+  });
+
+  it("is zero for no cash or a bad price", () => {
+    expect(maxWholeShares(0, 100)).toBe(0);
+    expect(maxWholeShares(-5, 100)).toBe(0);
+    expect(maxWholeShares(100, 0)).toBe(0);
+    expect(maxWholeShares(Number.NaN, 100)).toBe(0);
   });
 });

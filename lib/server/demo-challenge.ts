@@ -24,6 +24,10 @@ const DEMO_ACCOUNT_EMAILS = new Set([
   "jordan.lee@example.edu",
   "elena.rivera@example.edu",
   "sam.gordon@example.edu",
+  "noah.kim@example.edu",
+  "sofia.garcia@example.edu",
+  "liam.chen@example.edu",
+  "zoe.brooks@example.edu",
 ]);
 
 const MAX_WRONG_ANSWERS = 5;

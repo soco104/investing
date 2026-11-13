@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import postgres from "postgres";
 
+import { seedDemoMessages } from "./seed-demo-messages.mjs";
+
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
@@ -99,6 +101,51 @@ const users = [
     alias: "BudgetBuilder",
     displayName: "Jordan Lee",
     email: "jordan.lee@example.edu",
+    role: "Student",
+    scopes: ["8th Grade Investing Lab"],
+  },
+  // Classmates (v0.2.14), so demo students have other students to message.
+  {
+    id: "user-noah",
+    schoolId: "school-lincoln-middle",
+    firstName: "Noah",
+    lastName: "Kim",
+    alias: "IndexNoah",
+    displayName: "Noah Kim",
+    email: "noah.kim@example.edu",
+    role: "Student",
+    scopes: ["7th Grade Finance A"],
+  },
+  {
+    id: "user-sofia",
+    schoolId: "school-lincoln-middle",
+    firstName: "Sofia",
+    lastName: "Garcia",
+    alias: "SaverSofia",
+    displayName: "Sofia Garcia",
+    email: "sofia.garcia@example.edu",
+    role: "Student",
+    scopes: ["7th Grade Finance A"],
+  },
+  {
+    id: "user-liam",
+    schoolId: "school-lincoln-middle",
+    firstName: "Liam",
+    lastName: "Chen",
+    alias: "LedgerLiam",
+    displayName: "Liam Chen",
+    email: "liam.chen@example.edu",
+    role: "Student",
+    scopes: ["7th Grade Finance B"],
+  },
+  {
+    id: "user-zoe",
+    schoolId: "school-lincoln-middle",
+    firstName: "Zoe",
+    lastName: "Brooks",
+    alias: "ZoeDiversifies",
+    displayName: "Zoe Brooks",
+    email: "zoe.brooks@example.edu",
     role: "Student",
     scopes: ["8th Grade Investing Lab"],
   },
@@ -831,6 +878,9 @@ try {
         postmortem_url = excluded.postmortem_url
     `;
   });
+
+  // Demo messages (v0.2.14): inbox threads, class rooms and flagged examples.
+  await seedDemoMessages(sql, now);
 
   console.log("Demo data seed complete.");
   console.log("Demo credentials:");

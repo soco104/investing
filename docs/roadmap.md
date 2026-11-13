@@ -6,7 +6,7 @@ like any other change.
 
 ## Proposed version order
 
-**Updated:** 2026-11-12 · **Status:** proposed, not committed. The owner can
+**Updated:** 2026-11-13 · **Status:** proposed, not committed. The owner can
 reorder this at any time; each item still gets its own plan and patch notes
 when it is picked up. Version 0.3.0 is reserved for a milestone the owner
 declares.
@@ -16,10 +16,22 @@ declares.
 | v0.2.11 ✅ | **Stock info page with dummy data:** click a symbol for a chart, key numbers and company basics, with Basic (grades 6-8) and Full (grades 9-12) info levels | Done | Popup with sample data; teacher and admin Stock info level setting |
 | v0.2.12 ✅ | **Running market:** per-class clock, simulated price movement, market-hours setting, Pause/Resume (no trading while paused), fast forward at 2x/5x/10x, Market Speed label | Done | Calculated prices (nothing stored per tick); clock changes logged for rewind. Per-class "own run" switch left for later |
 | v0.2.13 ✅ | **Rewind:** view-only history with a time selector | Done | Market history popup for teachers and admins; see "Known limit" under the live market goal |
-| v0.2.14 | **Grading quest submissions with a rubric** | Medium | Left out of v0.2.9 on purpose; the debrief item needs it |
-| v0.2.15 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
-| v0.2.16 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
-| v0.2.17+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
+| v0.2.14 | **Small changes (running list):** fixes and tweaks collected while the owner reviews v0.2.10 to v0.2.13; see "v0.2.14 running list" below | Small each | Shipped together as one version with one set of patch notes |
+| v0.2.15 | **Grading quest submissions with a rubric** | Medium | Left out of v0.2.9 on purpose; the debrief item needs it |
+| v0.2.16 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
+| v0.2.17 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
+| v0.2.18+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
+
+### v0.2.14 running list
+
+**Started:** 2026-11-13 · **Status:** collecting. Small changes the owner
+asks for while reviewing go here, and are built together as v0.2.14. Larger
+ideas go to "Not yet slotted" or their own goal instead. Bugs still get a
+GitHub issue with the `bug` label.
+
+| # | Change | Area | Status |
+|---|---|---|---|
+| | *(nothing yet)* | | |
 
 **Not yet slotted:**
 

@@ -147,25 +147,41 @@ in class, with a stock info page behind every symbol.
 ### Ideas to evaluate
 
 **1. A running market.** Prices move on their own over time, per class, so
-students see a market that is "open", not a snapshot. Until real feeds are in,
+students see a market that is "open", not a snapshot. **Real time by default,
+with a fast-forward option for teachers** (decided 2026-11-12). Fast forward is
+just a faster class clock (e.g. 1x, 5x, 30x), so it should not add storage or
+database writes. Until real feeds are in,
 movement is simulated (random drift scaled by the class's volatility
 multiplier and scenario), seeded so a class sees the same prices.
 
 **2. Teacher controls: Pause and Resume.** A prominent button on the teacher's
 Market page freezes the class's market, for a discussion or a quiz. While
-paused, students see a "Market paused by your teacher" banner and trades are
-disabled (or allowed at the frozen price, a teacher choice). Resuming picks up
+paused, students see a "Market paused by your teacher" banner and **trades are
+not allowed while the market is paused** (decided 2026-11-12). Resuming picks up
 where it stopped. Audited, like other teacher market changes.
 
-**3. Rewind and replay.** Prices are recorded as a time series per symbol and
-per class, so a teacher can scrub back through the day (or earlier) to show
-what happened: "look at what the market did when we triggered the rate
-shock." Options to evaluate: view-only history for the class, or truly
-rewinding the class's market to an earlier point (with the effect on student
-portfolios needing care).
+**3. Rewind and replay (view-only).** A teacher can look back at historical
+data to show what happened: "look at what the market did when we triggered the
+rate shock." **View-only, decided 2026-11-12:** it never undoes trades or
+reverts changes; it only shows the past.
 
-**4. Stock info page.** Clicking a symbol in the market opens a popup or page
-with:
+- A **time selector** lets the teacher choose the timeframe to view (e.g.
+  today, past week, a custom range, or "when we triggered the scenario").
+- Likely cheap to build: if prices are calculated from the class's market seed
+  and the time (rather than stored tick by tick), history costs almost no
+  storage, and only teacher changes and scenario events need recording.
+
+**4. Stock info page.** Clicking a symbol in the market opens a popup or page.
+Headlines are shown as they are (not filtered), but the page is **grade-gated**
+(decided 2026-11-12): each class has a **Stock info level** that defaults from
+its grade level, which the teacher can override.
+
+- **Basic (grades 6-8):** price, a simple chart, and a plain-language company
+  description. No news, ratios or fundamentals.
+- **Full (grades 9-12):** adds news, key figures (market cap, P/E) and longer
+  price ranges.
+
+The page contains:
 
 - A price chart (with the rewind range) and key numbers (price, day change,
   range, volume).
@@ -196,21 +212,24 @@ the symbols in each teacher's market, and fills the info pages with it:
 4. Rewind and replay.
 5. Real data feeds filling the info pages.
 
+### Decided
+
+- Paused market: no trading.
+- Rewind: view-only history, with a time selector.
+- Time: real time by default, teacher fast-forward option.
+- News headlines: shown unfiltered, but the info page is grade-gated.
+
 ### Open questions
 
-- When the market is paused, can students still trade at the frozen price?
-- Does "rewind" mean view-only history, or moving the class's live market back
-  in time? The second changes what students own and what trades mean.
-- How fast does time run: real time, or a sped-up trading day (e.g. one
-  "day" per class period)? Does the market follow real market hours?
+- Fast-forward speeds to offer, and whether students are told when a teacher
+  has sped up the clock.
+- Does the market follow real market hours, or run all day?
 - Is the simulated movement the same for every class, or does each class get
   its own run? Should students in one class always see identical prices?
-- How much history to keep, and for how long (it adds up quickly with many
-  symbols and classes)?
 - Which providers and data (news, fundamentals) are allowed under their terms
   for a school app, and what do they cost at classroom scale?
-- Content review: are news headlines appropriate for grades 6-12, and does an
-  admin or teacher need to filter them?
+- Should the Stock info level be a per-class teacher setting only, or can an
+  admin set a district default?
 
 ## Goal: School branding — colors and logos
 

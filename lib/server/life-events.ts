@@ -1,3 +1,4 @@
+import { isDifficulty, scalePercent, type Difficulty } from "@/lib/market-templates";
 import {
   allowsDebt,
   eventAmountCents,
@@ -19,7 +20,7 @@ import {
   type ClassPortfolioRow,
 } from "@/lib/server/portfolios";
 import { defaultDistrictId, getSql, hasProductionDatabase, id } from "@/lib/server/repository";
-import { controllableClasses, requireControllable } from "@/lib/server/teacher-market";
+import { controllableClasses, createChange, requireControllable } from "@/lib/server/teacher-market";
 
 /**
  * Life event cards (v0.2.17). A teacher (or admin) plays a card at the whole
@@ -33,7 +34,8 @@ export type LifeEventTarget =
   | { studentEmail: string; type: "student" };
 
 export type LifeEventChoice =
-  | { cardId: string }
+  // A deck card, optionally scaled by a difficulty preset (v0.2.19).
+  | { cardId: string; difficulty?: Difficulty }
   | { description: string; kind: LifeEventKind; percentOfStartingCash: number; title: string };
 
 export const MAX_TITLE = 80;
@@ -52,7 +54,9 @@ export function resolveChoice(choice: LifeEventChoice) {
 
     if (!card) throw new PortfolioError("That card isn't in the deck.", 404);
 
-    return { ...card, cardId: card.id };
+    const difficulty = isDifficulty(choice.difficulty) ? choice.difficulty : "realistic";
+
+    return { ...card, cardId: card.id, percentOfStartingCash: scalePercent(card.percentOfStartingCash, difficulty) };
   }
 
   const title = choice.title.trim();
@@ -125,6 +129,8 @@ export type PlayInput = {
   className: string;
   // Require a debrief (v0.2.18): the due date as YYYY-MM-DD, or "" for none.
   debrief?: { dueDate?: string | null } | null;
+  // Combo (v0.2.19): a market event for the whole class played with the card.
+  marketEvent?: { difficulty?: Difficulty; templateId: string; ticker?: string | null } | null;
   seed?: string;
   target: LifeEventTarget;
 };
@@ -190,6 +196,21 @@ export async function playLifeEvent(user: AuthenticatedUser, input: PlayInput) {
     }
   });
 
+  // Combo (v0.2.19): the market event for the whole class, after the card.
+  // It is undone separately, under Active changes.
+  const market = input.marketEvent
+    ? await createChange(
+        user,
+        { className: input.className, type: "class" },
+        {
+          difficulty: input.marketEvent.difficulty,
+          kind: "template",
+          templateId: input.marketEvent.templateId,
+          ticker: input.marketEvent.ticker ?? null,
+        }
+      )
+    : null;
+
   // Debriefs and their Inbox messages (v0.2.18), after the cash has moved.
   const debriefs = input.debrief
     ? await createDebriefs(user, {
@@ -208,6 +229,7 @@ export async function playLifeEvent(user: AuthenticatedUser, input: PlayInput) {
     card,
     debriefs,
     eventId,
+    market: market ? { applied: market.applied.length, eventId: market.eventId } : null,
     hits: plan.hits.map((hit) => ({ ...hit, amountText: amountText(hit.amountCents) })),
     summary: `${card.title}: ${plan.hits.length} student${plan.hits.length === 1 ? "" : "s"} in ${input.className}`,
   };

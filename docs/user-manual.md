@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.18; the version you are using is shown
+district admins. It describes version 0.2.19; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -433,6 +433,13 @@ class's running market.
   hours** (9:30 AM to 4:00 PM Eastern on weekdays; holidays are not skipped).
   Outside those hours students see **Closed** and can't trade.
 
+**Market events:** in Teacher market controls, the **Market events** box
+starts a ready-made event for the selected class: Recession, Inflation spike,
+Rate cut, Sector shock: tech selloff, or Company scandal (choose the
+company's symbol). Each symbol moves by an amount that fits the kind of
+investment it is. Pick a **Difficulty** (Gentle is half as big, Tough half
+again as big) and click **Start market event**. Undo it under Active changes.
+
 **Life events:** the **Life events** box under Teacher market controls plays a
 life event card on students' cash.
 
@@ -444,6 +451,13 @@ life event card on students' cash.
    changes yet.
 4. Click **Play this card**. Students see the event on their Market page.
 5. Use **Undo** under Played events to put the cash back.
+
+**Difficulty, Surprise me and combos:** **Difficulty** scales deck cards
+(a Tough 8% card costs 12%). **Surprise me** picks a random card. To test
+students harder, choose **Also start a market event (combo)** or click one of
+the ready-made combos (Recession + hours cut, Inflation spike + rent
+increase, Tech selloff + fridge breakdown); the market event applies to the
+whole class and is undone under Active changes.
 
 **Debriefs:** before playing, tick **Require a debrief report** and choose a
 due date (or none). Each student hit gets an Inbox message from you about what

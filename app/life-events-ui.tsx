@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { LifeEventCard } from "@/lib/life-events";
+import { comboPresets, difficultyLabels, marketTemplates, scalePercent, type Difficulty } from "@/lib/market-templates";
 import type { StudentGradeReport } from "@/lib/quest-grading";
 
 import { StatusBadge, StudentGradeReportCard } from "./quest-grading-ui";
@@ -62,6 +63,11 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   });
   const [openDebriefs, setOpenDebriefs] = useState("");
+  // v0.2.19: difficulty preset for deck cards, and an optional market event
+  // played with the card (a combo).
+  const [difficulty, setDifficulty] = useState<Difficulty>("realistic");
+  const [comboTemplate, setComboTemplate] = useState("");
+  const [comboTicker, setComboTicker] = useState("");
   const [seed, setSeed] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
@@ -110,7 +116,7 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
   const card = deck.find((item) => item.id === cardId) ?? null;
 
   function choice() {
-    if (cardId !== "custom") return { cardId };
+    if (cardId !== "custom") return { cardId, difficulty };
 
     return {
       description: custom.description,
@@ -146,6 +152,7 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
         choice: choice(),
         className,
         debrief: action === "play" && requireDebrief ? { dueDate: debriefDue } : null,
+        marketEvent: action === "play" && comboTemplate ? { difficulty, templateId: comboTemplate, ticker: comboTicker || null } : null,
         seed: useSeed,
         target: target(),
       });
@@ -157,9 +164,11 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
         setPreview(null);
         setSeed("");
         const debriefs = result.debriefs as { messagesSent: number } | null;
+        const market = result.market as { applied: number } | null;
         setNotice(
           `Played "${String((result.card as { title: string }).title)}" for ${hits.length} student${hits.length === 1 ? "" : "s"}.` +
             (debriefs ? ` Debrief messages sent to ${debriefs.messagesSent} student${debriefs.messagesSent === 1 ? "" : "s"}.` : "") +
+            (market ? ` The market event moved ${market.applied} symbol${market.applied === 1 ? "" : "s"} (undo it under Active changes).` : "") +
             " Undo is below if you need it."
         );
         refresh();
@@ -256,9 +265,66 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
             </select>
           </div>
 
+          <div className="flex flex-wrap items-end gap-3 md:col-span-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                // Surprise me: a random card from the deck.
+                const pick = deck[Math.floor(Math.random() * deck.length)];
+                if (pick) {
+                  setCardId(pick.id);
+                  setPreview(null);
+                }
+              }}
+            >
+              Surprise me
+            </Button>
+            <div className="space-y-2">
+              <Label htmlFor="life-event-difficulty">Difficulty</Label>
+              <select
+                id="life-event-difficulty"
+                className={selectClass}
+                value={difficulty}
+                onChange={(event) => {
+                  setDifficulty(event.target.value as Difficulty);
+                  setPreview(null);
+                }}
+              >
+                {(Object.keys(difficultyLabels) as Difficulty[]).map((key) => (
+                  <option key={key} value={key}>
+                    {difficultyLabels[key]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Combo presets">
+              {comboPresets.map((combo) => (
+                <Button
+                  key={combo.id}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  title={combo.description}
+                  onClick={() => {
+                    setCardId(combo.cardId);
+                    setComboTemplate(combo.templateId);
+                    setPreview(null);
+                  }}
+                >
+                  {combo.title}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {card ? (
             <div className="rounded-md border border-border bg-background p-3 text-sm md:col-span-2" data-testid="card-details">
-              <p className="font-medium">{card.title}</p>
+              <p className="font-medium">
+                {card.title} ({card.kind === "expense" ? "−" : "+"}
+                {scalePercent(card.percentOfStartingCash, difficulty)}% of starting cash
+                {difficulty !== "realistic" ? `, ${difficulty}` : ""})
+              </p>
               <p className="mt-1">{card.description}</p>
               <p className="mt-1 text-muted-foreground">Ask students: {card.prompt}</p>
             </div>
@@ -315,6 +381,31 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
               </select>
             </div>
           ) : null}
+
+          <div className="grid gap-3 rounded-md border border-border bg-background p-3 md:col-span-2 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="life-event-combo">Also start a market event (combo)</Label>
+              <select id="life-event-combo" className={selectClass} value={comboTemplate} onChange={(event) => setComboTemplate(event.target.value)}>
+                <option value="">No market event</option>
+                {marketTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {marketTemplates.find((template) => template.id === comboTemplate)?.needsTicker ? (
+              <div className="space-y-2">
+                <Label htmlFor="life-event-combo-ticker">Company symbol</Label>
+                <Input id="life-event-combo-ticker" placeholder="e.g. QQQ" value={comboTicker} onChange={(event) => setComboTicker(event.target.value.toUpperCase())} />
+              </div>
+            ) : null}
+            {comboTemplate ? (
+              <p className="text-xs text-muted-foreground md:col-span-2">
+                The market event moves prices for the whole class at the same difficulty. Undo it under Active changes.
+              </p>
+            ) : null}
+          </div>
 
           <div className="space-y-2 rounded-md border border-border bg-background p-3 md:col-span-2">
             <label className="flex items-start gap-2 text-sm">

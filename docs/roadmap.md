@@ -21,7 +21,8 @@ declares.
 | v0.2.16 ✅ | **Quick fix:** Monitor quests makes it clear where submissions and grades are (click scrolls to them; "View submissions and grades" link) | Done | Found by the owner reviewing v0.2.15 |
 | v0.2.17 ✅ | **Life event cards, part 1:** deck of 18, own cards, class / random handful / one student, preview and undo | Done | Decisions recorded under the wrenches goal |
 | v0.2.18 ✅ | **Debrief → student report → teacher grade** | Done | Inbox message per student, debrief on the Market page, 10-point rubric, draft then release. The rubric is fixed for now (not editable) |
-| v0.2.19+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
+| v0.2.19 ✅ | **Wrenches polish, part 1:** market event templates (recession, inflation spike, rate cut, tech selloff, company scandal), difficulty presets, "Surprise me", combo events | Done | |
+| v0.2.20+ | **Wrenches polish, part 2:** schedule events ahead ("apply this on Friday"), an editable debrief rubric, selling holdings to cover a bill, borrowing at interest, cash flow | Medium each | Not planned in detail yet |
 
 ### v0.2.15 plan: grading quest submissions with a rubric
 

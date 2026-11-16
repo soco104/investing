@@ -7,6 +7,23 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.19] - 2026-11-16
+
+### Added
+- **Market events.** A new **Market events** box in Teacher market controls
+  starts a ready-made event for the class: **Recession**, **Inflation
+  spike**, **Rate cut**, **Sector shock: tech selloff**, or **Company
+  scandal** (pick the symbol). Each symbol moves by an amount that depends on
+  what kind of investment it is (bonds, tech, international, broad market,
+  speculative). Undo works like the other changes, under Active changes.
+- **Difficulty presets:** Gentle (half as big), Realistic, Tough (half again
+  as big), for market events and for life event cards from the deck.
+- **Surprise me** picks a random card from the deck.
+- **Combo events:** play a life event card together with a market event for
+  the whole class, from the "Also start a market event" choice or one of
+  three ready-made combos (Recession + hours cut, Inflation spike + rent
+  increase, Tech selloff + fridge breakdown).
+
 ## [0.2.18] - 2026-11-16
 
 ### Added
@@ -428,6 +445,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.19]: https://github.com/soco104/investing/compare/v0.2.18...v0.2.19
 [0.2.18]: https://github.com/soco104/investing/compare/v0.2.17...v0.2.18
 [0.2.17]: https://github.com/soco104/investing/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/soco104/investing/compare/v0.2.15...v0.2.16

@@ -19,7 +19,7 @@ declares.
 | v0.2.14 ✅ | **Small changes (running list):** Buy max, Stocks value card, demo students and messages, New message picker, staff-only check; see "v0.2.14 running list" below | Done | Shipped together as one version |
 | v0.2.15 ✅ | **Grading quest submissions with a rubric** | Done | Draft then release; student grade report; see "v0.2.15 plan" below |
 | v0.2.16 ✅ | **Quick fix:** Monitor quests makes it clear where submissions and grades are (click scrolls to them; "View submissions and grades" link) | Done | Found by the owner reviewing v0.2.15 |
-| v0.2.17 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
+| v0.2.17 ✅ | **Life event cards, part 1:** deck of 18, own cards, class / random handful / one student, preview and undo | Done | Decisions recorded under the wrenches goal |
 | v0.2.18 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
 | v0.2.19+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
 
@@ -185,20 +185,24 @@ messages, reports, and grades needs server-side storage first.
   don't have enough cash"), plus **undo**.
 - **Schedule ahead** ("apply this on Friday") so teachers can plan a lesson.
 
+### Decided (2026-11-16, built in v0.2.17)
+
+- **Who it hits:** the teacher chooses each time: whole class, a random
+  handful, or one student.
+- **Debt:** allowed for grades 9-12 only. Grades 6-8 (and classes with no
+  grade level) stop at $0; the card takes what is there.
+- **Amounts:** a percent of each student's starting cash.
+- **Debrief:** the teacher chooses per event (a "Require a debrief" option
+  with a due date), to be built in v0.2.18.
+- Not built yet: selling holdings automatically to cover a bill, borrowing at
+  interest, and cash flow (paychecks and recurring bills).
+
 ### Open questions
 
-- Should life events be per-student (each student's own finances) or
-  class-wide? Per-student is more realistic but adds data and UI.
-- Can students go into debt, and at what grade level? Is debt hidden for grades
-  6–8?
-- How should event amounts scale: fixed dollars, or a percentage of starting
-  cash?
 - Do events affect grades or scores, and how is "portfolio resilience"
   measured (cash buffer, drawdown, diversification)?
 - Should students get advance warning ("hurricane season is coming") so
   preparing is part of the skill?
-- Is the debrief report always required, or does the teacher choose per
-  event? Is there a due date?
 - Does the report grade count toward the student's quest score, or is it
   separate?
 - The Hormuz scenario and price raise/lower currently live in the browser

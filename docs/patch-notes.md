@@ -2,6 +2,42 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.17 — 2026-11-16
+
+### Life Events (Teachers)
+
+- A new **Life events** box sits under Teacher market controls on the Market
+  page. Use it to throw a wrench into students' finances: a surprise bill or a
+  windfall that changes their cash.
+- **Pick a card** from the deck (expenses and windfalls, each a percent of
+  starting cash) or choose **Write my own** to set a title, a description, and
+  an expense or windfall percent.
+- **Who it hits:** the whole class, a random handful (you pick how many), or
+  one student.
+- Click **Preview** to see who is hit and by how much. Nothing changes until
+  you click **Play this card**.
+- **Undo** under Played events puts every student's cash back.
+- Amounts are a **percent of each student's starting cash**. Grades 9-12 can
+  go into debt (cash below $0). Grades 6-8 stop at $0, and the card takes what
+  is there.
+- Playing a card at the whole class includes students who haven't signed in
+  yet; a portfolio is opened for them.
+
+### Life Happens (Students)
+
+- When your teacher plays a card on you, a **Life happens** box appears at the
+  top of your Market page with what happened, the amount, and a question to
+  think about. Your cash changes right away, and the event shows in your
+  portfolio activity.
+
+### Admins
+
+- Admins can play and undo cards for any class. Every play and undo is in the
+  audit log.
+- **Settings to change:** none. Life events use each class's **grade level**
+  (Admin → Market Simulator) to decide whether debt is allowed, and need
+  **Teacher controls** on for the teacher to use them.
+
 ## v0.2.16 — 2026-11-16
 
 ### Quest Studio (Teachers)

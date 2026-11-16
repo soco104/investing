@@ -1,4 +1,5 @@
 import { tradingBlockedReason } from "@/lib/market-clock";
+import { listStudentLifeEvents } from "@/lib/server/life-events";
 import type { TransactionSql } from "postgres";
 
 import {
@@ -216,7 +217,7 @@ async function recordActivity(
     actorUserId: string | null;
     amountCents?: number | null;
     cashAfterCents: number;
-    kind: "opened" | "buy" | "sell" | "allocation" | "correction" | "reset";
+    kind: "opened" | "buy" | "sell" | "allocation" | "correction" | "reset" | "life_event" | "life_event_undo";
     note?: string;
     portfolioId: string;
     priceCents?: number | null;
@@ -310,11 +311,13 @@ export async function getPortfolioDetail(portfolioId: string) {
 
   if (!portfolio) throw new PortfolioError("Portfolio not found.", 404);
 
-  const [state, { prices, state: market, symbols: adjustedSymbols }, gradeLevel, readOnly] = await Promise.all([
+  const [state, { prices, state: market, symbols: adjustedSymbols }, gradeLevel, readOnly, lifeEvents] = await Promise.all([
     loadState(sql, portfolio),
     marketPrices(portfolio.class_name, portfolio.user_id),
     getClassGradeLevel(portfolio.class_name),
     isReadOnly(portfolio),
+    // Life events (v0.2.17) that hit this portfolio, for the student's screen.
+    listStudentLifeEvents(portfolio.user_id, portfolio.id),
   ]);
   const [activity, history, allocationRows] = await Promise.all([
     sql<
@@ -352,6 +355,7 @@ export async function getPortfolioDetail(portfolioId: string) {
   const isPractice = portfolio.kind === "practice";
 
   return {
+    lifeEvents,
     allocation: allocationRows[0]
       ? (JSON.parse(allocationRows[0].targets_json) as AllocationTarget[])
       : defaultAllocationTargets,
@@ -420,10 +424,17 @@ export async function getPortfolioLiveMarket(user: AuthenticatedUser, portfolioI
 
   if (!portfolio || portfolio.user_id !== user.id) throw new PortfolioError("Portfolio not found.", 404);
 
-  const { state: market, symbols } = await marketPrices(portfolio.class_name, portfolio.user_id);
+  const [{ state: market, symbols }, lifeEvents] = await Promise.all([
+    marketPrices(portfolio.class_name, portfolio.user_id),
+    listStudentLifeEvents(portfolio.user_id, portfolio.id),
+  ]);
 
   return {
+    // Cash and life events too (v0.2.17), so a card a teacher just played
+    // shows up on the student's screen without a reload.
+    cashCents: Number(portfolio.cash_cents),
     clock: market.clock,
+    lifeEvents,
     scenarioLabel: market.scenarioLabel,
     simulationMode: market.config.simulationMode,
     symbols: symbols.map((symbol) => ({
@@ -692,6 +703,111 @@ export async function applyPortfolioCorrection(input: {
   });
 
   return { afterCents: after, beforeCents: before, portfolioId: target.id };
+}
+
+/**
+ * Moves a class portfolio's cash by an amount, inside a transaction, and
+ * records the activity and a value snapshot. Used by life events (v0.2.17).
+ * Returns the cash before and after. Negative balances are allowed here; the
+ * caller decides whether they should be.
+ */
+export async function adjustCashInTransaction(
+  tx: Sql,
+  input: {
+    actorUserId: string | null;
+    amountCents: number;
+    kind: "life_event" | "life_event_undo";
+    note: string;
+    portfolioId: string;
+  }
+) {
+  const portfolio = await loadPortfolioRow(tx, input.portfolioId, true);
+
+  if (!portfolio) throw new PortfolioError("Portfolio not found.", 404);
+
+  const before = Number(portfolio.cash_cents);
+  const after = before + input.amountCents;
+  const { prices } = await marketPrices(portfolio.class_name, portfolio.user_id);
+  const state = await loadState(tx, portfolio);
+
+  await tx`
+    update student_portfolios set cash_cents = ${after}, updated_at = ${new Date()}
+    where id = ${portfolio.id}
+  `;
+  await recordActivity(tx, {
+    actorUserId: input.actorUserId,
+    amountCents: input.amountCents,
+    cashAfterCents: after,
+    kind: input.kind,
+    note: input.note,
+    portfolioId: portfolio.id,
+  });
+  await recordSnapshot(tx, portfolio.id, portfolioValueCents({ ...state, cashCents: after }, prices), after);
+
+  return { afterCents: after, beforeCents: before };
+}
+
+/** Every student's current class portfolio for a class, with starting cash. */
+export type ClassPortfolioRow = {
+  cash_cents: string; email: string; first_name: string; id: string; last_name: string; starting_cash_cents: string; user_id: string;
+};
+
+export async function listClassPortfolios(className: string): Promise<ClassPortfolioRow[]> {
+  requireDatabase();
+
+  const now = new Date();
+  const schoolYear = schoolYearFor(now, await getSchoolYearSettings()).label;
+  const sql = getSql();
+
+  // Students who haven't signed in yet have no portfolio. Open one for them
+  // now, so a class-wide event reaches everyone in the class.
+  const missing = await sql<Array<{ id: string }>>`
+    select distinct u.id from app_users u
+    join role_assignments ra on ra.user_id = u.id and ra.role = 'Student' and ra.scope = ${className}
+    where u.status = 'active'
+      and not exists (
+        select 1 from student_portfolios p
+        where p.user_id = u.id and p.class_name = ${className} and p.school_year = ${schoolYear} and p.kind = 'class'
+      )
+  `;
+
+  if (missing.length > 0) {
+    const startingCashCents = (await getClassMarketConfig(className)).startingCashCents;
+
+    for (const student of missing) {
+      const portfolioId = id("portfolio");
+      const inserted = await sql`
+        insert into student_portfolios (
+          id, user_id, class_name, school_year, kind, starting_cash_cents, cash_cents, created_at, updated_at
+        )
+        values (${portfolioId}, ${student.id}, ${className}, ${schoolYear}, 'class', ${startingCashCents}, ${startingCashCents}, ${now}, ${now})
+        on conflict (user_id, class_name, school_year, kind) do nothing
+        returning id
+      `;
+
+      if (inserted.length > 0) {
+        await recordActivity(sql, {
+          actorUserId: student.id,
+          cashAfterCents: startingCashCents,
+          kind: "opened",
+          note: `Portfolio opened with $${(startingCashCents / 100).toFixed(2)}`,
+          portfolioId,
+        });
+        await recordSnapshot(sql, portfolioId, startingCashCents, startingCashCents);
+      }
+    }
+  }
+  const rows = await getSql()<
+    Array<{ cash_cents: string; email: string; first_name: string; id: string; last_name: string; starting_cash_cents: string; user_id: string }>
+  >`
+    select p.id, p.user_id, p.cash_cents, p.starting_cash_cents, u.email, u.first_name, u.last_name
+    from student_portfolios p join app_users u on u.id = p.user_id
+    where p.class_name = ${className} and p.school_year = ${schoolYear} and p.kind = 'class'
+      and u.status = 'active'
+    order by u.last_name, u.first_name
+  `;
+
+  return [...rows];
 }
 
 // ---------------------------------------------------- reset requests (queue)

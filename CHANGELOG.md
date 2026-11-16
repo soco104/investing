@@ -7,6 +7,29 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.17] - 2026-11-16
+
+### Added
+- **Life event cards.** A new **Life events** box on the teacher's Market
+  page (teachers of the class with teacher controls on, and admins). Pick a
+  card from the built-in deck of 18 (expenses such as a car repair or a rent
+  increase; windfalls such as a tax refund or a bonus) or write your own, then
+  choose who it hits: the whole class, a random handful, or one student.
+  **Preview** shows exactly who is hit and by how much before **Play this
+  card** does it. **Undo** reverses every hit.
+- Amounts are a **percent of each student's starting cash**, so a card lands
+  the same way in every class. **Grades 9-12 can go into debt**; grades 6-8
+  (and classes with no grade level) stop at $0 and the card takes what is
+  there.
+- Students see a **"Life happens"** box on their Market page with the event,
+  the amount, and a question to think about. The event also appears in their
+  portfolio activity. The Market page's regular refresh picks it up without a
+  reload.
+- Playing a class-wide card opens a portfolio for any student in the class who
+  hasn't signed in yet, so nobody is skipped.
+- Audit entries `life_event.played` and `life_event.undone`. New tables
+  `life_events` and `life_event_hits`.
+
 ## [0.2.16] - 2026-11-16
 
 ### Changed
@@ -383,6 +406,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.17]: https://github.com/soco104/investing/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/soco104/investing/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/soco104/investing/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/soco104/investing/compare/v0.2.13...v0.2.14

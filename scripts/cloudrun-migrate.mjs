@@ -506,6 +506,46 @@ try {
     alter table class_market_configs add column if not exists stock_info_level text
   `;
 
+  // Life event cards (v0.2.17): a "wrench" a teacher throws at students'
+  // cash. One row per play; one hit per student it touched. Undo reverses
+  // every hit and sets undone_at.
+  await sql`
+    create table if not exists life_events (
+      id text primary key,
+      district_id text not null,
+      class_name text not null,
+      card_id text,
+      title text not null,
+      description text not null,
+      prompt text not null default '',
+      kind text not null,
+      percent_of_starting_cash integer not null,
+      target_type text not null,
+      played_by_user_id text not null,
+      played_at timestamp not null,
+      undone_by_user_id text,
+      undone_at timestamp
+    )
+  `;
+  await sql`
+    create index if not exists life_events_class_idx on life_events (district_id, class_name, played_at desc)
+  `;
+  await sql`
+    create table if not exists life_event_hits (
+      id text primary key,
+      event_id text not null references life_events(id),
+      portfolio_id text not null,
+      student_user_id text not null,
+      amount_cents bigint not null,
+      capped boolean not null default false,
+      cash_before_cents bigint not null,
+      cash_after_cents bigint not null
+    )
+  `;
+  await sql`
+    create index if not exists life_event_hits_student_idx on life_event_hits (student_user_id)
+  `;
+
   // Running market (v0.2.12). One clock per class: whether it is running or
   // paused, its speed, its hours, and the anchors simulated time is worked
   // out from. Prices are calculated from the clock, never stored.

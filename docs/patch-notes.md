@@ -2,6 +2,37 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.18 — 2026-11-16
+
+### Debriefs (Teachers)
+
+- When you play a life event card, tick **Require a debrief report** and pick
+  a **due date** (or leave it empty for none).
+- Each student it hits gets an **Inbox message** from you explaining what
+  happened to them: the event, the amount, their cash before and after, and
+  three questions to answer. Grades 6-8 get simpler questions.
+- Under **Played events**, click **Debriefs** to read each student's report
+  next to what happened to them, with a count of who couldn't cover the cost
+  and who went into debt.
+- Click **Grade** to score a debrief out of 10: explains what happened (4),
+  uses evidence from their portfolio (3), and makes a realistic plan (3), plus
+  feedback. Grades are drafts until you click **Release grade** or **Release
+  all graded**. Grading before the due date asks you to tick a box first.
+- Undoing an event removes debriefs that nobody had written yet.
+
+### Debriefs (Students)
+
+- If your teacher asks for a debrief, you'll get an Inbox message, and the
+  **Life happens** box on your Market page shows the questions and a box to
+  write your answer. Click **Submit debrief**; you can change it until the due
+  date. When your teacher releases your grade, it shows there too.
+
+### Admins
+
+- Admins can require, read, grade and release debriefs for any class. Every
+  submission, grade and release is in the audit log.
+- **Settings to change:** none.
+
 ## v0.2.17 — 2026-11-16
 
 ### Life Events (Teachers)

@@ -37,6 +37,8 @@ type Body = {
   action?: "preview" | "play" | "undo";
   choice?: LifeEventChoice;
   className?: string;
+  // Require a debrief (v0.2.18).
+  debrief?: { dueDate?: string | null } | null;
   eventId?: string;
   seed?: string;
   target?: LifeEventTarget;
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
 
     if (!body.className || !body.choice || !body.target) return bad("Choose a class, a card and who it applies to.");
 
-    const input = { choice: body.choice, className: body.className, seed: body.seed, target: body.target };
+    const input = { choice: body.choice, className: body.className, debrief: body.debrief ?? null, seed: body.seed, target: body.target };
 
     if (body.action === "preview") {
       return Response.json({ ok: true, ...(await previewLifeEvent(user, input)) });
@@ -87,6 +89,7 @@ export async function POST(request: Request) {
           kind: result.card.kind,
           percent: result.card.percentOfStartingCash,
           students: result.hits.length,
+          debrief: result.debriefs ? "required" : "none",
           target: body.target.type,
           title: result.card.title,
         },

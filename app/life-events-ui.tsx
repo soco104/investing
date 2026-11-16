@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { LifeEventCard } from "@/lib/life-events";
+import type { StudentGradeReport } from "@/lib/quest-grading";
+
+import { StatusBadge, StudentGradeReportCard } from "./quest-grading-ui";
 
 // v0.2.17: life event cards. LifeEventsPanel is the teacher/admin control;
 // StudentLifeEvents is what a student sees on their Market page.
@@ -19,7 +22,9 @@ const selectClass = "h-10 w-full rounded-md border border-input bg-background px
 type Hit = { amountCents: number; capped: boolean; cashAfterCents: number; cashBeforeCents: number; email: string; name: string };
 type Preview = { card: { kind: string; percentOfStartingCash: number; title: string }; debtAllowed: boolean; gradeLevel: number | null; hits: Hit[] };
 type PastEvent = {
-  className: string; hitCount: number; id: string; kind: string; percentOfStartingCash: number; playedAt: string;
+  className: string;
+  debrief: { dueAt: string | null; submitted: number; total: number } | null;
+  hitCount: number; id: string; kind: string; percentOfStartingCash: number; playedAt: string;
   playedBy: string; students: string; targetType: string; title: string; totalCents: number; undoneAt: string | null;
 };
 
@@ -48,6 +53,15 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
   const [studentEmail, setStudentEmail] = useState("");
   const [students, setStudents] = useState<Array<{ email: string; name: string }>>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
+  // Require a debrief (v0.2.18): off by default; due in three days.
+  const [requireDebrief, setRequireDebrief] = useState(false);
+  const [debriefDue, setDebriefDue] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 3);
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  });
+  const [openDebriefs, setOpenDebriefs] = useState("");
   const [seed, setSeed] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
@@ -127,7 +141,14 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
 
       if (action === "preview") setSeed(useSeed);
 
-      const result = await api({ action, choice: choice(), className, seed: useSeed, target: target() });
+      const result = await api({
+        action,
+        choice: choice(),
+        className,
+        debrief: action === "play" && requireDebrief ? { dueDate: debriefDue } : null,
+        seed: useSeed,
+        target: target(),
+      });
 
       if (action === "preview") {
         setPreview(result as unknown as Preview);
@@ -135,7 +156,12 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
         const hits = result.hits as Hit[];
         setPreview(null);
         setSeed("");
-        setNotice(`Played "${String((result.card as { title: string }).title)}" for ${hits.length} student${hits.length === 1 ? "" : "s"}. Undo is below if you need it.`);
+        const debriefs = result.debriefs as { messagesSent: number } | null;
+        setNotice(
+          `Played "${String((result.card as { title: string }).title)}" for ${hits.length} student${hits.length === 1 ? "" : "s"}.` +
+            (debriefs ? ` Debrief messages sent to ${debriefs.messagesSent} student${debriefs.messagesSent === 1 ? "" : "s"}.` : "") +
+            " Undo is below if you need it."
+        );
         refresh();
         onChanged();
       }
@@ -290,6 +316,23 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
             </div>
           ) : null}
 
+          <div className="space-y-2 rounded-md border border-border bg-background p-3 md:col-span-2">
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-1" checked={requireDebrief} onChange={(event) => setRequireDebrief(event.target.checked)} />
+              <span>
+                <span className="font-medium">Require a debrief report.</span> Each student gets an Inbox message about
+                what happened to them and writes a short report you grade (10 points).
+              </span>
+            </label>
+            {requireDebrief ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Label htmlFor="life-event-debrief-due">Due date</Label>
+                <Input id="life-event-debrief-due" type="date" className="w-44" value={debriefDue} onChange={(event) => setDebriefDue(event.target.value)} />
+                <span className="text-xs text-muted-foreground">Leave empty for no due date.</span>
+              </div>
+            ) : null}
+          </div>
+
           <div className="flex flex-wrap gap-2 md:col-span-2">
             <Button type="button" variant="outline" disabled={pending || !cardId} onClick={() => void run("preview")}>
               Preview
@@ -348,13 +391,35 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
                   </span>
                   {event.students ? <p className="text-xs text-muted-foreground">{event.students}</p> : null}
                 </div>
-                {event.undoneAt ? (
-                  <Badge variant="outline" className="rounded-md">Undone</Badge>
-                ) : (
-                  <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => void undo(event)}>
-                    Undo
-                  </Button>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {event.debrief ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={openDebriefs === event.id ? "default" : "outline"}
+                      aria-expanded={openDebriefs === event.id}
+                      onClick={() => {
+                        setOpenDebriefs(openDebriefs === event.id ? "" : event.id);
+                        // Fresh counts, since students may have submitted since.
+                        refresh();
+                      }}
+                    >
+                      Debriefs ({event.debrief.submitted} of {event.debrief.total})
+                    </Button>
+                  ) : null}
+                  {event.undoneAt ? (
+                    <Badge variant="outline" className="rounded-md">Undone</Badge>
+                  ) : (
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => void undo(event)}>
+                      Undo
+                    </Button>
+                  )}
+                </div>
+                {openDebriefs === event.id ? (
+                  <div className="w-full">
+                    <DebriefsPanel eventId={event.id} onChanged={refresh} />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -364,9 +429,20 @@ export function LifeEventsPanel({ onChanged }: { onChanged: () => void }) {
   );
 }
 
+export type StudentDebrief = {
+  canEdit: boolean;
+  dueAt: string | null;
+  grade: StudentGradeReport | null;
+  id: string;
+  prompts: string[];
+  report: string;
+  submittedAt: string | null;
+};
+
 export type StudentLifeEvent = {
   amountCents: number;
   capped: boolean;
+  debrief?: StudentDebrief | null;
   description: string;
   id: string;
   kind: string;
@@ -397,11 +473,323 @@ export function StudentLifeEvents({ events }: { events: StudentLifeEvent[] }) {
               </span>
             </div>
             <p className="mt-1">{event.description}</p>
-            {event.prompt ? <p className="mt-1 text-muted-foreground">Think about: {event.prompt}</p> : null}
+            {event.prompt && !event.debrief ? <p className="mt-1 text-muted-foreground">Think about: {event.prompt}</p> : null}
             <p className="mt-1 text-xs text-muted-foreground">{when(event.playedAt)}</p>
+            {event.debrief ? <StudentDebriefForm debrief={event.debrief} title={event.title} /> : null}
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+// ------------------------------------------------------------ debriefs (v0.2.18)
+
+type DebriefGrade = {
+  answerChanged: boolean;
+  feedback: string;
+  gradedBy: string;
+  maxPoints: number;
+  scores: Array<{ id: string; points: number }>;
+  status: "draft" | "released";
+  totalPoints: number;
+};
+
+type DebriefView = {
+  averagePercent: number | null;
+  beforeDue: boolean;
+  criteria: Array<{ id: string; label: string; points: number }>;
+  draftCount: number;
+  dueAt: string | null;
+  students: Array<{
+    amountCents: number;
+    capped: boolean;
+    cashAfterCents: number;
+    debriefId: string;
+    email: string;
+    grade: DebriefGrade | null;
+    name: string;
+    report: string;
+    status: "not_submitted" | "submitted" | "graded" | "released";
+    submittedAt: string | null;
+  }>;
+  summary: { capped: number; inDebt: number; submitted: number; total: number };
+  title: string;
+};
+
+async function debriefApi(body?: Record<string, unknown>, query = "") {
+  const response = await fetch(`/api/teacher/life-events/debriefs${query}`, {
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "same-origin",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    method: body ? "POST" : "GET",
+  });
+  const result = (await response.json().catch(() => ({}))) as { message?: string } & Record<string, unknown>;
+
+  if (!response.ok) throw new Error(result.message ?? "That didn't work. Please try again.");
+  return result;
+}
+
+/** Teachers: every student's debrief for one event, with grading. */
+function DebriefsPanel({ eventId, onChanged }: { eventId: string; onChanged: () => void }) {
+  const [view, setView] = useState<DebriefView | null>(null);
+  const [notice, setNotice] = useState("");
+  const [tick, setTick] = useState(0);
+  const reload = () => {
+    setTick((value) => value + 1);
+    onChanged();
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    debriefApi(undefined, `?eventId=${encodeURIComponent(eventId)}`)
+      .then((result) => {
+        if (!cancelled) setView(result as unknown as DebriefView);
+      })
+      .catch((error: Error) => {
+        if (!cancelled) setNotice(error.message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, tick]);
+
+  async function releaseAll() {
+    setNotice("");
+    try {
+      const result = await debriefApi({ action: "releaseAll", eventId });
+      setNotice(`Released ${String(result.released)} grade${result.released === 1 ? "" : "s"}.`);
+      reload();
+    } catch (error) {
+      setNotice((error as Error).message);
+    }
+  }
+
+  if (!view) return <p className="mt-2 text-sm text-muted-foreground">{notice || "Loading debriefs…"}</p>;
+
+  return (
+    <section aria-label="Debriefs" className="mt-3 space-y-3 rounded-md border border-border bg-card p-3" data-testid="debriefs">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="font-medium">
+          {view.summary.submitted} of {view.summary.total} submitted
+          {view.dueAt ? ` · due ${new Date(view.dueAt).toLocaleDateString()}` : " · no due date"}
+        </span>
+        <span className="text-muted-foreground" data-testid="debrief-summary">
+          {view.summary.capped} couldn&apos;t cover it in full · {view.summary.inDebt} in debt · class average{" "}
+          {view.averagePercent === null ? "not graded yet" : `${view.averagePercent}%`}
+        </span>
+        {view.draftCount > 0 ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => void releaseAll()}>
+            Release all graded ({view.draftCount})
+          </Button>
+        ) : null}
+      </div>
+      {notice ? <p role="status" className="text-sm">{notice}</p> : null}
+      <ul className="space-y-2">
+        {view.students.map((student) => (
+          <li key={student.debriefId} className="rounded-md border border-border bg-background p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium">{student.name}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={student.amountCents < 0 ? "text-[#c44536]" : "text-[#1f7a4d]"}>
+                  {money(student.amountCents)} → {money(student.cashAfterCents)}
+                </span>
+                {student.capped ? <Badge variant="outline" className="rounded-md">Couldn&apos;t cover it</Badge> : null}
+                {student.cashAfterCents < 0 ? <Badge variant="outline" className="rounded-md">In debt</Badge> : null}
+                <StatusBadge status={student.status} />
+              </div>
+            </div>
+            {student.report ? (
+              <p className="mt-2 whitespace-pre-wrap rounded-md bg-card p-2" data-testid="debrief-report">{student.report}</p>
+            ) : (
+              <p className="mt-2 text-muted-foreground">No debrief yet.</p>
+            )}
+            <DebriefGradeForm
+              beforeDue={view.beforeDue}
+              criteria={view.criteria}
+              debriefId={student.debriefId}
+              grade={student.grade}
+              name={student.name}
+              onChanged={reload}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function DebriefGradeForm({
+  beforeDue,
+  criteria,
+  debriefId,
+  grade,
+  name,
+  onChanged,
+}: {
+  beforeDue: boolean;
+  criteria: Array<{ id: string; label: string; points: number }>;
+  debriefId: string;
+  grade: DebriefGrade | null;
+  name: string;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [points, setPoints] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState("");
+  const [confirmEarly, setConfirmEarly] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  function openForm() {
+    const saved = new Map(grade?.scores.map((score) => [score.id, score.points]));
+    setPoints(Object.fromEntries(criteria.map((rule) => [rule.id, saved.has(rule.id) ? String(saved.get(rule.id)) : ""])));
+    setFeedback(grade?.feedback ?? "");
+    setConfirmEarly(false);
+    setOpen(true);
+  }
+
+  async function post(body: Record<string, unknown>, success: string) {
+    setNotice("");
+    try {
+      await debriefApi({ debriefId, ...body });
+      setNotice(success);
+      setOpen(false);
+      onChanged();
+    } catch (error) {
+      setNotice((error as Error).message);
+    }
+  }
+
+  const total = criteria.reduce((sum, rule) => sum + (Number(points[rule.id]) || 0), 0);
+
+  return (
+    <div className="mt-2" aria-label={`Debrief grade for ${name}`} role="group">
+      <div className="flex flex-wrap items-center gap-2">
+        <span data-testid="debrief-grade">
+          {grade
+            ? `${grade.totalPoints} of ${grade.maxPoints} points · ${grade.status === "released" ? "released" : "draft, not visible to the student"}`
+            : "Not graded yet"}
+        </span>
+        {grade?.status === "draft" ? (
+          <Button type="button" size="sm" onClick={() => void post({ action: "release" }, `Released. ${name} can see it now.`)}>
+            Release grade
+          </Button>
+        ) : null}
+        {!open ? (
+          <Button type="button" size="sm" variant="outline" onClick={openForm}>
+            {grade ? "Change grade" : "Grade"}
+          </Button>
+        ) : null}
+      </div>
+      {grade?.answerChanged ? (
+        <p className="mt-1 text-xs text-[#7a4b00]">Debrief changed since grading.</p>
+      ) : null}
+      {open ? (
+        <div className="mt-2 space-y-2">
+          {criteria.map((rule) => (
+            <div key={rule.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+              <Label htmlFor={`debrief-${debriefId}-${rule.id}`}>{rule.label}</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id={`debrief-${debriefId}-${rule.id}`}
+                  type="number"
+                  min={0}
+                  max={rule.points}
+                  className="w-20"
+                  value={points[rule.id] ?? ""}
+                  onChange={(event) => setPoints((current) => ({ ...current, [rule.id]: event.target.value }))}
+                />
+                <span className="text-muted-foreground">of {rule.points}</span>
+              </div>
+            </div>
+          ))}
+          <p className="font-medium">Total: {total} of 10 points</p>
+          <Textarea aria-label={`Feedback for ${name}`} rows={2} maxLength={2000} placeholder="Feedback for the student (optional)" value={feedback} onChange={(event) => setFeedback(event.target.value)} />
+          {beforeDue ? (
+            <label className="flex items-start gap-2 rounded-md bg-[#fff3da] px-3 py-2 text-[#7a4b00]">
+              <input type="checkbox" className="mt-1" checked={confirmEarly} onChange={(event) => setConfirmEarly(event.target.checked)} />
+              <span>Grade before the due date. The student can still change their debrief until then.</span>
+            </label>
+          ) : null}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={beforeDue && !confirmEarly}
+              onClick={() =>
+                void post(
+                  { action: "grade", confirmEarly, feedback, scores: points },
+                  grade?.status === "released" ? `Grade changed. ${name} sees the new grade.` : "Saved as a draft. Release it when you're ready."
+                )
+              }
+            >
+              Save grade
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {notice ? <p role="status" className="mt-1 text-sm">{notice}</p> : null}
+    </div>
+  );
+}
+
+/** The student's debrief for one event: write it until the due date, then see the grade. */
+function StudentDebriefForm({ debrief, title }: { debrief: StudentDebrief; title: string }) {
+  const [report, setReport] = useState(debrief.report);
+  const [submitted, setSubmitted] = useState(Boolean(debrief.submittedAt));
+  const [notice, setNotice] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function save() {
+    setPending(true);
+    setNotice("");
+    try {
+      const response = await fetch("/api/life-events/debrief", {
+        body: JSON.stringify({ debriefId: debrief.id, report }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+
+      if (!response.ok) throw new Error(result.message ?? "Your debrief couldn't be saved.");
+      setNotice(submitted ? "Your changes are saved." : "Submitted! Your teacher can read it now.");
+      setSubmitted(true);
+    } catch (error) {
+      setNotice((error as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2 rounded-md border border-border bg-background p-3" data-testid="student-debrief" aria-label={`Debrief: ${title}`} role="group">
+      <p className="font-medium">
+        Debrief {debrief.dueAt ? `due ${new Date(debrief.dueAt).toLocaleDateString()}` : "(no due date)"}
+        {submitted ? " · submitted" : ""}
+      </p>
+      <ol className="list-decimal space-y-1 pl-5">
+        {debrief.prompts.map((prompt) => (
+          <li key={prompt}>{prompt}</li>
+        ))}
+      </ol>
+      {debrief.grade ? <StudentGradeReportCard report={debrief.grade} /> : null}
+      {debrief.canEdit ? (
+        <>
+          <Textarea aria-label="Your debrief" rows={5} maxLength={4000} value={report} onChange={(event) => setReport(event.target.value)} />
+          <Button type="button" size="sm" disabled={pending || !report.trim()} onClick={() => void save()}>
+            {submitted ? "Save changes" : "Submit debrief"}
+          </Button>
+        </>
+      ) : (
+        <p className="whitespace-pre-wrap">{report || "The due date passed before a debrief was written."}</p>
+      )}
+      {notice ? <p role="status">{notice}</p> : null}
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.17; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.18; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -559,6 +559,14 @@ Class market settings include:
   opens portfolios for students who haven't signed in yet. Audited as
   `life_event.played` and `life_event.undone`; each hit appears in the
   student's portfolio activity.
+- Debriefs (v0.2.18): a card can be played with **Require a debrief report**
+  and a due date. Each student hit gets an Inbox message from the person who
+  played it (subject to the normal messaging rules and filter) and writes a
+  debrief on their Market page, editable until the due date. Teachers and
+  admins grade it with a fixed 10-point rubric; grades are drafts until
+  released, like quest grades. Undo deletes unwritten debriefs and keeps
+  written ones. Audited as `debrief.submitted`, `debrief.graded`,
+  `debrief.grade_changed` and `debrief.grade_released`.
 - Market history (v0.2.13): the **Market history** button in Teacher market
   controls shows a view-only chart of a class's prices over a timeframe (up
   to 31 days), with teacher changes and clock changes marked. Teachers see

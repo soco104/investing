@@ -4019,7 +4019,7 @@ export default function Home() {
                   <div>
                     <h3 className="text-lg font-semibold">Monitor quests</h3>
                     <p className="text-sm text-muted-foreground">
-                      Track completion and review hidden scoring signals.
+                      Click a quest to open it in the editor and see its submissions and grades below.
                     </p>
                   </div>
                   <Gauge className="size-5 text-muted-foreground" />
@@ -4036,7 +4036,14 @@ export default function Home() {
                     <button
                       key={quest.id}
                       type="button"
-                      onClick={() => loadQuest(quest)}
+                      onClick={() => {
+                        loadQuest(quest);
+                        // Submissions load below the list; bring them into view (v0.2.16).
+                        window.setTimeout(
+                          () => document.getElementById("quest-submissions")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                          150
+                        );
+                      }}
                       className={`w-full rounded-lg border p-4 text-left transition ${
                         selectedQuestId === quest.id
                           ? "border-[#28666e] bg-[#e8f0ed]"
@@ -4069,6 +4076,9 @@ export default function Home() {
                         />
                         <QuestMonitorMetric label="Submitted" value={quest.submitted} />
                       </div>
+                      <p className="mt-3 text-sm font-medium text-[#28666e]">
+                        {selectedQuestId === quest.id ? "Submissions and grades are below ↓" : "View submissions and grades ↓"}
+                      </p>
                       {quest.assignments?.length ? (
                         <p className="mt-3 text-xs text-muted-foreground">
                           {quest.assignments
@@ -4083,6 +4093,15 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+
+                {teacherQuests.some((quest) => quest.id === selectedQuestId) ? (
+                  <div id="quest-submissions" className="scroll-mt-24">
+                    <QuestSubmissionsPanel
+                      key={`${selectedQuestId}-${questsVersion}`}
+                      questId={selectedQuestId}
+                    />
+                  </div>
+                ) : null}
 
                 <div className="mt-5 rounded-lg border border-border bg-background p-4">
                   <div className="mb-3 flex items-center gap-2">
@@ -4099,13 +4118,6 @@ export default function Home() {
                     students unless the teacher changes visibility.
                   </p>
                 </div>
-
-                {teacherQuests.some((quest) => quest.id === selectedQuestId) ? (
-                  <QuestSubmissionsPanel
-                    key={`${selectedQuestId}-${questsVersion}`}
-                    questId={selectedQuestId}
-                  />
-                ) : null}
               </div>
             </section>
 

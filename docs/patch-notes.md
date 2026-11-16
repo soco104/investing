@@ -2,6 +2,18 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.16 — 2026-11-16
+
+### Quest Studio (Teachers)
+
+- **Where to find submissions and grades:** they are in **Quest Studio**, in
+  the **Monitor quests** box on the right (not a separate page). Click a quest
+  there and the page scrolls to its **Submissions** section, which now sits
+  directly under the list.
+- Each quest in Monitor quests shows **View submissions and grades** so it's
+  clear what clicking does.
+- **Settings to change:** none.
+
 ## v0.2.15 — 2026-11-13
 
 ### Grading Quests (Teachers)

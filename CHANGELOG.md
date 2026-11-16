@@ -7,6 +7,17 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.16] - 2026-11-16
+
+### Changed
+- **Finding submissions and grades.** In Quest Studio, the Monitor quests
+  box now says what clicking a quest does, each quest shows a "View
+  submissions and grades" line, and clicking one scrolls to its Submissions
+  section, which now sits directly under the list (above "Current draft
+  policy"). Nothing about grading itself changed.
+- The user manual and patch notes now say where Monitor quests is (a box in
+  Quest Studio, not a separate page).
+
 ## [0.2.15] - 2026-11-13
 
 ### Added
@@ -372,6 +383,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.16]: https://github.com/soco104/investing/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/soco104/investing/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/soco104/investing/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/soco104/investing/compare/v0.2.12...v0.2.13

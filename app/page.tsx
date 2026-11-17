@@ -94,6 +94,7 @@ import { MarketHistoryDialog } from "./market-history-ui";
 import { ClassGradeSummary, GradePanel, StatusBadge, StudentGradeReportCard, type TeacherGrade } from "./quest-grading-ui";
 import { StockInfoDialog } from "./stock-info-ui";
 import { defaultInfoLevel } from "@/lib/stock-info";
+import { difficultyLabels, marketTemplates, type Difficulty } from "@/lib/market-templates";
 import { maxWholeShares } from "@/lib/portfolio-rules";
 import type { StudentGradeReport, StudentStatus } from "@/lib/quest-grading";
 import { CLOCK_SPEEDS, tradingBlockedReason, type ClockView } from "@/lib/market-clock";
@@ -5274,6 +5275,10 @@ function TeacherMarketControls({ onMarketChanged }: { onMarketChanged: () => voi
   const [oneStudent, setOneStudent] = useState("");
   const [hormuzSymbols, setHormuzSymbols] = useState("XLE,OIH,JETS");
   const [oilSpike, setOilSpike] = useState(18);
+  // Market event templates (v0.2.19).
+  const [templateId, setTemplateId] = useState(marketTemplates[0].id);
+  const [templateDifficulty, setTemplateDifficulty] = useState<Difficulty>("realistic");
+  const [scandalTicker, setScandalTicker] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
   // Market rewind popup (v0.2.13).
@@ -5664,6 +5669,66 @@ function TeacherMarketControls({ onMarketChanged }: { onMarketChanged: () => voi
           Class prices show what the whole class sees. Changes for a group or one student
           only change those students&apos; prices.
         </p>
+      </div>
+
+      <div className="rounded-md border border-border p-3" data-testid="market-events">
+        <h4 className="font-semibold">Market events</h4>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {marketTemplates.find((template) => template.id === templateId)?.description}
+        </p>
+        <div className="mt-3 grid gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="market-template">Event</Label>
+            <select id="market-template" className={nativeSelectClass} value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+              {marketTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="market-template-difficulty">Difficulty</Label>
+            <select
+              id="market-template-difficulty"
+              className={nativeSelectClass}
+              value={templateDifficulty}
+              onChange={(event) => setTemplateDifficulty(event.target.value as Difficulty)}
+            >
+              {(Object.keys(difficultyLabels) as Difficulty[]).map((key) => (
+                <option key={key} value={key}>
+                  {difficultyLabels[key]}
+                </option>
+              ))}
+            </select>
+          </div>
+          {marketTemplates.find((template) => template.id === templateId)?.needsTicker ? (
+            <div className="space-y-2">
+              <Label htmlFor="market-template-ticker">Company</Label>
+              <select id="market-template-ticker" className={nativeSelectClass} value={scandalTicker} onChange={(event) => setScandalTicker(event.target.value)}>
+                <option value="">Choose a symbol…</option>
+                {view.market.map((symbol) => (
+                  <option key={symbol.ticker} value={symbol.ticker}>
+                    {symbol.ticker}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </div>
+        <Button
+          type="button"
+          disabled={pending}
+          className="mt-3"
+          onClick={() =>
+            makeChange(
+              { difficulty: templateDifficulty, kind: "template", templateId, ticker: scandalTicker || null },
+              `${marketTemplates.find((template) => template.id === templateId)?.title ?? "Market event"} started`
+            )
+          }
+        >
+          Start market event
+        </Button>
       </div>
 
       <div className="rounded-md border border-border p-3">

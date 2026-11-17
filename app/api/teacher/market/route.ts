@@ -59,6 +59,10 @@ function validChange(change: unknown): change is ChangeAction {
     return (value.direction === "raise" || value.direction === "lower") && typeof value.ticker === "string";
   }
 
+  if (value.kind === "template") {
+    return typeof value.templateId === "string" && (value.ticker === undefined || value.ticker === null || typeof value.ticker === "string");
+  }
+
   return (
     value.kind === "hormuz" &&
     Array.isArray(value.tickers) &&
@@ -95,7 +99,12 @@ export async function POST(request: Request) {
           skipped: result.skipped,
           target: target.type === "students" ? { ...target, studentEmails: target.studentEmails.map((e) => e.toLowerCase()) } : target,
         },
-        reason: change.kind === "hormuz" ? "Strait of Hormuz scenario" : `${change.direction} ${change.ticker}`,
+        reason:
+          change.kind === "hormuz"
+            ? "Strait of Hormuz scenario"
+            : change.kind === "template"
+              ? `Market event: ${change.templateId}`
+              : `${change.direction} ${change.ticker}`,
         targetId: result.eventId,
         targetType: "market_change",
       });

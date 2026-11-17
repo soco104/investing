@@ -1,3 +1,4 @@
+import { findTemplate, isDifficulty, templateMoves, type Difficulty } from "@/lib/market-templates";
 import {
   applyAdjustments,
   hormuzMoves,
@@ -30,7 +31,10 @@ export type ChangeTarget =
 
 export type ChangeAction =
   | { direction: "raise" | "lower"; kind: "price"; ticker: string }
-  | { kind: "hormuz"; oilSpikePercent: number; tickers: string[] };
+  | { kind: "hormuz"; oilSpikePercent: number; tickers: string[] }
+  // Market event templates (v0.2.19): recession, inflation spike, rate cut,
+  // tech selloff, company scandal (needs a ticker); scaled by difficulty.
+  | { difficulty?: Difficulty; kind: "template"; templateId: string; ticker?: string | null };
 
 type AdjustmentRow = {
   class_name: string;
@@ -269,6 +273,31 @@ export async function createChange(
       moves = [{ percent, ticker }];
       label = `${action.direction === "raise" ? "Raised" : "Lowered"} ${ticker} ${PRICE_STEP_PERCENT}%`;
       news = `Teacher update: ${ticker} moved ${action.direction === "raise" ? "up" : "down"} ${PRICE_STEP_PERCENT}%.`;
+    } else if (action.kind === "template") {
+      const template = findTemplate(action.templateId);
+
+      if (!template) throw new PortfolioError("That market event isn't available.", 404);
+
+      moves = templateMoves(
+        template,
+        [...available.values()].map((symbol) => ({ name: symbol.name, ticker: symbol.ticker })),
+        isDifficulty(action.difficulty) ? action.difficulty : "realistic",
+        action.ticker
+      );
+
+      if (moves.length === 0) {
+        if (template.needsTicker) {
+          if (target.type === "all_classes") {
+            skipped.push(`${action.ticker ?? "?"} (not in ${className})`);
+            continue;
+          }
+          throw new PortfolioError(`Choose a symbol in ${className}'s market for the ${template.title.toLowerCase()}.`, 400);
+        }
+        continue;
+      }
+
+      label = template.title + (template.needsTicker ? ` (${moves[0].ticker})` : "");
+      news = template.news;
     } else {
       const tickers = [...new Set(action.tickers.map((t) => t.trim().toUpperCase()))].filter(Boolean);
       const usable = tickers.filter((ticker) => available.has(ticker));

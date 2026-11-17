@@ -2,6 +2,30 @@
 
 Newest updates are at the top. Each entry is headed with its version and date.
 
+## v0.2.19 — 2026-11-16
+
+### Market Events (Teachers)
+
+- **Market events** in Teacher market controls starts a ready-made event for
+  your class: **Recession**, **Inflation spike**, **Rate cut**, **Sector
+  shock: tech selloff**, or **Company scandal** (choose the company's symbol).
+  Each symbol moves by an amount that fits what it is: in a recession, for
+  example, stocks fall (risky ones most) and bonds rise a little.
+- Choose a **Difficulty**: Gentle (half as big), Realistic, or Tough (half
+  again as big).
+- Undo it under **Active changes**, like any other change.
+
+### Life Events (Teachers)
+
+- **Difficulty** now scales deck cards too: a Tough 8% car repair costs 12%.
+- **Surprise me** picks a random card for you.
+- **Combos:** choose **Also start a market event** to play a market event for
+  the whole class with the card, or click a ready-made combo: **Recession +
+  hours cut**, **Inflation spike + rent increase**, or **Tech selloff + fridge
+  breakdown**. Undo the card under Played events and the market event under
+  Active changes.
+- **Settings to change:** none.
+
 ## v0.2.18 — 2026-11-16
 
 ### Debriefs (Teachers)

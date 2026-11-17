@@ -1,7 +1,7 @@
 # FutureFund Classroom Admin Guide
 
 This guide explains how district or system administrators operate and configure
-the FutureFund Classroom MVP. It describes version 0.2.18; the running version is
+the FutureFund Classroom MVP. It describes version 0.2.19; the running version is
 shown in small text at the bottom of every page. It is updated with every
 change that affects what it describes.
 
@@ -559,6 +559,14 @@ Class market settings include:
   opens portfolios for students who haven't signed in yet. Audited as
   `life_event.played` and `life_event.undone`; each hit appears in the
   student's portfolio activity.
+- Market events and difficulty (v0.2.19): Teacher market controls has a
+  **Market events** box with five templates (recession, inflation spike, rate
+  cut, tech selloff, company scandal). Each moves symbols by group (bonds,
+  tech, international, broad market, speculative, other), recognised from the
+  ticker and name. Difficulty presets scale templates and deck cards (Gentle
+  0.5x, Realistic 1x, Tough 1.5x). A life event can be played as a combo with
+  a market event for the whole class; the two are undone separately. Market
+  events are saved and audited like other teacher market changes.
 - Debriefs (v0.2.18): a card can be played with **Require a debrief report**
   and a due date. Each student hit gets an Inbox message from the person who
   played it (subject to the normal messaging rules and filter) and writes a

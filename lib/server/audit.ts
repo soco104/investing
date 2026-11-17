@@ -43,6 +43,8 @@ export type AuditAction =
   | "message.flag_forwarded"
   | "message.kept"
   | "message.cleanup"
+  | "life_event.played"
+  | "life_event.undone"
   | "email_domain.added"
   | "email_domain.removed"
   | "alternate_contact.requested"

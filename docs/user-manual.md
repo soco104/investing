@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.16; the version you are using is shown
+district admins. It describes version 0.2.17; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -197,6 +197,13 @@ simulated market prices in a quote table with price cells colored green for
 gains and red for losses. Each row includes the symbol, price, movement, a
 trade box, the daily range, and classroom news for that symbol. The label at
 the top shows which portfolio you're trading in.
+
+**Life happens.** Your teacher can play a life event card on you: a surprise
+bill (a car repair, a rent increase) or a windfall (a tax refund, a bonus).
+When that happens, a **Life happens** box appears at the top of the Market
+page with what happened, the amount, and a question to think about, and your
+cash changes right away. Bills take a percent of your starting cash. In
+grades 9-12 your cash can go below zero; in grades 6-8 it stops at $0.
 
 **The market runs on its own.** Prices move through the day, and the page
 updates by itself every few seconds. The **Market Speed** label in the upper
@@ -419,6 +426,22 @@ class's running market.
 - **Market hours:** **Always open (24 hours)**, the default, or **U.S. market
   hours** (9:30 AM to 4:00 PM Eastern on weekdays; holidays are not skipped).
   Outside those hours students see **Closed** and can't trade.
+
+**Life events:** the **Life events** box under Teacher market controls plays a
+life event card on students' cash.
+
+1. Choose the class and a **card** (expenses and windfalls from the deck, or
+   **Write my own** for a title, description and percent).
+2. Choose **who it hits**: the whole class, a random handful (and how many),
+   or one student.
+3. Click **Preview** to see each student's amount and cash afterwards. Nothing
+   changes yet.
+4. Click **Play this card**. Students see the event on their Market page.
+5. Use **Undo** under Played events to put the cash back.
+
+Amounts are a percent of each student's starting cash. Grades 9-12 can go into
+debt; grades 6-8 stop at $0 and the card takes what is there. Playing a card
+at the whole class includes students who haven't signed in yet.
 
 **Market history (rewind):** click **Market history** in the Market clock box
 to look back at the selected class's prices. It is view-only: nothing you do

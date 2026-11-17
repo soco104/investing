@@ -89,6 +89,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { LifeEventsPanel, StudentLifeEvents, type StudentLifeEvent } from "./life-events-ui";
 import { MarketHistoryDialog } from "./market-history-ui";
 import { ClassGradeSummary, GradePanel, StatusBadge, StudentGradeReportCard, type TeacherGrade } from "./quest-grading-ui";
 import { StockInfoDialog } from "./stock-info-ui";
@@ -692,6 +693,8 @@ type ServerPortfolio = {
   }>;
   id: string;
   kind: "class" | "practice";
+  // Life events (v0.2.17) that hit this portfolio.
+  lifeEvents?: StudentLifeEvent[];
   market: {
     // The class's market clock (v0.2.12): speed, paused, open.
     clock?: ClockView;
@@ -710,6 +713,8 @@ const activityLabels: Record<string, string> = {
   allocation: "Allocation",
   buy: "Buy",
   correction: "Correction",
+  life_event: "Life event",
+  life_event_undo: "Life event undone",
   opened: "Opened",
   reset: "Reset",
   sell: "Sell",
@@ -1908,16 +1913,24 @@ export default function Home() {
 
       fetch(`/api/portfolios/live?portfolioId=${encodeURIComponent(portfolioId)}`, { credentials: "same-origin" })
         .then(async (response) => {
-          const result = (await response.json()) as { market?: ServerPortfolio["market"] };
+          const result = (await response.json()) as {
+            market?: ServerPortfolio["market"] & { cashCents?: number; lifeEvents?: StudentLifeEvent[] };
+          };
 
           if (cancelled || !response.ok || !result.market) return;
 
-          const market = result.market;
+          const { cashCents, lifeEvents, ...market } = result.market;
 
           setProfilePortfolios(
-            (current) => current?.map((item) => (item.id === portfolioId ? { ...item, market } : item)) ?? current
+            (current) =>
+              current?.map((item) =>
+                item.id === portfolioId
+                  ? { ...item, cashCents: cashCents ?? item.cashCents, lifeEvents: lifeEvents ?? item.lifeEvents, market }
+                  : item
+              ) ?? current
           );
           setMarketQuotes(marketSymbolsToQuotes(market.symbols));
+          if (typeof cashCents === "number") setStudentCash(cashCents / 100);
         })
         .catch(() => undefined);
     };
@@ -3692,6 +3705,7 @@ export default function Home() {
                 infoClassName={activePortfolio?.kind === "class" ? activePortfolio.className : null}
                 clock={activePortfolio?.market.clock ?? null}
                 onMarketChanged={refreshLiveMarket}
+                lifeEvents={activePortfolio?.lifeEvents ?? []}
               />
             ) : null}
           </TabsContent>
@@ -4842,6 +4856,7 @@ function LoginPage({
 
 function MarketPage({
   clock,
+  lifeEvents,
   onMarketChanged,
   infoClassName,
   allowFractional,
@@ -4871,6 +4886,7 @@ function MarketPage({
   infoClassName: string | null;
   // The market clock for the portfolio on screen (null until it has loaded).
   clock: ClockView | null;
+  lifeEvents: StudentLifeEvent[];
   onMarketChanged: () => void;
 }) {
   // Paused or closed: prices hold and trading is off (v0.2.12).
@@ -4958,6 +4974,7 @@ function MarketPage({
         {portfolioError ? (
           <p className="mt-3 rounded-md bg-accent px-3 py-2 text-sm">{portfolioError}</p>
         ) : null}
+        {!isTeacher ? <div className="mt-4"><StudentLifeEvents events={lifeEvents} /></div> : null}
         {tradingBlocked ? (
           <p
             role="status"
@@ -5182,7 +5199,10 @@ function MarketPage({
         </div>
 
         {isTeacher ? (
-          <TeacherMarketControls onMarketChanged={onMarketChanged} />
+          <div className="space-y-6">
+            <TeacherMarketControls onMarketChanged={onMarketChanged} />
+            <LifeEventsPanel onChanged={onMarketChanged} />
+          </div>
         ) : (
           <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
             <h3 className="text-lg font-semibold">Trading notes</h3>

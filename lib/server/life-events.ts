@@ -8,7 +8,9 @@ import {
   pickRandom,
   type LifeEventKind,
 } from "@/lib/life-events";
+import { parseDueDate } from "@/lib/quest-rules";
 import type { AuthenticatedUser } from "@/lib/server/auth";
+import { createDebriefs, removeUnwrittenDebriefs, studentDebriefs } from "@/lib/server/debriefs";
 import {
   adjustCashInTransaction,
   getClassGradeLevel,
@@ -118,7 +120,14 @@ async function planHits(className: string, target: LifeEventTarget, card: Return
   };
 }
 
-export type PlayInput = { choice: LifeEventChoice; className: string; seed?: string; target: LifeEventTarget };
+export type PlayInput = {
+  choice: LifeEventChoice;
+  className: string;
+  // Require a debrief (v0.2.18): the due date as YYYY-MM-DD, or "" for none.
+  debrief?: { dueDate?: string | null } | null;
+  seed?: string;
+  target: LifeEventTarget;
+};
 
 /** What would happen, without doing it. */
 export async function previewLifeEvent(user: AuthenticatedUser, input: PlayInput) {
@@ -137,6 +146,10 @@ export async function playLifeEvent(user: AuthenticatedUser, input: PlayInput) {
   await requireControllable(user, input.className);
 
   const card = resolveChoice(input.choice);
+  const due = input.debrief ? parseDueDate(input.debrief.dueDate ?? null) : { dueAt: null };
+
+  if ("error" in due) throw new PortfolioError(due.error, 400);
+
   const eventId = id("life-event");
   // A random handful is re-picked with the event's own id, so the preview
   // (which used the client's seed) and the play can differ: the teacher is
@@ -177,8 +190,23 @@ export async function playLifeEvent(user: AuthenticatedUser, input: PlayInput) {
     }
   });
 
+  // Debriefs and their Inbox messages (v0.2.18), after the cash has moved.
+  const debriefs = input.debrief
+    ? await createDebriefs(user, {
+        description: card.description,
+        dueAt: due.dueAt,
+        eventId,
+        gradeLevel: plan.gradeLevel,
+        hits: plan.hits,
+        kind: card.kind,
+        percentOfStartingCash: card.percentOfStartingCash,
+        title: card.title,
+      })
+    : null;
+
   return {
     card,
+    debriefs,
     eventId,
     hits: plan.hits.map((hit) => ({ ...hit, amountText: amountText(hit.amountCents) })),
     summary: `${card.title}: ${plan.hits.length} student${plan.hits.length === 1 ? "" : "s"} in ${input.className}`,
@@ -225,6 +253,8 @@ export async function undoLifeEvent(user: AuthenticatedUser, eventId: string) {
     }
   });
 
+  await removeUnwrittenDebriefs(eventId);
+
   return { className: event.class_name, reversed: hits.length, title: event.title };
 }
 
@@ -242,6 +272,7 @@ export async function listLifeEvents(user: AuthenticatedUser, className?: string
     Array<{
       class_name: string; hit_count: string; id: string; kind: string; percent_of_starting_cash: number; played_at: Date;
       played_by: string; students: string | null; target_type: string; title: string; total_cents: string; undone_at: Date | null;
+      debrief_due_at: Date | null; debriefs_submitted: string; debriefs_total: string; require_debrief: boolean;
     }>
   >`
     select e.id, e.class_name, e.title, e.kind, e.percent_of_starting_cash, e.target_type, e.played_at, e.undone_at,
@@ -249,7 +280,10 @@ export async function listLifeEvents(user: AuthenticatedUser, className?: string
       (select count(*) from life_event_hits h where h.event_id = e.id) as hit_count,
       (select coalesce(sum(h.amount_cents), 0) from life_event_hits h where h.event_id = e.id) as total_cents,
       (select string_agg(u.first_name || ' ' || u.last_name, ', ' order by u.last_name)
-         from life_event_hits h join app_users u on u.id = h.student_user_id where h.event_id = e.id) as students
+         from life_event_hits h join app_users u on u.id = h.student_user_id where h.event_id = e.id) as students,
+      e.require_debrief, e.debrief_due_at,
+      (select count(*) from life_event_debriefs d where d.event_id = e.id and d.submitted_at is not null) as debriefs_submitted,
+      (select count(*) from life_event_debriefs d where d.event_id = e.id) as debriefs_total
     from life_events e
     where e.district_id = ${defaultDistrictId} and e.class_name = any(${wanted})
     order by e.played_at desc
@@ -258,6 +292,13 @@ export async function listLifeEvents(user: AuthenticatedUser, className?: string
 
   return rows.map((row) => ({
     className: row.class_name,
+    debrief: row.require_debrief
+      ? {
+          dueAt: row.debrief_due_at ? new Date(row.debrief_due_at).toISOString() : null,
+          submitted: Number(row.debriefs_submitted),
+          total: Number(row.debriefs_total),
+        }
+      : null,
     hitCount: Number(row.hit_count),
     id: row.id,
     kind: row.kind,
@@ -286,9 +327,13 @@ export async function listStudentLifeEvents(userId: string, portfolioId?: string
     limit 20
   `;
 
+  // The student's debriefs (v0.2.18), shown with the event that caused them.
+  const debriefs = await studentDebriefs(userId);
+
   return rows.map((row) => ({
     amountCents: Number(row.amount_cents),
     capped: row.capped,
+    debrief: debriefs.get(row.id) ?? null,
     className: row.class_name,
     description: row.description,
     id: row.id,

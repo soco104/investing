@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.17; the version you are using is shown
+district admins. It describes version 0.2.18; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -204,6 +204,12 @@ When that happens, a **Life happens** box appears at the top of the Market
 page with what happened, the amount, and a question to think about, and your
 cash changes right away. Bills take a percent of your starting cash. In
 grades 9-12 your cash can go below zero; in grades 6-8 it stops at $0.
+
+If your teacher asks for a **debrief**, you'll also get an Inbox message about
+what happened to you, and the Life happens box shows three questions and a box
+to answer them. Click **Submit debrief**. You can change it with **Save
+changes** until the due date. When your teacher releases your grade, your
+points and feedback appear there.
 
 **The market runs on its own.** Prices move through the day, and the page
 updates by itself every few seconds. The **Market Speed** label in the upper
@@ -438,6 +444,15 @@ life event card on students' cash.
    changes yet.
 4. Click **Play this card**. Students see the event on their Market page.
 5. Use **Undo** under Played events to put the cash back.
+
+**Debriefs:** before playing, tick **Require a debrief report** and choose a
+due date (or none). Each student hit gets an Inbox message from you about what
+happened to them, with three questions (simpler for grades 6-8), and writes a
+debrief on their Market page. Under Played events, click **Debriefs** to read
+the reports next to each student's outcome. Click **Grade** to score out of
+10 (explains what happened 4, uses portfolio evidence 3, realistic plan 3)
+and add feedback. Grades stay drafts until you click **Release grade** or
+**Release all graded**. Undo removes debriefs nobody has written yet.
 
 Amounts are a percent of each student's starting cash. Grades 9-12 can go into
 debt; grades 6-8 stop at $0 and the card takes what is there. Playing a card

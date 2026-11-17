@@ -546,6 +546,39 @@ try {
     create index if not exists life_event_hits_student_idx on life_event_hits (student_user_id)
   `;
 
+  // Debriefs (v0.2.18): when a card is played with "Require a debrief", each
+  // student it hit writes a report, which the teacher grades with a rubric.
+  // The grade is a draft until released (like quest grades).
+  await sql`alter table life_events add column if not exists require_debrief boolean not null default false`;
+  await sql`alter table life_events add column if not exists debrief_due_at timestamp`;
+  await sql`
+    create table if not exists life_event_debriefs (
+      id text primary key,
+      event_id text not null references life_events(id),
+      student_user_id text not null references app_users(id),
+      amount_cents bigint not null,
+      capped boolean not null default false,
+      cash_before_cents bigint not null,
+      cash_after_cents bigint not null,
+      prompts_json text not null,
+      report text,
+      submitted_at timestamp,
+      updated_at timestamp,
+      scores_json text,
+      total_points integer,
+      max_points integer,
+      feedback text not null default '',
+      grade_status text not null default 'none',
+      graded_by_user_id text references app_users(id),
+      graded_at timestamp,
+      released_at timestamp,
+      unique (event_id, student_user_id)
+    )
+  `;
+  await sql`
+    create index if not exists life_event_debriefs_student_idx on life_event_debriefs (student_user_id)
+  `;
+
   // Running market (v0.2.12). One clock per class: whether it is running or
   // paused, its speed, its hours, and the anchors simulated time is worked
   // out from. Prices are calculated from the clock, never stored.

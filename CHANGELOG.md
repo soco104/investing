@@ -7,6 +7,28 @@ All notable changes to FutureFund Classroom. Versions follow
 - **Minor** (→ 0.3.0): a milestone chosen by the owner.
 - **Major** (→ 1.0.0): a big milestone, such as launching with real schools.
 
+## [0.2.18] - 2026-11-16
+
+### Added
+- **Debriefs for life events.** When playing a card, tick **Require a debrief
+  report** and pick a due date (or none). Each student it hits gets an
+  **Inbox message** from the teacher explaining what happened to them: the
+  event, what it cost or paid, where their cash ended up, and three
+  questions to answer (simpler wording for grades 6-8).
+- Students write their **debrief** in the Life happens box on their Market
+  page, and can edit it until the due date.
+- Teachers open **Debriefs (submitted of total)** on a played event to read
+  each report next to what happened (amount, cash afterwards, "couldn't cover
+  it", "in debt") and **grade** it with a 10-point rubric: explains what
+  happened (4), uses portfolio evidence (3), realistic plan (3), plus
+  feedback. Grades are drafts until **Release grade** or **Release all
+  graded**, like quest grades. Students then see their points per rule and
+  the feedback.
+- Undoing an event removes debriefs nobody had written yet.
+- Audit entries `debrief.submitted`, `debrief.graded`,
+  `debrief.grade_changed`, `debrief.grade_released`. New table
+  `life_event_debriefs`.
+
 ## [0.2.17] - 2026-11-16
 
 ### Added
@@ -406,6 +428,7 @@ All notable changes to FutureFund Classroom. Versions follow
 - Initial version: student, teacher, and admin portals, market simulator,
   quests, and DigitalOcean / Cloud Run deployment.
 
+[0.2.18]: https://github.com/soco104/investing/compare/v0.2.17...v0.2.18
 [0.2.17]: https://github.com/soco104/investing/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/soco104/investing/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/soco104/investing/compare/v0.2.14...v0.2.15

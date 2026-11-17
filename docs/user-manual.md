@@ -1,7 +1,7 @@
 # FutureFund Classroom User Manual
 
 This manual explains the day-to-day app experience for students, teachers, and
-district admins. It describes version 0.2.15; the version you are using is shown
+district admins. It describes version 0.2.16; the version you are using is shown
 in small text at the bottom of every page.
 
 ## What Is Saved in This Version
@@ -340,9 +340,11 @@ quest on their dashboard right away. Assigning the quest to the same class
 again changes its due date. Students can edit their submission until the end
 of the due date; after that it's locked and only comments can be added.
 
-**Submissions.** Under **Monitor quests**, each quest shows how many classes
-it's assigned to, how many scoring rules are hidden, and how many students
-have submitted. Click a quest to see **Submissions**: for each assigned class,
+**Submissions.** **Monitor quests** is the box on the right of Quest Studio.
+Each quest there shows how many classes it's assigned to, how many scoring
+rules are hidden, and how many students have submitted. Click a quest and the
+page scrolls to its **Submissions** section, just under the list: for each
+assigned class,
 every student, whether they've submitted (and whether they edited it), and
 what they wrote. Use the **Comments** box under a submission to reply; the
 student sees your comment when they open the quest.

@@ -18,9 +18,10 @@ declares.
 | v0.2.13 ✅ | **Rewind:** view-only history with a time selector | Done | Market history popup for teachers and admins; see "Known limit" under the live market goal |
 | v0.2.14 ✅ | **Small changes (running list):** Buy max, Stocks value card, demo students and messages, New message picker, staff-only check; see "v0.2.14 running list" below | Done | Shipped together as one version |
 | v0.2.15 ✅ | **Grading quest submissions with a rubric** | Done | Draft then release; student grade report; see "v0.2.15 plan" below |
-| v0.2.16 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
-| v0.2.17 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
-| v0.2.18+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
+| v0.2.16 ✅ | **Quick fix:** Monitor quests makes it clear where submissions and grades are (click scrolls to them; "View submissions and grades" link) | Done | Found by the owner reviewing v0.2.15 |
+| v0.2.17 | **Life event cards, part 1:** pre-built events that hit a student's cash, with targeting, preview and undo | Large | Core of the "wrenches" goal; needs its open questions answered |
+| v0.2.18 | **Debrief → student report → teacher grade** | Large | Builds on messages (v0.2.10), grading and life events |
+| v0.2.19+ | **Wrenches polish:** more market templates, combo events, difficulty presets, "Surprise me", scheduling | Medium each | Scheduling works better once the market clock exists |
 
 ### v0.2.15 plan: grading quest submissions with a rubric
 
@@ -51,7 +52,7 @@ exported.)
 
 **Not in this version:** a gradebook across all quests and grade export
 (with the college credit summary later); messaging the student when a grade
-is released (with the debrief work in v0.2.17).
+is released (with the debrief work, now v0.2.18).
 
 ### v0.2.14 running list
 

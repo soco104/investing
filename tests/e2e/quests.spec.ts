@@ -97,8 +97,13 @@ test.describe("Learning quests", () => {
 
     // The teacher sees the edited submission and comments on it.
     await page.reload();
-    await page.getByRole("button", { name: new RegExp(title) }).click();
+    const questButton = page.getByRole("button", { name: new RegExp(title) });
+    await expect(questButton).toContainText("View submissions and grades");
+    await questButton.click();
     const submissions = page.getByRole("region", { name: "Submissions" });
+    // Clicking a quest brings its submissions into view (v0.2.16).
+    await expect(submissions).toBeInViewport();
+    await expect(questButton).toContainText("Submissions and grades are below");
     // Avery's class has three students since v0.2.14 (Noah and Sofia were added).
     await expect(submissions).toContainText("1 of 3 submitted");
     // v0.2.15: the status badge and an "Edited" badge are now separate.
